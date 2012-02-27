@@ -1,0 +1,11 @@
+development:
+  riak:
+    host: localhost
+    http_port: 8098
+
+test:
+  riak:
+    host: localhost
+    http_port: 8098
+
+production:
