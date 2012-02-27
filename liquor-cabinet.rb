@@ -31,10 +31,6 @@ class LiquorCabinet < Sinatra::Base
     "Ohai."
   end
 
-  get "/headers" do
-    env["HTTP_AUTHORIZATION"]
-  end
-
   get "/:user/:category/:key" do
     get_data(@user, @category, @key)
   end
