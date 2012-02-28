@@ -2,7 +2,7 @@ require 'rubygems'
 require 'bundler'
 Bundler.require
 
-require_relative '../liquor_cabinet'
+require_relative '../liquor-cabinet'
 require 'minitest/autorun'
 require 'rack/test'
 require 'purdytest'
