@@ -1,3 +1,5 @@
+[![Build Status](https://secure.travis-ci.org/5apps/liquor-cabinet.png?branch=master)](http://travis-ci.org/5apps/liquor-cabinet)
+
 # Liquor Cabinet
 
 Liquor Cabinet is where Frank stores all his stuff. It's a
