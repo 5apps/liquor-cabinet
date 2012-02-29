@@ -3,5 +3,5 @@ require 'bundler'
 
 Bundler.require
 
-require './liquor_cabinet'
+require './liquor-cabinet'
 run LiquorCabinet
