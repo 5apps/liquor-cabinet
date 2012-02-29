@@ -28,6 +28,9 @@ class LiquorCabinet < Sinatra::Base
   end
 
   before "/:user/:category/:key" do
+    headers 'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, PUT, DELETE'
+
     @user, @category, @key = params[:user], params[:category], params[:key]
     token = env["HTTP_AUTHORIZATION"] ? env["HTTP_AUTHORIZATION"].split(" ")[1] : ""
 
