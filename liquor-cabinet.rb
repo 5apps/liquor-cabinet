@@ -9,15 +9,22 @@ class LiquorCabinet < Sinatra::Base
 
   include RemoteStorage::Riak
 
+  def self.config=(config)
+    @config = config
+  end
+
+  def self.config
+    return @config if @config
+    config = File.read(File.expand_path('config.yml', File.dirname(__FILE__)))
+    @config = YAML.load(config)[ENV['RACK_ENV']]
+  end
+
   configure :development do
     register Sinatra::Reloader
     enable :logging
   end
 
-  configure :development, :test, :production do
-    config = File.read(File.expand_path('config.yml', File.dirname(__FILE__)))
-    riak_config = YAML.load(config)[ENV['RACK_ENV']]['riak'].symbolize_keys
-    set :riak_config, riak_config
+  configure do
   end
 
   before "/:user/:category/:key" do
