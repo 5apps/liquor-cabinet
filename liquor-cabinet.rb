@@ -31,6 +31,7 @@ class LiquorCabinet < Sinatra::Base
     headers 'Access-Control-Allow-Origin' => '*',
             'Access-Control-Allow-Methods' => 'GET, PUT, DELETE',
             'Access-Control-Allow-Headers' => 'Authorization, Content-Type, Origin'
+    headers['Access-Control-Allow-Origin'] = env["HTTP_ORIGIN"] if env["HTTP_ORIGIN"]
 
     @user, @category, @key = params[:user], params[:category], params[:key]
     token = env["HTTP_AUTHORIZATION"] ? env["HTTP_AUTHORIZATION"].split(" ")[1] : ""
