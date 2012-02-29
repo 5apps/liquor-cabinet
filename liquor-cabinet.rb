@@ -30,12 +30,12 @@ class LiquorCabinet < Sinatra::Base
   before "/:user/:category/:key" do
     headers 'Access-Control-Allow-Origin' => '*',
             'Access-Control-Allow-Methods' => 'GET, PUT, DELETE',
-            'Access-Control-Allow-Headers' => 'Authorization, Content-Type'
+            'Access-Control-Allow-Headers' => 'Authorization, Content-Type, Origin'
 
     @user, @category, @key = params[:user], params[:category], params[:key]
     token = env["HTTP_AUTHORIZATION"] ? env["HTTP_AUTHORIZATION"].split(" ")[1] : ""
 
-    authorize_request(@user, @category, token)
+    authorize_request(@user, @category, token) unless request.options?
   end
 
   get "/ohai" do
