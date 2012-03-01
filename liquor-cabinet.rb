@@ -24,7 +24,8 @@ class LiquorCabinet < Sinatra::Base
     enable :logging
   end
 
-  configure do
+  configure :production do
+    enable :logging
   end
 
   before "/:user/:category/:key" do
