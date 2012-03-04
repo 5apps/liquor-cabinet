@@ -1,0 +1,55 @@
+!!!
+%html
+  %head
+    %title Authenticate
+    :css
+      body {
+        font-family: sans-serif;
+        font-size: 12px;
+        width: 650px;
+        margin: auto;
+        text-align: center;
+      }
+
+      .error {
+        border: solid 1px #f22;
+        background: #fee;
+        padding: 10px;
+      }
+
+      .input {
+        clear: both;
+        width: 300px;
+        margin: auto;
+      }
+
+      .input label {
+        width: 100px;
+        display: block;
+        font-weight: bold;
+        line-height: 20px;
+        float: left;
+      }
+      .input input {
+        width: 150px;
+      }
+
+      .input input[type="submit"] {
+        margin-left: 100px;
+      }
+  %body
+    %h2 Authenticate for remoteStorage
+
+    - if @error
+      .error= @error
+
+    %form{:method => 'post', :action => ''}
+      %input{:type => 'hidden', :name => 'redirect_uri', :value => @redirect_uri}
+      .input
+        %label User:
+        = @user
+      .input
+        %label Password:
+        %input{:type => 'password', :name => 'password'}
+      .input
+        %input{:type => 'submit', :value => 'Authenticate'}

@@ -3,11 +3,15 @@ $LOAD_PATH << File.join(File.expand_path(File.dirname(__FILE__)), 'lib')
 require "json"
 require "sinatra/base"
 require "sinatra/reloader"
+require 'haml'
+
+require "remote_storage/backend_interface"
 require "remote_storage/riak"
+require "remote_storage/couch_db"
 
 class LiquorCabinet < Sinatra::Base
   BACKENDS = {
-    :riak => ::RemoteStorage::Riak
+    :riak => ::RemoteStorage::Riak,
     :couchdb => ::RemoteStorage::CouchDB
   }
 
@@ -33,7 +37,7 @@ class LiquorCabinet < Sinatra::Base
   end
 
   configure do
-    backend = config[:backend]
+    backend = config['backend']
     unless backend
       raise InvalidConfig.new("backend not given for environment #{ENV['RACK_ENV']}")
     end
@@ -61,7 +65,23 @@ class LiquorCabinet < Sinatra::Base
     "Ohai."
   end
 
+  get '/authenticate/:user' do
+    @user = params[:user]
+    @redirect_uri = params[:redirect_uri]
+    haml :authenticate
+  end
+
+  post '/authenticate/:user' do
+    if token = get_auth_token(params[:user], params[:password])
+      redirect(build_redirect_uri(token))
+    else
+      @error = "Failed to authenticate! Please try again."
+      haml :authenticate
+    end
+  end
+
   get "/:user/:category/:key" do
+    content_type 'application/json'
     get_data(@user, @category, @key)
   end
 
@@ -76,6 +96,15 @@ class LiquorCabinet < Sinatra::Base
 
   options "/:user/:category/:key" do
     halt 200
+  end
+
+  helpers do
+    def build_redirect_uri(token)
+      [params[:redirect_uri],
+       params[:redirect_uri].index('?') ? '&' : '?',
+       'token=',
+       URI.encode_www_form_component(token)].join
+    end
   end
 
 end

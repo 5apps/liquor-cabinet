@@ -1,8 +1,9 @@
 development:
   backend: couchdb
   couchdb:
-    host: localhost
-    port: 5984
+    ## this is also the default. you don't need to specify it.
+    ## Don't end with a slash, please.
+    server: http://localhost:5984
   riak:
     host: localhost
     http_port: 8098
@@ -10,7 +11,7 @@ development:
 test:
   backend: couchdb
   couchdb:
-  host: localhost
+    server: http://localhost:5984
   riak:
     host: localhost
     http_port: 8098

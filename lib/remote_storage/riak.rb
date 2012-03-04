@@ -2,6 +2,8 @@
 module RemoteStorage
   module Riak
 
+    include RemoteStorage::BackendInterface
+
     def self.included(base)
       require "riak"
     end
