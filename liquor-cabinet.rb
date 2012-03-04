@@ -6,8 +6,12 @@ require "sinatra/reloader"
 require "remote_storage/riak"
 
 class LiquorCabinet < Sinatra::Base
+  BACKENDS = {
+    :riak => ::RemoteStorage::Riak
+    :couchdb => ::RemoteStorage::CouchDB
+  }
 
-  include RemoteStorage::Riak
+  class InvalidConfig < RuntimeError ; end
 
   def self.config=(config)
     @config = config
@@ -26,6 +30,19 @@ class LiquorCabinet < Sinatra::Base
 
   configure :production do
     disable :logging
+  end
+
+  configure do
+    backend = config[:backend]
+    unless backend
+      raise InvalidConfig.new("backend not given for environment #{ENV['RACK_ENV']}")
+    end
+    backend_implementation = BACKENDS[backend.to_sym]
+    unless backend_implementation
+      raise InvalidConfig.new("Invalid backend: #{backend}. Valid options are: #{BACKENDS.keys.join(', ')}")
+    end
+
+    include(backend_implementation)
   end
 
   before "/:user/:category/:key" do

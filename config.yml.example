@@ -1,9 +1,16 @@
 development:
+  backend: couchdb
+  couchdb:
+    host: localhost
+    port: 5984
   riak:
     host: localhost
     http_port: 8098
 
 test:
+  backend: couchdb
+  couchdb:
+  host: localhost
   riak:
     host: localhost
     http_port: 8098
