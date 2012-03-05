@@ -25,6 +25,9 @@ module RemoteStorage
       database(user, category).
         save_doc(build_doc(key, data)).
         to_json
+    rescue ::RestClient::BadRequest
+      $stderr.puts $!.http_body
+      halt 400
     end
 
     def delete_data(user, category, key)
