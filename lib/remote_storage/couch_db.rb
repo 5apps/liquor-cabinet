@@ -12,16 +12,6 @@ module RemoteStorage
       require 'couchrest'
     end
 
-    ## AUTHENTICATION
-
-    def get_auth_token(user, password)
-    end
-
-    ## AUTHORIZATION
-
-    def authorize_request
-    end
-
     ## GET
 
     def get_data(user, category, key)
