@@ -22,8 +22,9 @@ module RemoteStorage
     end
 
     def put_data(user, category, key, data)
+      doc = build_doc(key, data)
       database(user, category).
-        save_doc(build_doc(key, data)).
+        save_doc(doc).
         to_json
     rescue ::RestClient::BadRequest
       $stderr.puts $!.http_body
@@ -41,7 +42,7 @@ module RemoteStorage
     def build_doc(key, data=nil)
       doc = data ? JSON.parse(data) : {}
       doc['_id'] = key
-      doc['_rev'] ||= params[:rev]
+      doc['_rev'] ||= params[:rev] if params[:rev]
       return doc
     end
 
