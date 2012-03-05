@@ -12,7 +12,20 @@ module RemoteStorage
       require 'couchrest'
     end
 
+    ## AUTHENTICATION
+
+    def get_auth_token(user, password)
+    end
+
+    ## AUTHORIZATION
+
+    def authorize_request
+    end
+
+    ## GET
+
     def get_data(user, category, key)
+      log("GET[#{user}-#{category}] #{key}")
       database(user, category).
         get(key).
         as_couch_json.
@@ -21,8 +34,11 @@ module RemoteStorage
       halt 404
     end
 
+    ## PUT
+
     def put_data(user, category, key, data)
       doc = build_doc(key, data)
+      log("PUT[#{user}-#{category}] #{key} -> #{doc['value']}")
       database(user, category).
         save_doc(doc).
         to_json
@@ -31,7 +47,10 @@ module RemoteStorage
       halt 400
     end
 
+    ## DELETE
+
     def delete_data(user, category, key)
+      log("DELETE[#{user}-#{category}] #{key}")
       database(user, category).
         delete_doc(build_doc(key)).
         to_json
@@ -39,12 +58,7 @@ module RemoteStorage
 
     private
 
-    def build_doc(key, data=nil)
-      doc = data ? JSON.parse(data) : {}
-      doc['_id'] = key
-      doc['_rev'] ||= params[:rev] if params[:rev]
-      return doc
-    end
+    ## COUCHDB
 
     def database(user, category)
       database_name = "#{user}-#{category}"
@@ -61,12 +75,25 @@ module RemoteStorage
       ))[key.to_sym]
     end
 
+    ## HELPERS
+
+    def build_doc(key, data=nil)
+      doc = data ? JSON.parse(data) : {}
+      doc['_id'] = key
+      doc['_rev'] ||= params[:rev] if params[:rev]
+      return doc
+    end
+
     # don't want to rely on activesupport or extlib
     def symbolize_keys(hash)
       return unless hash
       hash.each_pair.inject({}) {|h, (k, v)|
         h.update(k.to_sym => v)
       }
+    end
+
+    def log(message)
+      puts "[RemoteStorage::CouchDB] -- #{message}"
     end
   end
 end

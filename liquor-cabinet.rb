@@ -15,7 +15,11 @@ class LiquorCabinet < Sinatra::Base
     :couchdb => ::RemoteStorage::CouchDB
   }
 
-  class InvalidConfig < RuntimeError ; end
+  class InvalidConfig < RuntimeError
+    def initialize(message)
+      super(message + " for environment #{ENV['RACK_ENV']}")
+    end
+  end
 
   def self.config=(config)
     @config = config
@@ -39,7 +43,7 @@ class LiquorCabinet < Sinatra::Base
   configure do
     backend = config['backend']
     unless backend
-      raise InvalidConfig.new("backend not given for environment #{ENV['RACK_ENV']}")
+      raise InvalidConfig.new("backend not given")
     end
     backend_implementation = BACKENDS[backend.to_sym]
     unless backend_implementation
