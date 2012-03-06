@@ -24,4 +24,5 @@ gem "airbrake"
 group :test do
   gem 'rake'
   gem 'purdytest', :require => false
+  gem RUBY_VERSION > '1.9' ? 'ruby-debug19' : 'ruby-debug'
 end
