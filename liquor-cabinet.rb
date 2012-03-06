@@ -23,12 +23,13 @@ class LiquorCabinet < Sinatra::Base
 
   def self.config=(config)
     @config = config
+    configure_airbrake
   end
 
   def self.config
     return @config if @config
     config = File.read(File.expand_path('config.yml', File.dirname(__FILE__)))
-    @config = YAML.load(config)[ENV['RACK_ENV']]
+    self.config = YAML.load(config)[ENV['RACK_ENV']]
   end
 
   configure :development do
@@ -84,6 +85,10 @@ class LiquorCabinet < Sinatra::Base
     end
   end
 
+  get "/airbrake" do
+    raise "Ohai, exception from Sinatra app"
+  end
+
   get "/:user/:category/:key" do
     content_type 'application/json'
     get_data(@user, @category, @key)
@@ -103,11 +108,28 @@ class LiquorCabinet < Sinatra::Base
   end
 
   helpers do
+
     def build_redirect_uri(token)
       [params[:redirect_uri],
        params[:redirect_uri].index('?') ? '&' : '?',
        'token=',
        URI.encode_www_form_component(token)].join
+    end
+
+  end
+
+  private
+
+  def self.configure_airbrake
+    if @config['airbrake'] && @config['airbrake']['api_key']
+      require "airbrake"
+
+      Airbrake.configure do |airbrake|
+        airbrake.api_key = @config['airbrake']['api_key']
+      end
+
+      use Airbrake::Rack
+      enable :raise_errors
     end
   end
 

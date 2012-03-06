@@ -1,6 +1,12 @@
 GEM
   remote: http://rubygems.org/
   specs:
+    activesupport (3.2.2)
+      i18n (~> 0.6)
+      multi_json (~> 1.0)
+    airbrake (3.0.9)
+      activesupport
+      builder
     backports (2.3.0)
     beefcake (0.3.7)
     builder (3.0.0)
@@ -46,6 +52,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  airbrake
   couchrest
   haml
   purdytest

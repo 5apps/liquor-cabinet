@@ -13,10 +13,13 @@ end
 
 gem "sinatra"
 gem "sinatra-contrib"
+
+gem 'haml'
+
 backend_gem :riak, "riak-client"
 backend_gem :couchdb, "couchrest"
 
-gem 'haml'
+gem "airbrake"
 
 group :test do
   gem 'rake'
