@@ -111,8 +111,8 @@ class LiquorCabinet < Sinatra::Base
 
     def build_redirect_uri(token)
       [params[:redirect_uri],
-       params[:redirect_uri].index('?') ? '&' : '?',
-       'token=',
+       '#',
+       'access_token=',
        URI.encode_www_form_component(token)].join
     end
 
