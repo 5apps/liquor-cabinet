@@ -40,6 +40,13 @@
   %body
     %h2 Authenticate for remoteStorage
 
+    %pre= params.inspect
+
+    %p
+      Hi there, the site
+      %strong{:title => @redirect_uri}= @domain
+      wants to access the following categories:
+
     - if @error
       .error= @error
 
