@@ -32,6 +32,19 @@ class LiquorCabinet < Sinatra::Base
     self.config = YAML.load(config)[ENV['RACK_ENV']]
   end
 
+  def self.configure_airbrake
+    if @config['airbrake'] && @config['airbrake']['api_key']
+      require "airbrake"
+
+      Airbrake.configure do |airbrake|
+        airbrake.api_key = @config['airbrake']['api_key']
+      end
+
+      use Airbrake::Rack
+      enable :raise_errors
+    end
+  end
+
   configure :development do
     register Sinatra::Reloader
     enable :logging
@@ -116,19 +129,6 @@ class LiquorCabinet < Sinatra::Base
        URI.encode_www_form_component(token)].join
     end
 
-  end
-
-  def self.configure_airbrake
-    if @config['airbrake'] && @config['airbrake']['api_key']
-      require "airbrake"
-
-      Airbrake.configure do |airbrake|
-        airbrake.api_key = @config['airbrake']['api_key']
-      end
-
-      use Airbrake::Rack
-      enable :raise_errors
-    end
   end
 
 end
