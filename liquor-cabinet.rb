@@ -86,6 +86,8 @@ class LiquorCabinet < Sinatra::Base
   get '/authenticate/:user' do
     @user = params[:user]
     @redirect_uri = params[:redirect_uri]
+    @domain = URI.parse(@redirect_uri).host
+    @categories = [params[:scope]].flatten
     haml :authenticate
   end
 

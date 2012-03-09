@@ -40,12 +40,15 @@
   %body
     %h2 Authenticate for remoteStorage
 
-    %pre= params.inspect
+    %pre= params.each_pair.map(&:inspect).join("\n")
 
     %p
       Hi there, the site
       %strong{:title => @redirect_uri}= @domain
       wants to access the following categories:
+      %ul
+        - @categories.each do |category|
+          %li= category
 
     - if @error
       .error= @error
