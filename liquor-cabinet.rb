@@ -118,8 +118,6 @@ class LiquorCabinet < Sinatra::Base
 
   end
 
-  private
-
   def self.configure_airbrake
     if @config['airbrake'] && @config['airbrake']['api_key']
       require "airbrake"
