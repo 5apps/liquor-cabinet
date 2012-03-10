@@ -40,6 +40,20 @@ describe "App" do
     TestBackend.calls = []
   end
 
+  describe 'OPTIONS /:user/:category/:key' do
+    before do
+      options '/foo/bar/baz'
+    end
+
+    it "always returns success" do
+      last_response.status.must_equal 200
+    end
+
+    it "doesn't call authorize_request" do
+      must_not_have_called(:authorize_request)
+    end
+  end
+
   describe 'GET /:user/:category/:key' do
 
     before do
@@ -68,6 +82,25 @@ describe "App" do
       must_have_called(:put_data, 'foo', 'bar', 'baz', 'test=data')
     end
 
+    it "calls authorize_request with the given user, category and token" do
+      must_have_called(:authorize_request, 'foo', 'bar', @token)
+    end
+
+  end
+
+  describe 'DELETE /:user/:category/:key' do
+    before do
+      @token = 'my-other-test-token'
+      delete '/foo/bar/baz', {}, 'HTTP_AUTHORIZATION' => "Authorization: #{@token}"
+    end
+
+    it "calls delete_data with all given arguments" do
+      must_have_called(:delete_data, 'foo', 'bar', 'baz')
+    end
+
+    it "calls authorize_request with the given user, category and token" do
+      must_have_called(:authorize_request, 'foo', 'bar', @token)
+    end
   end
 
   def must_have_called(method, *args)
@@ -78,7 +111,8 @@ describe "App" do
 
   def must_not_have_called(method)
     call = find_backend_call(method)
-    assert_not call, "Expected #{method} NOT to be called, but it was (with arguments: #{call[1].inspect})"
+    arguments = call ? call[1].inspect : nil
+    assert_nil call, "Expected #{method} NOT to be called, but it was (with arguments: #{arguments})"
   end
 
   def find_backend_call(method)
