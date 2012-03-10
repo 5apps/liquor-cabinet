@@ -5,6 +5,7 @@ require "sinatra/base"
 require "sinatra/reloader"
 require 'haml'
 
+require "configuration"
 require "remote_storage/backend_interface"
 require "remote_storage/riak"
 require "remote_storage/couch_db"
@@ -15,22 +16,9 @@ class LiquorCabinet < Sinatra::Base
     :couchdb => ::RemoteStorage::CouchDB
   }
 
-  class InvalidConfig < RuntimeError
-    def initialize(message)
-      super(message + " for environment #{ENV['RACK_ENV']}")
-    end
-  end
+  extend(Configuration)
 
-  def self.config=(config)
-    @config = config
-    configure_airbrake
-  end
-
-  def self.config
-    return @config if @config
-    config = File.read(File.expand_path('config.yml', File.dirname(__FILE__)))
-    self.config = YAML.load(config)[ENV['RACK_ENV']]
-  end
+  after_config_loaded :configure_airbrake
 
   def self.configure_airbrake
     if @config['airbrake'] && @config['airbrake']['api_key']
@@ -45,6 +33,19 @@ class LiquorCabinet < Sinatra::Base
     end
   end
 
+  def self.setup_backend
+    backend = config['backend']
+    unless backend
+      raise InvalidConfig.new("backend not given")
+    end
+    backend_implementation = BACKENDS[backend.to_sym]
+    unless backend_implementation
+      raise Configuration::Invalid.new("Invalid backend: #{backend}. Valid options are: #{BACKENDS.keys.join(', ')}")
+    end
+
+    include(backend_implementation)
+  end
+
   configure :development do
     register Sinatra::Reloader
     enable :logging
@@ -52,19 +53,6 @@ class LiquorCabinet < Sinatra::Base
 
   configure :production do
     disable :logging
-  end
-
-  configure do
-    backend = config['backend']
-    unless backend
-      raise InvalidConfig.new("backend not given")
-    end
-    backend_implementation = BACKENDS[backend.to_sym]
-    unless backend_implementation
-      raise InvalidConfig.new("Invalid backend: #{backend}. Valid options are: #{BACKENDS.keys.join(', ')}")
-    end
-
-    include(backend_implementation)
   end
 
   before "/:user/:category/:key" do
@@ -86,8 +74,8 @@ class LiquorCabinet < Sinatra::Base
   get '/authenticate/:user' do
     @user = params[:user]
     @redirect_uri = params[:redirect_uri]
-    @domain = URI.parse(@redirect_uri).host
-    @categories = [params[:scope]].flatten
+    @domain = URI.parse(params[:client_id]).host
+    @categories = check_categories(@user, *params[:scope])
     haml :authenticate
   end
 

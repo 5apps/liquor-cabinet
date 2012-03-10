@@ -21,5 +21,18 @@ module RemoteStorage
       }
     end
 
+    def check_categories(user, *categories)
+      categories.map do |category|
+        {
+          :name => category,
+          :exists => category_exists?(user, category)
+        }
+      end
+    end
+
+    def category_exists?(user, category)
+      true
+    end
+
   end
 end

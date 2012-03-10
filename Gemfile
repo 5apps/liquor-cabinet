@@ -1,25 +1,28 @@
 source "http://rubygems.org"
 
-unless @backend = ENV['BACKEND']
-  $stderr.puts "WARNING: No BACKEND set. Defaulting to 'all'."
-  @backend = 'all'
-end
+require File.expand_path('lib/configuration.rb', File.dirname(__FILE__))
 
-def backend_gem(backend, *gem_args)
-  if @backend == 'all' || @backend == backend.to_s
-    gem(*gem_args)
-  end
-end
+ENV['RACK_ENV'] ||= 'development'
+
+extend Configuration
 
 gem "sinatra"
 gem "sinatra-contrib"
 
 gem 'haml'
 
-backend_gem :riak, "riak-client"
-backend_gem :couchdb, "couchrest"
+case config['backend']
+when 'riak'
+  gem "riak-client"
+when 'couchdb'
+  gem "couchrest"
+else
+  $stderr.puts "WARNING: No backend set in config, not loading any backend-specific gems."
+end
 
-gem "airbrake"
+if config['airbrake']
+  gem "airbrake"
+end
 
 group :test do
   gem 'rake'
