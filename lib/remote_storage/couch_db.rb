@@ -46,6 +46,13 @@ module RemoteStorage
         to_json
     end
 
+    def category_exists?(user, category)
+      database(user, category).info
+      return true
+    rescue RestClient::ResourceNotFound, RestClient::Unauthorized
+      return false
+    end
+
     private
 
     ## COUCHDB
