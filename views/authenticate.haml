@@ -29,6 +29,7 @@
         font-weight: bold;
         line-height: 20px;
         float: left;
+        text-align: right;
       }
       .input input {
         width: 150px;
@@ -36,6 +37,16 @@
 
       .input input[type="submit"] {
         margin-left: 100px;
+      }
+
+      ul.categories {
+        list-style-type: none;
+        padding: 0;
+      }
+
+      ul.categories li {
+        width: 150px;
+        margin: auto;
       }
   %body
     %h2 Authenticate for remoteStorage
@@ -46,7 +57,7 @@
       Hi there, the site
       %strong{:title => @redirect_uri}= @domain
       wants to access the following categories:
-      %ul
+      %ul.categories
         - @categories.each do |category|
           %li= category
 
