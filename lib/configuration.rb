@@ -17,6 +17,10 @@ module Configuration
 
   def config(path=File.expand_path("../config.yml", File.dirname(__FILE__)), env=ENV['RACK_ENV'])
     return @config if @config
+    reload_config
+  end
+
+  def reload_config
     all_configs = YAML.load_file(path)
     self.config = all_configs[env]
   end

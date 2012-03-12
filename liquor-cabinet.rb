@@ -51,10 +51,17 @@ class LiquorCabinet < Sinatra::Base
   configure :development do
     register Sinatra::Reloader
     enable :logging
+
+    before do
+      reload_config
+    end
+
   end
 
   configure :production do
-    disable :logging
+    enable :logging
+
+    reload_config
   end
 
   before "/:user/:category/:key" do
