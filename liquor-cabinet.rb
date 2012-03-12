@@ -3,30 +3,65 @@ $LOAD_PATH << File.join(File.expand_path(File.dirname(__FILE__)), 'lib')
 require "json"
 require "sinatra/base"
 require "sinatra/reloader"
+require 'haml'
+
+require "configuration"
+require "remote_storage/backend_interface"
 require "remote_storage/riak"
+require "remote_storage/couch_db"
 
 class LiquorCabinet < Sinatra::Base
+  BACKENDS = {
+    :riak => ::RemoteStorage::Riak,
+    :couchdb => ::RemoteStorage::CouchDB
+  }
 
-  include RemoteStorage::Riak
+  extend(Configuration)
 
-  def self.config=(config)
-    @config = config
-    configure_airbrake
+  after_config_loaded :configure_airbrake
+
+  def self.configure_airbrake
+    if @config['airbrake'] && @config['airbrake']['api_key']
+      require "airbrake"
+
+      Airbrake.configure do |airbrake|
+        airbrake.api_key = @config['airbrake']['api_key']
+      end
+
+      use Airbrake::Rack
+      enable :raise_errors
+    end
   end
 
-  def self.config
-    return @config if @config
-    config = File.read(File.expand_path('config.yml', File.dirname(__FILE__)))
-    self.config = YAML.load(config)[ENV['RACK_ENV']]
+  after_config_loaded :setup_backend
+
+  def self.setup_backend
+    backend = config['backend']
+    unless backend
+      raise InvalidConfig.new("backend not given")
+    end
+    backend_implementation = BACKENDS[backend.to_sym]
+    unless backend_implementation
+      raise Configuration::Invalid.new("Invalid backend: #{backend}. Valid options are: #{BACKENDS.keys.join(', ')}")
+    end
+
+    include(backend_implementation)
   end
 
   configure :development do
     register Sinatra::Reloader
     enable :logging
+
+    before do
+      LiquorCabinet.reload_config
+    end
+
   end
 
   configure :production do
-    disable :logging
+    enable :logging
+
+    reload_config
   end
 
   before "/:user/:category/:key" do
@@ -45,11 +80,29 @@ class LiquorCabinet < Sinatra::Base
     "Ohai."
   end
 
+  get '/authenticate/:user' do
+    @user = params[:user]
+    @redirect_uri = params[:redirect_uri]
+    @domain = URI.parse(params[:client_id]).host
+    @categories = check_categories(@user, *params[:scope])
+    haml :authenticate
+  end
+
+  post '/authenticate/:user' do
+    if token = get_auth_token(params[:user], params[:password])
+      redirect(build_redirect_uri(token))
+    else
+      @error = "Failed to authenticate! Please try again."
+      haml :authenticate
+    end
+  end
+
   get "/airbrake" do
     raise "Ohai, exception from Sinatra app"
   end
 
   get "/:user/:category/:key" do
+    content_type 'application/json'
     get_data(@user, @category, @key)
   end
 
@@ -66,19 +119,15 @@ class LiquorCabinet < Sinatra::Base
     halt 200
   end
 
-  private
+  helpers do
 
-  def self.configure_airbrake
-    if @config['airbrake'] && @config['airbrake']['api_key']
-      require "airbrake"
-
-      Airbrake.configure do |airbrake|
-        airbrake.api_key = @config['airbrake']['api_key']
-      end
-
-      use Airbrake::Rack
-      enable :raise_errors
+    def build_redirect_uri(token)
+      [params[:redirect_uri].sub(/#.*$/, ''),
+       '#',
+       'access_token=',
+       URI.encode_www_form_component(token)].join
     end
+
   end
 
 end

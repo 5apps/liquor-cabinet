@@ -1,11 +1,11 @@
-require "riak"
 
 module RemoteStorage
   module Riak
 
-    def client
-      return @client if @client
-      @client = ::Riak::Client.new(LiquorCabinet.config['riak'].symbolize_keys)
+    include RemoteStorage::BackendInterface
+
+    def self.included(base)
+      require "riak"
     end
 
     def authorize_request(user, category, token)
@@ -38,6 +38,13 @@ module RemoteStorage
       halt riak_response[:code]
     rescue ::Riak::HTTPFailedRequest
       halt 404
+    end
+
+    protected
+
+    def client
+      return @client if @client
+      @client = ::Riak::Client.new(LiquorCabinet.config['riak'].symbolize_keys)
     end
 
   end
