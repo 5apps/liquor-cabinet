@@ -33,8 +33,9 @@ class LiquorCabinet < Sinatra::Base
     end
   end
 
+  after_config_loaded :setup_backend
+
   def self.setup_backend
-    $stderr.puts "SETTING UP BACKEND: #{config['backend']}"
     backend = config['backend']
     unless backend
       raise InvalidConfig.new("backend not given")
@@ -44,7 +45,7 @@ class LiquorCabinet < Sinatra::Base
       raise Configuration::Invalid.new("Invalid backend: #{backend}. Valid options are: #{BACKENDS.keys.join(', ')}")
     end
 
-    LiquorCabinet.send(:include, backend_implementation)
+    include(backend_implementation)
   end
 
   configure :development do
