@@ -53,7 +53,7 @@ class LiquorCabinet < Sinatra::Base
     enable :logging
 
     before do
-      reload_config
+      LiquorCabinet.reload_config
     end
 
   end
