@@ -15,12 +15,12 @@ module Configuration
     after_config_loaded_callbacks.each(&:call)
   end
 
-  def config(path=File.expand_path("../config.yml", File.dirname(__FILE__)), env=ENV['RACK_ENV'])
+  def config
     return @config if @config
     reload_config
   end
 
-  def reload_config
+  def reload_config(path=File.expand_path("../config.yml", File.dirname(__FILE__)), env=ENV['RACK_ENV'])
     all_configs = YAML.load_file(path)
     self.config = all_configs[env]
   end
