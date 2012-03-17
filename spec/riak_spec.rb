@@ -69,12 +69,18 @@ describe "App with Riak backend" do
     end
 
     describe "PUT" do
-      it "saves the value" do
+      before do
         header "Authorization", "Bearer 123"
         put "/jimmy/documents/bar", "another text"
+      end
 
+      it "saves the value" do
         last_response.status.must_equal 200
         storage_client.bucket("user_data").get("jimmy:documents:bar").data.must_equal "another text"
+      end
+
+      it "stores the data as plain text with utf-8 encoding" do
+        storage_client.bucket("user_data").get("jimmy:documents:bar").content_type.must_equal "text/plain; charset=utf-8"
       end
     end
 

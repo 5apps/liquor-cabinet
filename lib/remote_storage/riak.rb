@@ -26,7 +26,7 @@ module RemoteStorage
 
     def put_data(user, category, key, data)
       object = client.bucket("user_data").new("#{user}:#{category}:#{key}")
-      object.content_type = "text/plain"
+      object.content_type = "text/plain; charset=utf-8"
       object.data = data
       object.store
     rescue ::Riak::HTTPFailedRequest
