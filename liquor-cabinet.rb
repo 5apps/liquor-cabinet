@@ -41,14 +41,6 @@ class LiquorCabinet < Sinatra::Base
     authorize_request(@user, @category, token) unless request.options?
   end
 
-  get "/ohai" do
-    "Ohai."
-  end
-
-  get "/airbrake" do
-    raise "Ohai, exception from Sinatra app"
-  end
-
   get "/:user/:category/:key" do
     get_data(@user, @category, @key)
   end
