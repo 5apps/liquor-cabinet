@@ -13,3 +13,7 @@ database yourself.
 
 If you have any questions about this thing, drop by #unhosted on Freenode, and
 we'll happily answer them.
+
+## License
+
+This gem is licensed under the MIT license.
