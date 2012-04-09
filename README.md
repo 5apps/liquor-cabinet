@@ -14,6 +14,11 @@ database yourself.
 If you have any questions about this thing, drop by #unhosted on Freenode, and
 we'll happily answer them.
 
-## License
+## Contributing
 
-This gem is licensed under the MIT license.
+We love pull requests. If you want to submit a patch:
+
+* Fork the project.
+* Make your feature addition or bug fix.
+* Write specs for it. This is important so nobody breaks it in a future version unintentionally.
+* Push to your fork and send a pull request.
