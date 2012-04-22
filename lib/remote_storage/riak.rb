@@ -4,8 +4,7 @@ module RemoteStorage
   module Riak
 
     def client
-      return @client if @client
-      @client = ::Riak::Client.new(LiquorCabinet.config['riak'].symbolize_keys)
+      @client ||= ::Riak::Client.new(LiquorCabinet.config['riak'].symbolize_keys)
     end
 
     def authorize_request(user, category, token)
