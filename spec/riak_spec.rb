@@ -9,7 +9,11 @@ describe "App with Riak backend" do
   end
 
   def storage_client
-    ::Riak::Client.new(settings.riak_config)
+    @storage_client ||= ::Riak::Client.new(settings.riak_config)
+  end
+
+  def data_bucket
+    @data_bucket ||= storage_client.bucket("user_data")
   end
 
   describe "GET public data" do
@@ -76,11 +80,16 @@ describe "App with Riak backend" do
 
       it "saves the value" do
         last_response.status.must_equal 200
-        storage_client.bucket("user_data").get("jimmy:documents:bar").data.must_equal "another text"
+        data_bucket.get("jimmy:documents:bar").data.must_equal "another text"
       end
 
       it "stores the data as plain text with utf-8 encoding" do
-        storage_client.bucket("user_data").get("jimmy:documents:bar").content_type.must_equal "text/plain; charset=utf-8"
+        data_bucket.get("jimmy:documents:bar").content_type.must_equal "text/plain; charset=utf-8"
+      end
+
+      it "indexes the data set" do
+        data_bucket.get("jimmy:documents:bar").indexes["user_id_bin"].must_be_kind_of Set
+        data_bucket.get("jimmy:documents:bar").indexes["user_id_bin"].must_include "jimmy"
       end
     end
 
