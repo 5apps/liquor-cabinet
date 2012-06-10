@@ -73,23 +73,51 @@ describe "App with Riak backend" do
     end
 
     describe "PUT" do
-      before do
-        header "Authorization", "Bearer 123"
-        put "/jimmy/documents/bar", "another text"
+      describe "with implicit content type" do
+        before do
+          header "Authorization", "Bearer 123"
+          put "/jimmy/documents/bar", "another text"
+        end
+
+        it "saves the value" do
+          last_response.status.must_equal 200
+          data_bucket.get("jimmy:documents:bar").data.must_equal "another text"
+        end
+
+        it "stores the data as plain text with utf-8 encoding" do
+          data_bucket.get("jimmy:documents:bar").content_type.must_equal "text/plain; charset=utf-8"
+        end
+
+        it "indexes the data set" do
+          data_bucket.get("jimmy:documents:bar").indexes["user_id_bin"].must_be_kind_of Set
+          data_bucket.get("jimmy:documents:bar").indexes["user_id_bin"].must_include "jimmy"
+        end
       end
 
-      it "saves the value" do
-        last_response.status.must_equal 200
-        data_bucket.get("jimmy:documents:bar").data.must_equal "another text"
-      end
+      describe "with explicit content type" do
+        before do
+          header "Authorization", "Bearer 123"
+          header "Content-Type", "application/json"
+          put "/jimmy/documents/jason", '{"foo": "bar", "unhosted": 1}'
+        end
 
-      it "stores the data as plain text with utf-8 encoding" do
-        data_bucket.get("jimmy:documents:bar").content_type.must_equal "text/plain; charset=utf-8"
-      end
+        it "saves the value (as JSON)" do
+          last_response.status.must_equal 200
+          data_bucket.get("jimmy:documents:jason").data.must_be_kind_of Hash
+          data_bucket.get("jimmy:documents:jason").data.must_equal({"foo" => "bar", "unhosted" => 1})
+        end
 
-      it "indexes the data set" do
-        data_bucket.get("jimmy:documents:bar").indexes["user_id_bin"].must_be_kind_of Set
-        data_bucket.get("jimmy:documents:bar").indexes["user_id_bin"].must_include "jimmy"
+        it "uses the requested content type" do
+          data_bucket.get("jimmy:documents:jason").content_type.must_equal "application/json"
+        end
+
+        it "delivers the data correctly" do
+          header "Authorization", "Bearer 123"
+          get "/jimmy/documents/jason"
+
+          last_response.body.must_equal '{"foo":"bar","unhosted":1}'
+          last_response.content_type.must_equal "application/json"
+        end
       end
     end
 

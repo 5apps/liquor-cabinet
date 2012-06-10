@@ -1,4 +1,5 @@
 require "riak"
+require "json"
 
 module RemoteStorage
   module Riak
@@ -18,14 +19,22 @@ module RemoteStorage
     end
 
     def get_data(user, category, key)
-      client.bucket("user_data").get("#{user}:#{category}:#{key}").data
+      object = client.bucket("user_data").get("#{user}:#{category}:#{key}")
+      headers["Content-Type"] = object.content_type
+      case object.content_type
+      when "application/json"
+        return object.data.to_json
+      else
+        return object.data
+      end
     rescue ::Riak::HTTPFailedRequest
       halt 404
     end
 
-    def put_data(user, category, key, data)
+    def put_data(user, category, key, data, content_type=nil)
       object = client.bucket("user_data").new("#{user}:#{category}:#{key}")
-      object.content_type = "text/plain; charset=utf-8"
+      object.content_type = content_type || "text/plain; charset=utf-8"
+      data = JSON.parse(data) if content_type == "application/json"
       object.data = data
       object.indexes.merge!({:user_id_bin => [user]})
       object.store

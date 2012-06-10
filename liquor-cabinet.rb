@@ -47,7 +47,14 @@ class LiquorCabinet < Sinatra::Base
 
   put "/:user/:category/:key" do
     data = request.body.read
-    put_data(@user, @category, @key, data)
+
+    if env['CONTENT_TYPE'] == "application/x-www-form-urlencoded"
+      content_type = "text/plain; charset=utf-8"
+    else
+      content_type = env['CONTENT_TYPE']
+    end
+
+    put_data(@user, @category, @key, data, content_type)
   end
 
   delete "/:user/:category/:key" do
