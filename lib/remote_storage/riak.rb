@@ -25,7 +25,7 @@ module RemoteStorage
       when "application/json"
         return object.data.to_json
       else
-        return object.data
+        return serializer_for(object.content_type) ? object.data : object.raw_data
       end
     rescue ::Riak::HTTPFailedRequest
       halt 404
@@ -35,7 +35,11 @@ module RemoteStorage
       object = client.bucket("user_data").new("#{user}:#{category}:#{key}")
       object.content_type = content_type || "text/plain; charset=utf-8"
       data = JSON.parse(data) if content_type == "application/json"
-      object.data = data
+      if serializer_for(object.content_type)
+        object.data = data
+      else
+        object.raw_data = data
+      end
       object.indexes.merge!({:user_id_bin => [user]})
       object.store
     rescue ::Riak::HTTPFailedRequest
@@ -47,6 +51,12 @@ module RemoteStorage
       halt riak_response[:code]
     rescue ::Riak::HTTPFailedRequest
       halt 404
+    end
+
+    private
+
+    def serializer_for(content_type)
+      ::Riak::Serializers[content_type[/^[^;\s]+/]]
     end
 
   end

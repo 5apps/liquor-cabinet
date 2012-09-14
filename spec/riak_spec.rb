@@ -36,6 +36,27 @@ describe "App with Riak backend" do
     end
   end
 
+  describe "GET data with custom content type" do
+    before do
+      object = data_bucket.new("jimmy:public:magic")
+      object.content_type = "text/magic"
+      object.raw_data = "some text data"
+      object.store
+    end
+
+    after do
+      data_bucket.delete("jimmy:public:magic")
+    end
+
+    it "returns the value with the correct content type" do
+      get "/jimmy/public/magic"
+
+      last_response.status.must_equal 200
+      last_response.content_type.must_equal "text/magic"
+      last_response.body.must_equal "some text data"
+    end
+  end
+
   describe "private data" do
     before do
       object = storage_client.bucket("user_data").new("jimmy:documents:foo")
@@ -117,6 +138,35 @@ describe "App with Riak backend" do
 
           last_response.body.must_equal '{"foo":"bar","unhosted":1}'
           last_response.content_type.must_equal "application/json"
+        end
+      end
+
+      describe "with arbitrary content type" do
+        before do
+          header "Authorization", "Bearer 123"
+          header "Content-Type", "text/magic"
+          put "/jimmy/documents/magic", "pure magic"
+        end
+
+        after do
+          data_bucket.delete("jimmy:documents:magic")
+        end
+
+        it "saves the value" do
+          last_response.status.must_equal 200
+          data_bucket.get("jimmy:documents:magic").raw_data.must_equal "pure magic"
+        end
+
+        it "uses the requested content type" do
+          data_bucket.get("jimmy:documents:magic").content_type.must_equal "text/magic"
+        end
+
+        it "delivers the data correctly" do
+          header "Authorization", "Bearer 123"
+          get "/jimmy/documents/magic"
+
+          last_response.body.must_equal "pure magic"
+          last_response.content_type.must_equal "text/magic"
         end
       end
     end
