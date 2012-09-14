@@ -94,9 +94,12 @@ describe "App with Riak backend" do
     end
 
     describe "PUT" do
+      before do
+        header "Authorization", "Bearer 123"
+      end
+
       describe "with implicit content type" do
         before do
-          header "Authorization", "Bearer 123"
           put "/jimmy/documents/bar", "another text"
         end
 
@@ -117,7 +120,6 @@ describe "App with Riak backend" do
 
       describe "with explicit content type" do
         before do
-          header "Authorization", "Bearer 123"
           header "Content-Type", "application/json"
           put "/jimmy/documents/jason", '{"foo": "bar", "unhosted": 1}'
         end
@@ -143,7 +145,6 @@ describe "App with Riak backend" do
 
       describe "with arbitrary content type" do
         before do
-          header "Authorization", "Bearer 123"
           header "Content-Type", "text/magic"
           put "/jimmy/documents/magic", "pure magic"
         end

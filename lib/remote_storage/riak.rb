@@ -8,6 +8,10 @@ module RemoteStorage
       @client ||= ::Riak::Client.new(LiquorCabinet.config['riak'].symbolize_keys)
     end
 
+    def data_bucket
+      @data_bucket ||= client.bucket("user_data")
+    end
+
     def authorize_request(user, category, token)
       return true if category == "public" && env["REQUEST_METHOD"] == "GET"
 
@@ -19,7 +23,7 @@ module RemoteStorage
     end
 
     def get_data(user, category, key)
-      object = client.bucket("user_data").get("#{user}:#{category}:#{key}")
+      object = data_bucket.get("#{user}:#{category}:#{key}")
       headers["Content-Type"] = object.content_type
       case object.content_type
       when "application/json"
@@ -32,7 +36,7 @@ module RemoteStorage
     end
 
     def put_data(user, category, key, data, content_type=nil)
-      object = client.bucket("user_data").new("#{user}:#{category}:#{key}")
+      object = data_bucket.new("#{user}:#{category}:#{key}")
       object.content_type = content_type || "text/plain; charset=utf-8"
       data = JSON.parse(data) if content_type == "application/json"
       if serializer_for(object.content_type)
@@ -47,7 +51,7 @@ module RemoteStorage
     end
 
     def delete_data(user, category, key)
-      riak_response = client.bucket("user_data").delete("#{user}:#{category}:#{key}")
+      riak_response = data_bucket.delete("#{user}:#{category}:#{key}")
       halt riak_response[:code]
     rescue ::Riak::HTTPFailedRequest
       halt 404
