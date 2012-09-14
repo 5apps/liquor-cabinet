@@ -103,6 +103,10 @@ describe "App with Riak backend" do
           put "/jimmy/documents/bar", "another text"
         end
 
+        after do
+          data_bucket.delete("jimmy:documents:bar")
+        end
+
         it "saves the value" do
           last_response.status.must_equal 200
           data_bucket.get("jimmy:documents:bar").data.must_equal "another text"
@@ -122,6 +126,10 @@ describe "App with Riak backend" do
         before do
           header "Content-Type", "application/json"
           put "/jimmy/documents/jason", '{"foo": "bar", "unhosted": 1}'
+        end
+
+        after do
+          data_bucket.delete("jimmy:documents:jason")
         end
 
         it "saves the value (as JSON)" do
@@ -190,6 +198,10 @@ describe "App with Riak backend" do
       auth.store
 
       header "Authorization", "Bearer 321"
+    end
+
+    after do
+      storage_client.bucket("authorizations").delete("jimmy:123")
     end
 
     describe "GET" do
