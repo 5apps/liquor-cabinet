@@ -16,16 +16,20 @@ describe "App with Riak backend" do
     @data_bucket ||= storage_client.bucket("user_data")
   end
 
+  def auth_bucket
+    @auth_bucket ||= storage_client.bucket("authorizations")
+  end
+
   describe "GET public data" do
     before do
-      object = storage_client.bucket("user_data").new("jimmy:public:foo")
+      object = data_bucket.new("jimmy:public:foo")
       object.content_type = "text/plain"
       object.data = "some text data"
       object.store
     end
 
     after do
-      storage_client.bucket("user_data").delete("jimmy:public:foo")
+      data_bucket.delete("jimmy:public:foo")
     end
 
     it "returns the value on all get requests" do
@@ -59,19 +63,19 @@ describe "App with Riak backend" do
 
   describe "private data" do
     before do
-      object = storage_client.bucket("user_data").new("jimmy:documents:foo")
+      object = data_bucket.new("jimmy:documents:foo")
       object.content_type = "text/plain"
       object.data = "some private text data"
       object.store
 
-      auth = storage_client.bucket("authorizations").new("jimmy:123")
+      auth = auth_bucket.new("jimmy:123")
       auth.data = ["documents", "public"]
       auth.store
     end
 
     after do
-      storage_client.bucket("user_data").delete("jimmy:documents:foo")
-      storage_client.bucket("authorizations").delete("jimmy:123")
+      data_bucket.delete("jimmy:documents:foo")
+      auth_bucket.delete("jimmy:123")
     end
 
     describe "GET" do
@@ -186,14 +190,16 @@ describe "App with Riak backend" do
         delete "/jimmy/documents/foo"
 
         last_response.status.must_equal 204
-        lambda {storage_client.bucket("user_data").get("jimmy:documents:foo")}.must_raise Riak::HTTPFailedRequest
+        lambda {
+          data_bucket.get("jimmy:documents:foo")
+        }.must_raise Riak::HTTPFailedRequest
       end
     end
   end
 
   describe "unauthorized access" do
     before do
-      auth = storage_client.bucket("authorizations").new("jimmy:123")
+      auth = auth_bucket.new("jimmy:123")
       auth.data = ["documents", "public"]
       auth.store
 
@@ -201,7 +207,7 @@ describe "App with Riak backend" do
     end
 
     after do
-      storage_client.bucket("authorizations").delete("jimmy:123")
+      auth_bucket.delete("jimmy:123")
     end
 
     describe "GET" do
