@@ -6,3 +6,9 @@ services: riak
 before_script:
   - cp config.yml.example config.yml
 script: rake test
+notifications:
+  webhooks:
+    urls:
+      - http://hook-juggler.heroku.com/hooks/travis
+    on_success: change
+    on_failure: always
