@@ -13,11 +13,16 @@ module RemoteStorage
     end
 
     def authorize_request(user, category, token)
-      return true if category == "public" && env["REQUEST_METHOD"] == "GET"
+      request_method = env["REQUEST_METHOD"]
+      return true if category == "public" && request_method == "GET"
 
-      categories = client.bucket("authorizations").get("#{user}:#{token}").data
+      authorizations = client.bucket("authorizations").get("#{user}:#{token}").data
+      permission = category_permission(authorizations, category)
 
-      halt 403 unless categories.include?(category)
+      halt 403 unless permission
+      if ["PUT", "DELETE"].include? request_method
+        halt 403 unless permission == "rw"
+      end
     rescue ::Riak::HTTPFailedRequest
       halt 403
     end
@@ -61,6 +66,25 @@ module RemoteStorage
 
     def serializer_for(content_type)
       ::Riak::Serializers[content_type[/^[^;\s]+/]]
+    end
+
+    def category_permission(authorizations, category)
+      authorizations = authorizations.map do |auth|
+        auth.index(":") ? auth.split(":") : [auth, "rw"]
+      end
+      authorizations = Hash[*authorizations.flatten]
+
+      permission = authorizations[""]
+
+      authorizations.each do |key, value|
+        if category.match key
+          if permission.nil? || permission == "r"
+            permission = value
+          end
+        end
+      end
+
+      permission
     end
 
   end
