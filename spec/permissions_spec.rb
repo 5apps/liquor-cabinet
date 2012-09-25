@@ -27,10 +27,16 @@ describe "Permissions" do
         object.content_type = "text/plain"
         object.data = "some text data"
         object.store
+
+        object = data_bucket.new("jimmy:public/documents:foo")
+        object.content_type = "text/plain"
+        object.data = "some text data"
+        object.store
       end
 
       after do
         data_bucket.delete("jimmy:public:foo")
+        data_bucket.delete("jimmy:public/documents:foo")
       end
 
       it "returns the value on all get requests" do
@@ -40,6 +46,13 @@ describe "Permissions" do
         last_response.body.must_equal "some text data"
 
         last_response.headers["Last-Modified"].wont_be_nil
+      end
+
+      it "returns the value from a sub-directory" do
+        get "/jimmy/public/documents/foo"
+
+        last_response.status.must_equal 200
+        last_response.body.must_equal "some text data"
       end
     end
   end

@@ -14,7 +14,7 @@ module RemoteStorage
 
     def authorize_request(user, category, token)
       request_method = env["REQUEST_METHOD"]
-      return true if category == "public" && request_method == "GET"
+      return true if category.split("/").first == "public" && request_method == "GET"
 
       authorizations = client.bucket("authorizations").get("#{user}:#{token}").data
       permission = category_permission(authorizations, category)
