@@ -237,4 +237,88 @@ describe "Permissions" do
     end
   end
 
+  describe "global permissions" do
+    before do
+      object = data_bucket.new("jimmy:documents/very/interesting:text")
+      object.content_type = "text/plain"
+      object.data = "some very interesting writing"
+      object.store
+    end
+
+    after do
+      data_bucket.delete("jimmy:documents/very/interesting:text")
+    end
+
+    describe "write all" do
+      before do
+        auth = auth_bucket.new("jimmy:123")
+        auth.data = [":rw", "documents:r"]
+        auth.store
+
+        header "Authorization", "Bearer 123"
+      end
+
+      after do
+        auth_bucket.delete("jimmy:123")
+        data_bucket.delete("jimmy:contacts:1")
+      end
+
+      it "allows GET requests" do
+        get "/jimmy/documents/very/interesting/text"
+
+        last_response.status.must_equal 200
+        last_response.body.must_equal "some very interesting writing"
+      end
+
+      it "allows PUT requests" do
+        put "/jimmy/contacts/1", "John Doe"
+
+        last_response.status.must_equal 200
+        data_bucket.get("jimmy:contacts:1").data.must_equal "John Doe"
+      end
+
+      it "allows DELETE requests" do
+        delete "/jimmy/documents/very/interesting/text"
+
+        last_response.status.must_equal 204
+        lambda {
+          data_bucket.get("jimmy:documents/very/interesting:text")
+        }.must_raise Riak::HTTPFailedRequest
+      end
+    end
+
+    describe "read all" do
+      before do
+        auth = auth_bucket.new("jimmy:123")
+        auth.data = [":r", "contacts:rw"]
+        auth.store
+
+        header "Authorization", "Bearer 123"
+      end
+
+      after do
+        auth_bucket.delete("jimmy:123")
+      end
+
+      it "allows GET requests" do
+        get "/jimmy/documents/very/interesting/text"
+
+        last_response.status.must_equal 200
+        last_response.body.must_equal "some very interesting writing"
+      end
+
+      it "disallows PUT requests" do
+        put "/jimmy/documents/foo", "some text"
+
+        last_response.status.must_equal 403
+      end
+
+      it "disallows DELETE requests" do
+        delete "/jimmy/documents/very/interesting/text"
+
+        last_response.status.must_equal 403
+      end
+    end
+  end
+
 end
