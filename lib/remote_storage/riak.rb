@@ -30,6 +30,7 @@ module RemoteStorage
     def get_data(user, category, key)
       object = data_bucket.get("#{user}:#{category}:#{key}")
       headers["Content-Type"] = object.content_type
+      headers["Last-Modified"] = object.last_modified.to_s(:rfc822)
       case object.content_type
       when "application/json"
         return object.data.to_json
