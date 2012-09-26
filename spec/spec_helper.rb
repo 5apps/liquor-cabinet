@@ -43,4 +43,9 @@ def purge_all_buckets
   end
 end
 
+def wait_a_second
+  now = Time.now.to_i
+  while Time.now.to_i == now; end
+end
+
 alias context describe

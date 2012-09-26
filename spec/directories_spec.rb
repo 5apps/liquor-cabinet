@@ -122,7 +122,7 @@ describe "Directories" do
         end
 
         it "updates the timestamp of the directory" do
-          sleep 1
+          wait_a_second
           put "/jimmy/tasks/home/trash", "take out the trash"
 
           @directory.reload
