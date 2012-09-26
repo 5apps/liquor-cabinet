@@ -72,9 +72,22 @@ module RemoteStorage
                              :directory_bin => [category]})
       object.store
 
+      create_parent_directory_objects(user, category)
       update_directory_object(user, category)
     rescue ::Riak::HTTPFailedRequest
       halt 422
+    end
+
+    def create_parent_directory_objects(user, category)
+      parent_directories = category.split("/")
+      parent_directories.pop
+      while parent_directories.any?
+        directory = parent_directories.join("/")
+        unless directory_bucket.exist?("#{user}:#{directory}")
+          update_directory_object(user, directory)
+        end
+        parent_directories.pop
+      end
     end
 
     def update_directory_object(user, category)

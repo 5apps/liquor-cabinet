@@ -65,6 +65,29 @@ describe "Directories" do
         content["home/"].to_s.must_match /\d+/
         content["home/"].to_s.length.must_be :>=, 10
       end
+
+      context "sub-directories without objects" do
+        it "lists the direct sub-directories" do
+          put "/jimmy/tasks/private/projects/world-domination/start", "write a manifesto"
+          get "/jimmy/tasks/private/"
+
+          last_response.status.must_equal 200
+
+          content = JSON.parse(last_response.body)
+          content.must_include "projects/"
+          content["projects/"].to_s.must_match /\d+/
+          content["projects/"].to_s.length.must_be :>=, 10
+        end
+
+        it "does not update existing directory objects" do
+          tasks_timestamp = directory_bucket.get("jimmy:tasks").last_modified
+          wait_a_second
+          put "/jimmy/tasks/private/projects/world-domination/start", "write a manifesto"
+
+          tasks_object = directory_bucket.get("jimmy:tasks")
+          tasks_object.last_modified.must_equal tasks_timestamp
+        end
+      end
     end
 
     context "for a sub-directory" do
