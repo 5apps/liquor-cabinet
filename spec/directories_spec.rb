@@ -17,32 +17,31 @@ describe "Directories" do
   describe "GET listing" do
 
     before do
-      put "/jimmy/tasks/home/foo", "do the laundry"
-      put "/jimmy/tasks/home/bar", "do the laundry"
+      put "/jimmy/tasks/foo", "do the laundry"
+      put "/jimmy/tasks/bar", "do the laundry"
     end
 
     it "lists the objects with a timestamp of the last modification" do
-      get "/jimmy/tasks/home/"
+      get "/jimmy/tasks/"
 
-      # File.open("stacktrace.html", "w") do |f|
-      #   f.write last_response.body
-      # end
       last_response.status.must_equal 200
       last_response.content_type.must_equal "application/json"
 
       content = JSON.parse(last_response.body)
+      content.must_include "bar"
+      content.must_include "foo"
       content["foo"].to_s.must_match /\d+/
       content["foo"].to_s.length.must_be :>=, 10
     end
 
     it "has a Last-Modifier header set" do
-      get "/jimmy/tasks/home/"
+      get "/jimmy/tasks/"
 
       last_response.headers["Last-Modified"].wont_be_nil
     end
 
     it "has CORS headers set" do
-      get "/jimmy/tasks/home/"
+      get "/jimmy/tasks/"
 
       last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
       last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
@@ -53,17 +52,19 @@ describe "Directories" do
       before do
         put "/jimmy/tasks/home/laundry", "do the laundry"
       end
-    end
 
-    it "lists the containing objects as well as the direct sub-directories" do
-      get "/jimmy/tasks/"
+      it "lists the containing objects as well as the direct sub-directories" do
+        get "/jimmy/tasks/"
 
-      last_response.status.must_equal 200
-      content = JSON.parse(last_response.body)
-      # p content
-      # dir = directory_bucket.get("jimmy:tasks/home")
-      # puts dir.indexes.inspect
-      content["home/"].to_s.must_match /\d+/
+        last_response.status.must_equal 200
+
+        content = JSON.parse(last_response.body)
+        content.must_include "foo"
+        content.must_include "bar"
+        content.must_include "home/"
+        content["home/"].to_s.must_match /\d+/
+        content["home/"].to_s.length.must_be :>=, 10
+      end
     end
 
     context "for a sub-directory" do
@@ -77,6 +78,7 @@ describe "Directories" do
         last_response.status.must_equal 200
 
         content = JSON.parse(last_response.body)
+        content.must_include "laundry"
         content["laundry"].to_s.must_match /\d+/
         content["laundry"].to_s.length.must_be :>=, 10
       end
