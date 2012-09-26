@@ -29,20 +29,26 @@ class LiquorCabinet < Sinatra::Base
     disable :logging
   end
 
-  before "/:user/*/:key" do
-    headers 'Access-Control-Allow-Origin' => '*',
-            'Access-Control-Allow-Methods' => 'GET, PUT, DELETE',
-            'Access-Control-Allow-Headers' => 'Authorization, Content-Type, Origin'
-    headers['Access-Control-Allow-Origin'] = env["HTTP_ORIGIN"] if env["HTTP_ORIGIN"]
+  ["/:user/*/:key", "/:user/*/"].each do |path|
+    before path do
+      headers 'Access-Control-Allow-Origin' => '*',
+              'Access-Control-Allow-Methods' => 'GET, PUT, DELETE',
+              'Access-Control-Allow-Headers' => 'Authorization, Content-Type, Origin'
+      headers['Access-Control-Allow-Origin'] = env["HTTP_ORIGIN"] if env["HTTP_ORIGIN"]
 
-    @user, @category, @key = params[:user], params[:splat].first, params[:key]
-    token = env["HTTP_AUTHORIZATION"] ? env["HTTP_AUTHORIZATION"].split(" ")[1] : ""
+      @user, @directory, @key = params[:user], params[:splat].first, params[:key]
+      token = env["HTTP_AUTHORIZATION"] ? env["HTTP_AUTHORIZATION"].split(" ")[1] : ""
 
-    authorize_request(@user, @category, token) unless request.options?
+      authorize_request(@user, @directory, token) unless request.options?
+    end
   end
 
   get "/:user/*/:key" do
-    get_data(@user, @category, @key)
+    get_data(@user, @directory, @key)
+  end
+
+  get "/:user/*/" do
+    get_directory_listing(@user, @directory)
   end
 
   put "/:user/*/:key" do
@@ -54,11 +60,11 @@ class LiquorCabinet < Sinatra::Base
       content_type = env['CONTENT_TYPE']
     end
 
-    put_data(@user, @category, @key, data, content_type)
+    put_data(@user, @directory, @key, data, content_type)
   end
 
   delete "/:user/*/:key" do
-    delete_data(@user, @category, @key)
+    delete_data(@user, @directory, @key)
   end
 
   options "/:user/*/:key" do
