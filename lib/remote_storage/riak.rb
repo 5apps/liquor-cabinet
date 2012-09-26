@@ -130,7 +130,8 @@ module RemoteStorage
 
       sub_directories(user, directory).each do |entry|
         timestamp = DateTime.rfc2822(entry["last_modified"]).to_time.to_i
-        listing.merge!({ "#{entry["name"]}/" => timestamp })
+        directory_name = entry["name"].split("/").last
+        listing.merge!({ "#{directory_name}/" => timestamp })
       end
 
       directory_entries(user, directory).each do |entry|
