@@ -4,20 +4,8 @@ describe "App with Riak backend" do
   include Rack::Test::Methods
   include RemoteStorage::Riak
 
-  def app
-    LiquorCabinet
-  end
-
-  def storage_client
-    @storage_client ||= ::Riak::Client.new(settings.riak_config)
-  end
-
-  def data_bucket
-    @data_bucket ||= storage_client.bucket("user_data")
-  end
-
-  def auth_bucket
-    @auth_bucket ||= storage_client.bucket("authorizations")
+  before do
+    purge_all_buckets
   end
 
   describe "GET public data" do
@@ -26,10 +14,6 @@ describe "App with Riak backend" do
       object.content_type = "text/plain"
       object.data = "some text data"
       object.store
-    end
-
-    after do
-      data_bucket.delete("jimmy:public:foo")
     end
 
     it "returns the value on all get requests" do
@@ -46,10 +30,6 @@ describe "App with Riak backend" do
       object.content_type = "text/magic"
       object.raw_data = "some text data"
       object.store
-    end
-
-    after do
-      data_bucket.delete("jimmy:public:magic")
     end
 
     it "returns the value with the correct content type" do
@@ -71,11 +51,6 @@ describe "App with Riak backend" do
       auth = auth_bucket.new("jimmy:123")
       auth.data = ["documents", "public"]
       auth.store
-    end
-
-    after do
-      data_bucket.delete("jimmy:documents:foo")
-      auth_bucket.delete("jimmy:123")
     end
 
     describe "GET" do
@@ -107,10 +82,6 @@ describe "App with Riak backend" do
           put "/jimmy/documents/bar", "another text"
         end
 
-        after do
-          data_bucket.delete("jimmy:documents:bar")
-        end
-
         it "saves the value" do
           last_response.status.must_equal 200
           data_bucket.get("jimmy:documents:bar").data.must_equal "another text"
@@ -121,8 +92,11 @@ describe "App with Riak backend" do
         end
 
         it "indexes the data set" do
-          data_bucket.get("jimmy:documents:bar").indexes["user_id_bin"].must_be_kind_of Set
-          data_bucket.get("jimmy:documents:bar").indexes["user_id_bin"].must_include "jimmy"
+          indexes = data_bucket.get("jimmy:documents:bar").indexes
+          indexes["user_id_bin"].must_be_kind_of Set
+          indexes["user_id_bin"].must_include "jimmy"
+
+          indexes["directory_bin"].must_include "documents"
         end
       end
 
@@ -130,10 +104,6 @@ describe "App with Riak backend" do
         before do
           header "Content-Type", "application/json"
           put "/jimmy/documents/jason", '{"foo": "bar", "unhosted": 1}'
-        end
-
-        after do
-          data_bucket.delete("jimmy:documents:jason")
         end
 
         it "saves the value (as JSON)" do
@@ -159,10 +129,6 @@ describe "App with Riak backend" do
         before do
           header "Content-Type", "text/magic"
           put "/jimmy/documents/magic", "pure magic"
-        end
-
-        after do
-          data_bucket.delete("jimmy:documents:magic")
         end
 
         it "saves the value" do
@@ -204,10 +170,6 @@ describe "App with Riak backend" do
       auth.store
 
       header "Authorization", "Bearer 321"
-    end
-
-    after do
-      auth_bucket.delete("jimmy:123")
     end
 
     describe "GET" do

@@ -4,20 +4,8 @@ describe "Permissions" do
   include Rack::Test::Methods
   include RemoteStorage::Riak
 
-  def app
-    LiquorCabinet
-  end
-
-  def storage_client
-    @storage_client ||= ::Riak::Client.new(settings.riak_config)
-  end
-
-  def data_bucket
-    @data_bucket ||= storage_client.bucket("user_data")
-  end
-
-  def auth_bucket
-    @auth_bucket ||= storage_client.bucket("authorizations")
+  before do
+    purge_all_buckets
   end
 
   describe "public data" do
@@ -32,11 +20,6 @@ describe "Permissions" do
         object.content_type = "text/plain"
         object.data = "some text data"
         object.store
-      end
-
-      after do
-        data_bucket.delete("jimmy:public:foo")
-        data_bucket.delete("jimmy:public/documents:foo")
       end
 
       it "returns the value on all get requests" do
@@ -82,13 +65,6 @@ describe "Permissions" do
         header "Authorization", "Bearer 123"
       end
 
-      after do
-        data_bucket.delete("jimmy:documents:foo")
-        data_bucket.delete("jimmy:documents/very/interesting:text")
-        data_bucket.delete("jimmy:confidential:bar")
-        auth_bucket.delete("jimmy:123")
-      end
-
       describe "when authorized" do
         it "returns the value for a key in a top-level directory" do
           get "/jimmy/documents/foo"
@@ -123,15 +99,7 @@ describe "Permissions" do
         header "Authorization", "Bearer 123"
       end
 
-      after do
-        auth_bucket.delete("jimmy:123")
-      end
-
       describe "to a top-level directory" do
-        after do
-          data_bucket.delete("jimmy:contacts:1")
-        end
-
         it "saves the value when there are write permissions" do
           put "/jimmy/contacts/1", "John Doe"
 
@@ -147,11 +115,6 @@ describe "Permissions" do
       end
 
       describe "to a sub-directory" do
-        after do
-          data_bucket.delete("jimmy:tasks/home:1")
-          data_bucket.delete("jimmy:contacts/family:1")
-        end
-
         it "saves the value when there are direct write permissions" do
           put "/jimmy/tasks/home/1", "take out the trash"
 
@@ -181,10 +144,6 @@ describe "Permissions" do
         auth.store
 
         header "Authorization", "Bearer 123"
-      end
-
-      after do
-        auth_bucket.delete("jimmy:123")
       end
 
       describe "when authorized" do
@@ -232,11 +191,6 @@ describe "Permissions" do
           object.store
         end
 
-        after do
-          data_bucket.delete("jimmy:documents:private")
-          data_bucket.delete("jimmy:documents/business:foo")
-        end
-
         it "returns a 403 for a key in a top-level directory" do
           delete "/jimmy/documents/private"
 
@@ -260,10 +214,6 @@ describe "Permissions" do
       object.store
     end
 
-    after do
-      data_bucket.delete("jimmy:documents/very/interesting:text")
-    end
-
     describe "write all" do
       before do
         auth = auth_bucket.new("jimmy:123")
@@ -271,11 +221,6 @@ describe "Permissions" do
         auth.store
 
         header "Authorization", "Bearer 123"
-      end
-
-      after do
-        auth_bucket.delete("jimmy:123")
-        data_bucket.delete("jimmy:contacts:1")
       end
 
       it "allows GET requests" do
@@ -309,10 +254,6 @@ describe "Permissions" do
         auth.store
 
         header "Authorization", "Bearer 123"
-      end
-
-      after do
-        auth_bucket.delete("jimmy:123")
       end
 
       it "allows GET requests" do
