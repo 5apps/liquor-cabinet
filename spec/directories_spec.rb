@@ -153,26 +153,37 @@ describe "Directories" do
         end
       end
     end
+  end
 
-    describe "DELETE file" do
-      context "last file in directory" do
-        before do
-          directory_bucket.delete("jimmy:tasks")
-          put "/jimmy/tasks/trash", "take out the trash"
-        end
+  describe "OPTIONS listing" do
+    it "has CORS headers set" do
+      options "/jimmy/tasks/"
 
-        it "deletes the directory object" do
-          delete "/jimmy/tasks/trash"
+      last_response.status.must_equal 200
 
-          last_response.status.must_equal 204
+      last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
+      last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
+      last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin"
+    end
+  end
 
-          lambda {
-            directory_bucket.get("jimmy:tasks")
-          }.must_raise Riak::HTTPFailedRequest
-        end
+  describe "DELETE file" do
+    context "last file in directory" do
+      before do
+        directory_bucket.delete("jimmy:tasks")
+        put "/jimmy/tasks/trash", "take out the trash"
+      end
+
+      it "deletes the directory object" do
+        delete "/jimmy/tasks/trash"
+
+        last_response.status.must_equal 204
+
+        lambda {
+          directory_bucket.get("jimmy:tasks")
+        }.must_raise Riak::HTTPFailedRequest
       end
     end
-
   end
 
 end

@@ -71,6 +71,10 @@ class LiquorCabinet < Sinatra::Base
     halt 200
   end
 
+  options "/:user/*/" do
+    halt 200
+  end
+
   private
 
   def self.configure_airbrake
