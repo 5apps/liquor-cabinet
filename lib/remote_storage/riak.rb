@@ -72,35 +72,10 @@ module RemoteStorage
                              :directory_bin => [category]})
       object.store
 
-      create_parent_directory_objects(user, category)
+      create_missing_directory_objects(user, category)
       update_directory_object(user, category)
     rescue ::Riak::HTTPFailedRequest
       halt 422
-    end
-
-    def create_parent_directory_objects(user, category)
-      parent_directories = category.split("/")
-      parent_directories.pop
-      while parent_directories.any?
-        directory = parent_directories.join("/")
-        unless directory_bucket.exist?("#{user}:#{directory}")
-          update_directory_object(user, directory)
-        end
-        parent_directories.pop
-      end
-    end
-
-    def update_directory_object(user, category)
-      if category.match /\//
-        parent_directory = category[0..category.rindex("/")-1]
-      end
-      directory = directory_bucket.new("#{user}:#{category}")
-      directory.raw_data = ""
-      directory.indexes.merge!({:user_id_bin => [user]})
-      if parent_directory
-        directory.indexes.merge!({:directory_bin => [parent_directory]})
-      end
-      directory.store
     end
 
     def delete_data(user, category, key)
@@ -191,6 +166,31 @@ module RemoteStorage
         index("rs_directories", "directory_bin", directory).
         map(map_query, :keep => true).
         run
+    end
+
+    def create_missing_directory_objects(user, category)
+      parent_directories = category.split("/")
+      parent_directories.pop
+      while parent_directories.any?
+        directory = parent_directories.join("/")
+        unless directory_bucket.exist?("#{user}:#{directory}")
+          update_directory_object(user, directory)
+        end
+        parent_directories.pop
+      end
+    end
+
+    def update_directory_object(user, category)
+      if category.match /\//
+        parent_directory = category[0..category.rindex("/")-1]
+      end
+      directory = directory_bucket.new("#{user}:#{category}")
+      directory.raw_data = ""
+      directory.indexes.merge!({:user_id_bin => [user]})
+      if parent_directory
+        directory.indexes.merge!({:directory_bin => [parent_directory]})
+      end
+      directory.store
     end
 
   end
