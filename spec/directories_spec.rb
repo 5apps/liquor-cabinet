@@ -165,6 +165,18 @@ describe "Directories" do
       last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
       last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin"
     end
+
+    context "sub-directories" do
+      it "has CORS headers set" do
+        options "/jimmy/tasks/foo/bar/"
+
+        last_response.status.must_equal 200
+
+        last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
+        last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
+        last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin"
+      end
+    end
   end
 
   describe "DELETE file" do
