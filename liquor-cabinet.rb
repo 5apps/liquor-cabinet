@@ -23,10 +23,12 @@ class LiquorCabinet < Sinatra::Base
   configure :development do
     register Sinatra::Reloader
     enable :logging
+    disable :protection
   end
 
   configure :production do
     disable :logging
+    disable :protection
   end
 
   ["/:user/*/:key", "/:user/*/"].each do |path|
