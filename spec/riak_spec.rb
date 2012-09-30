@@ -148,6 +148,31 @@ describe "App with Riak backend" do
           last_response.content_type.must_equal "text/magic"
         end
       end
+
+      describe "with content type containing the encoding" do
+        before do
+          header "Content-Type", "application/json; charset=UTF-8"
+          put "/jimmy/documents/jason", '{"foo": "bar", "unhosted": 1}'
+        end
+
+        it "saves the value (as JSON)" do
+          last_response.status.must_equal 200
+          data_bucket.get("jimmy:documents:jason").data.must_be_kind_of Hash
+          data_bucket.get("jimmy:documents:jason").data.must_equal({"foo" => "bar", "unhosted" => 1})
+        end
+
+        it "uses the requested content type" do
+          data_bucket.get("jimmy:documents:jason").content_type.must_equal "application/json; charset=UTF-8"
+        end
+
+        it "delivers the data correctly" do
+          header "Authorization", "Bearer 123"
+          get "/jimmy/documents/jason"
+
+          last_response.body.must_equal '{"foo":"bar","unhosted":1}'
+          last_response.content_type.must_equal "application/json; charset=UTF-8"
+        end
+      end
     end
 
     describe "DELETE" do

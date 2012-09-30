@@ -36,7 +36,7 @@ module RemoteStorage
       object = data_bucket.get("#{user}:#{category}:#{key}")
       headers["Content-Type"] = object.content_type
       headers["Last-Modified"] = object.last_modified.to_s(:rfc822)
-      case object.content_type
+      case object.content_type[/^[^;\s]+/]
       when "application/json"
         return object.data.to_json
       else
@@ -62,7 +62,7 @@ module RemoteStorage
     def put_data(user, category, key, data, content_type=nil)
       object = data_bucket.new("#{user}:#{category}:#{key}")
       object.content_type = content_type || "text/plain; charset=utf-8"
-      data = JSON.parse(data) if content_type == "application/json"
+      data = JSON.parse(data) if content_type[/^[^;\s]+/] == "application/json"
       if serializer_for(object.content_type)
         object.data = data
       else
