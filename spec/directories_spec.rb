@@ -187,8 +187,10 @@ describe "Directories" do
         it "updates the timestamp of the directory" do
           put "/jimmy/tasks/home/trash", "take out the trash"
 
-          object = data_bucket.get("jimmy:tasks/home:trash")
+          last_response.status.must_equal 200
+
           @directory.reload
+          object = data_bucket.get("jimmy:tasks/home:trash")
 
           @directory.data.to_i.must_equal object.last_modified.to_i
         end
