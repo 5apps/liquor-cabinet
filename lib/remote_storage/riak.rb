@@ -48,8 +48,9 @@ module RemoteStorage
 
     def get_directory_listing(user, directory)
       directory_object = directory_bucket.get("#{user}:#{directory}")
+      timestamp = directory_object.data.to_i
       headers["Content-Type"] = "application/json"
-      headers["Last-Modified"] = directory_object.last_modified.to_s(:rfc822)
+      headers["Last-Modified"] = Time.at(timestamp).to_s(:rfc822)
 
       listing = directory_listing(user, directory)
 
@@ -73,8 +74,10 @@ module RemoteStorage
                              :directory_bin => [directory_index]})
       object.store
 
-      create_missing_directory_objects(user, directory)
-      update_directory_object(user, directory)
+      object.reload
+      timestamp = object.last_modified.to_i
+      create_missing_directory_objects(user, directory, timestamp)
+      update_directory_object(user, directory, timestamp)
     rescue ::Riak::HTTPFailedRequest
       halt 422
     end
@@ -118,13 +121,12 @@ module RemoteStorage
       listing = {}
 
       sub_directories(user, directory).each do |entry|
-        timestamp = DateTime.rfc2822(entry["last_modified"]).to_time.to_i
         directory_name = CGI.unescape(entry["name"]).split("/").last
-        listing.merge!({ "#{directory_name}/" => timestamp })
+        listing.merge!({ "#{directory_name}/" => entry["timestamp"] })
       end
 
       directory_entries(user, directory).each do |entry|
-        timestamp = DateTime.rfc2822(entry["last_modified"]).to_time.to_i
+        timestamp = DateTime.rfc2822(entry["last_modified"]).to_i
         listing.merge!({ entry["name"] => timestamp })
       end
 
@@ -157,10 +159,10 @@ module RemoteStorage
         function(v){
           keys = v.key.split(':');
           key_name = keys[keys.length-1];
-          last_modified_date = v.values[0]['metadata']['X-Riak-Last-Modified'];
+          timestamp = v.values[0]['data']
           return [{
             name: key_name,
-            last_modified: last_modified_date,
+            timestamp: timestamp,
           }];
         }
       EOH
@@ -171,23 +173,23 @@ module RemoteStorage
         run
     end
 
-    def create_missing_directory_objects(user, directory)
+    def create_missing_directory_objects(user, directory, timestamp)
       parent_directories = directory.split("/")
       parent_directories.pop
       while parent_directories.any?
         parent_directory = parent_directories.join("/")
         unless directory_bucket.exist?("#{user}:#{parent_directory}")
-          update_directory_object(user, parent_directory)
+          update_directory_object(user, parent_directory, timestamp)
         end
         parent_directories.pop
       end
 
       unless directory_bucket.exist?("#{user}:")
-        update_directory_object(user, "")
+        update_directory_object(user, "", timestamp)
       end
     end
 
-    def update_directory_object(user, directory)
+    def update_directory_object(user, directory, timestamp)
       if directory.match /\//
         parent_directory = directory[0..directory.rindex("/")-1]
       elsif directory != ""
@@ -195,7 +197,8 @@ module RemoteStorage
       end
 
       directory_object = directory_bucket.new("#{user}:#{directory}")
-      directory_object.raw_data = ""
+      directory_object.content_type = "text/plain; charset=utf-8"
+      directory_object.data = timestamp.to_s
       directory_object.indexes.merge!({:user_id_bin => [user]})
       if parent_directory
         directory_object.indexes.merge!({:directory_bin => [parent_directory]})

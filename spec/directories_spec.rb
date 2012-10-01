@@ -80,12 +80,14 @@ describe "Directories" do
         end
 
         it "does not update existing directory objects" do
-          tasks_timestamp = directory_bucket.get("jimmy:tasks").last_modified
-          wait_a_second
+          old_timestamp = (Time.now.to_i - 2).to_s
+          tasks_object = directory_bucket.get("jimmy:tasks")
+          tasks_object.data = old_timestamp
+          tasks_object.store
+
           put "/jimmy/tasks/private/projects/world-domination/start", "write a manifesto"
 
-          tasks_object = directory_bucket.get("jimmy:tasks")
-          tasks_object.last_modified.must_equal tasks_timestamp
+          tasks_object.reload.data.must_equal old_timestamp
         end
       end
     end
@@ -147,8 +149,11 @@ describe "Directories" do
         it "creates a new directory object" do
           put "/jimmy/tasks/home/trash", "take out the trash"
 
-          object = directory_bucket.get("jimmy:tasks/home")
-          object.last_modified.wont_be_nil
+          object = data_bucket.get("jimmy:tasks/home:trash")
+          directory = directory_bucket.get("jimmy:tasks/home")
+
+          directory.data.wont_be_nil
+          directory.data.to_i.must_equal object.last_modified.to_i
         end
 
         it "sets the correct index for the directory object" do
@@ -163,11 +168,11 @@ describe "Directories" do
 
           object = directory_bucket.get("jimmy:tasks")
           object.indexes["directory_bin"].must_include "/"
-          object.last_modified.wont_be_nil
+          object.data.wont_be_nil
 
           object = directory_bucket.get("jimmy:")
           object.indexes["directory_bin"].must_be_empty
-          object.last_modified.wont_be_nil
+          object.data.wont_be_nil
         end
       end
 
@@ -175,17 +180,17 @@ describe "Directories" do
         before do
           @directory = directory_bucket.new("jimmy:tasks/home")
           @directory.content_type = "text/plain"
-          @directory.raw_data = ""
+          @directory.data = 2.seconds.ago.to_i.to_s
           @directory.store
-          @old_timestamp = @directory.reload.last_modified
         end
 
         it "updates the timestamp of the directory" do
-          wait_a_second
           put "/jimmy/tasks/home/trash", "take out the trash"
 
+          object = data_bucket.get("jimmy:tasks/home:trash")
           @directory.reload
-          @directory.last_modified.must_be :>, @old_timestamp
+
+          @directory.data.to_i.must_equal object.last_modified.to_i
         end
       end
     end
