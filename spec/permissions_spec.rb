@@ -245,6 +245,42 @@ describe "Permissions" do
           data_bucket.get("jimmy:documents/very/interesting:text")
         }.must_raise Riak::HTTPFailedRequest
       end
+
+      context "root directory" do
+        before do
+          object = data_bucket.new("jimmy::root")
+          object.content_type = "text/plain"
+          object.data = "Back to the roots"
+          object.store
+        end
+
+        it "allows GET requests" do
+          get "/jimmy/root"
+
+          last_response.status.must_equal 200
+          last_response.body.must_equal "Back to the roots"
+        end
+
+        it "allows PUT requests" do
+          put "/jimmy/1", "Gonna kick it root down"
+
+          # File.open('response.html', 'w') do |f|
+          #   f.write last_response.body
+          # end
+
+          last_response.status.must_equal 200
+          data_bucket.get("jimmy::1").data.must_equal "Gonna kick it root down"
+        end
+
+        it "allows DELETE requests" do
+          delete "/jimmy/root"
+
+          last_response.status.must_equal 204
+          lambda {
+            data_bucket.get("jimmy::root")
+          }.must_raise Riak::HTTPFailedRequest
+        end
+      end
     end
 
     describe "read all" do

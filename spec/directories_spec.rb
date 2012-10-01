@@ -8,7 +8,7 @@ describe "Directories" do
     purge_all_buckets
 
     auth = auth_bucket.new("jimmy:123")
-    auth.data = ["documents:r", "tasks:rw"]
+    auth.data = [":r", "documents:r", "tasks:rw"]
     auth.store
 
     header "Authorization", "Bearer 123"
@@ -107,12 +107,36 @@ describe "Directories" do
       end
     end
 
-    describe "for an empty or absent directory" do
+    context "for an empty or absent directory" do
       it "returns an empty listing" do
         get "/jimmy/documents/notfound/"
 
         last_response.status.must_equal 200
         last_response.body.must_equal "{}"
+      end
+    end
+
+    context "for the root directory" do
+      before do
+        auth = auth_bucket.new("jimmy:123")
+        auth.data = [":rw"]
+        auth.store
+
+        put "/jimmy/root-1", "Put my root down"
+        put "/jimmy/root-2", "Back to the roots"
+      end
+
+      it "lists the containing objects and direct sub-directories" do
+        get "/jimmy/"
+
+        last_response.status.must_equal 200
+
+        content = JSON.parse(last_response.body)
+        content.must_include "root-1"
+        content.must_include "root-2"
+        content.must_include "tasks/"
+        content["tasks/"].to_s.must_match /\d+/
+        content["tasks/"].to_s.length.must_be :>=, 10
       end
     end
   end
@@ -132,6 +156,18 @@ describe "Directories" do
 
           object = directory_bucket.get("jimmy:tasks/home")
           object.indexes["directory_bin"].must_include "tasks"
+        end
+
+        it "creates directory objects for the parent directories" do
+          put "/jimmy/tasks/home/trash", "take out the trash"
+
+          object = directory_bucket.get("jimmy:tasks")
+          object.indexes["directory_bin"].must_include "/"
+          object.last_modified.wont_be_nil
+
+          object = directory_bucket.get("jimmy:")
+          object.indexes["directory_bin"].must_be_empty
+          object.last_modified.wont_be_nil
         end
       end
 
@@ -169,6 +205,18 @@ describe "Directories" do
     context "sub-directories" do
       it "has CORS headers set" do
         options "/jimmy/tasks/foo/bar/"
+
+        last_response.status.must_equal 200
+
+        last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
+        last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
+        last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin"
+      end
+    end
+
+    context "root directory" do
+      it "has CORS headers set" do
+        options "/jimmy/"
 
         last_response.status.must_equal 200
 

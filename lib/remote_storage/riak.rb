@@ -68,8 +68,9 @@ module RemoteStorage
       else
         object.raw_data = data
       end
+      directory_index = category == "" ? "/" : category
       object.indexes.merge!({:user_id_bin => [user],
-                             :directory_bin => [category]})
+                             :directory_bin => [directory_index]})
       object.store
 
       create_missing_directory_objects(user, category)
@@ -131,6 +132,7 @@ module RemoteStorage
     end
 
     def directory_entries(user, directory)
+      directory = "/" if directory == ""
       map_query = <<-EOH
         function(v){
           keys = v.key.split(':');
@@ -150,6 +152,7 @@ module RemoteStorage
     end
 
     def sub_directories(user, directory)
+      directory = "/" if directory == ""
       map_query = <<-EOH
         function(v){
           keys = v.key.split(':');
@@ -178,11 +181,17 @@ module RemoteStorage
         end
         parent_directories.pop
       end
+
+      unless directory_bucket.exist?("#{user}:")
+        update_directory_object(user, "")
+      end
     end
 
     def update_directory_object(user, category)
       if category.match /\//
         parent_directory = category[0..category.rindex("/")-1]
+      elsif category != ""
+        parent_directory = "/"
       end
       directory = directory_bucket.new("#{user}:#{category}")
       directory.raw_data = ""
