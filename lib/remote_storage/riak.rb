@@ -17,12 +17,12 @@ module RemoteStorage
       @directory_bucket ||= client.bucket("rs_directories")
     end
 
-    def authorize_request(user, category, token)
+    def authorize_request(user, directory, token)
       request_method = env["REQUEST_METHOD"]
-      return true if category.split("/").first == "public" && request_method == "GET"
+      return true if directory.split("/").first == "public" && request_method == "GET"
 
       authorizations = client.bucket("authorizations").get("#{user}:#{token}").data
-      permission = category_permission(authorizations, category)
+      permission = directory_permission(authorizations, directory)
 
       halt 403 unless permission
       if ["PUT", "DELETE"].include? request_method
@@ -32,8 +32,8 @@ module RemoteStorage
       halt 403
     end
 
-    def get_data(user, category, key)
-      object = data_bucket.get("#{user}:#{category}:#{key}")
+    def get_data(user, directory, key)
+      object = data_bucket.get("#{user}:#{directory}:#{key}")
       headers["Content-Type"] = object.content_type
       headers["Last-Modified"] = object.last_modified.to_s(:rfc822)
       case object.content_type[/^[^;\s]+/]
@@ -59,8 +59,8 @@ module RemoteStorage
       return "{}"
     end
 
-    def put_data(user, category, key, data, content_type=nil)
-      object = data_bucket.new("#{user}:#{category}:#{key}")
+    def put_data(user, directory, key, data, content_type=nil)
+      object = data_bucket.new("#{user}:#{directory}:#{key}")
       object.content_type = content_type || "text/plain; charset=utf-8"
       data = JSON.parse(data) if content_type[/^[^;\s]+/] == "application/json"
       if serializer_for(object.content_type)
@@ -68,21 +68,21 @@ module RemoteStorage
       else
         object.raw_data = data
       end
-      directory_index = category == "" ? "/" : category
+      directory_index = directory == "" ? "/" : directory
       object.indexes.merge!({:user_id_bin => [user],
                              :directory_bin => [directory_index]})
       object.store
 
-      create_missing_directory_objects(user, category)
-      update_directory_object(user, category)
+      create_missing_directory_objects(user, directory)
+      update_directory_object(user, directory)
     rescue ::Riak::HTTPFailedRequest
       halt 422
     end
 
-    def delete_data(user, category, key)
-      riak_response = data_bucket.delete("#{user}:#{category}:#{key}")
-      if directory_entries(user, category).empty?
-        directory_bucket.delete "#{user}:#{category}"
+    def delete_data(user, directory, key)
+      riak_response = data_bucket.delete("#{user}:#{directory}:#{key}")
+      if directory_entries(user, directory).empty?
+        directory_bucket.delete "#{user}:#{directory}"
       end
       halt riak_response[:code]
     rescue ::Riak::HTTPFailedRequest
@@ -95,7 +95,7 @@ module RemoteStorage
       ::Riak::Serializers[content_type[/^[^;\s]+/]]
     end
 
-    def category_permission(authorizations, category)
+    def directory_permission(authorizations, directory)
       authorizations = authorizations.map do |auth|
         auth.index(":") ? auth.split(":") : [auth, "rw"]
       end
@@ -104,7 +104,7 @@ module RemoteStorage
       permission = authorizations[""]
 
       authorizations.each do |key, value|
-        if category.match key
+        if directory.match key
           if permission.nil? || permission == "r"
             permission = value
           end
@@ -171,13 +171,13 @@ module RemoteStorage
         run
     end
 
-    def create_missing_directory_objects(user, category)
-      parent_directories = category.split("/")
+    def create_missing_directory_objects(user, directory)
+      parent_directories = directory.split("/")
       parent_directories.pop
       while parent_directories.any?
-        directory = parent_directories.join("/")
-        unless directory_bucket.exist?("#{user}:#{directory}")
-          update_directory_object(user, directory)
+        parent_directory = parent_directories.join("/")
+        unless directory_bucket.exist?("#{user}:#{parent_directory}")
+          update_directory_object(user, parent_directory)
         end
         parent_directories.pop
       end
@@ -187,19 +187,20 @@ module RemoteStorage
       end
     end
 
-    def update_directory_object(user, category)
-      if category.match /\//
-        parent_directory = category[0..category.rindex("/")-1]
-      elsif category != ""
+    def update_directory_object(user, directory)
+      if directory.match /\//
+        parent_directory = directory[0..directory.rindex("/")-1]
+      elsif directory != ""
         parent_directory = "/"
       end
-      directory = directory_bucket.new("#{user}:#{category}")
-      directory.raw_data = ""
-      directory.indexes.merge!({:user_id_bin => [user]})
+
+      directory_object = directory_bucket.new("#{user}:#{directory}")
+      directory_object.raw_data = ""
+      directory_object.indexes.merge!({:user_id_bin => [user]})
       if parent_directory
-        directory.indexes.merge!({:directory_bin => [parent_directory]})
+        directory_object.indexes.merge!({:directory_bin => [parent_directory]})
       end
-      directory.store
+      directory_object.store
     end
 
   end
