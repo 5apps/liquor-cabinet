@@ -178,10 +178,10 @@ describe "Directories" do
 
       context "existing directory object" do
         before do
-          @directory = directory_bucket.new("jimmy:tasks/home")
-          @directory.content_type = "text/plain"
-          @directory.data = 2.seconds.ago.to_i.to_s
-          @directory.store
+          directory = directory_bucket.new("jimmy:tasks/home")
+          directory.content_type = "text/plain"
+          directory.data = 2.seconds.ago.to_i.to_s
+          directory.store
         end
 
         it "updates the timestamp of the directory" do
@@ -189,10 +189,10 @@ describe "Directories" do
 
           last_response.status.must_equal 200
 
-          @directory.reload
           object = data_bucket.get("jimmy:tasks/home:trash")
+          directory = directory_bucket.get("jimmy:tasks/home")
 
-          @directory.data.to_i.must_equal object.last_modified.to_i
+          directory.data.to_i.must_equal object.last_modified.to_i
         end
       end
     end
