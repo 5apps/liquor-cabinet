@@ -31,6 +31,11 @@ class LiquorCabinet < Sinatra::Base
     disable :protection
   end
 
+  configure :staging do
+    disable :logging
+    disable :protection
+  end
+
   ["/:user/*/:key", "/:user/:key", "/:user/*/", "/:user/"].each do |path|
     before path do
       headers 'Access-Control-Allow-Origin' => '*',
