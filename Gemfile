@@ -10,3 +10,7 @@ group :test do
   gem 'purdytest', :require => false
   gem 'm'
 end
+
+group :staging, :production do
+  gem "unicorn"
+end
