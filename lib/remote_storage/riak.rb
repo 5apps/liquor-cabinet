@@ -63,12 +63,11 @@ module RemoteStorage
     def put_data(user, directory, key, data, content_type=nil)
       object = data_bucket.new("#{user}:#{directory}:#{key}")
       object.content_type = content_type || "text/plain; charset=utf-8"
-      data = JSON.parse(data) if content_type[/^[^;\s]+/] == "application/json"
-      if serializer_for(object.content_type)
-        object.data = data
-      else
-        object.raw_data = data
+
+      unless set_object_data(object, data)
+        halt 422
       end
+
       directory_index = directory == "" ? "/" : directory
       object.indexes.merge!({:user_id_bin => [user],
                              :directory_bin => [directory_index]})
@@ -204,6 +203,21 @@ module RemoteStorage
         directory_object.indexes.merge!({:directory_bin => [parent_directory]})
       end
       directory_object.store
+    end
+
+    def set_object_data(object, data)
+      if object.content_type[/^[^;\s]+/] == "application/json"
+        data = "{}" if data.blank?
+        data = JSON.parse(data)
+      end
+
+      if serializer_for(object.content_type)
+        object.data = data
+      else
+        object.raw_data = data
+      end
+    rescue JSON::ParserError
+      return false
     end
 
   end

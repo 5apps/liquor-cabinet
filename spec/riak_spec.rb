@@ -173,6 +173,32 @@ describe "App with Riak backend" do
           last_response.content_type.must_equal "application/json; charset=UTF-8"
         end
       end
+
+      context "invalid JSON" do
+        context "empty body" do
+          before do
+            header "Content-Type", "application/json"
+            put "/jimmy/documents/jason", ""
+          end
+
+          it "saves an empty JSON object" do
+            last_response.status.must_equal 200
+            data_bucket.get("jimmy:documents:jason").data.must_be_kind_of Hash
+            data_bucket.get("jimmy:documents:jason").data.must_equal({})
+          end
+        end
+
+        context "unparsable JSON" do
+          before do
+            header "Content-Type", "application/json"
+            put "/jimmy/documents/jason", "foo"
+          end
+
+          it "returns a 422" do
+            last_response.status.must_equal 422
+          end
+        end
+      end
     end
 
     describe "DELETE" do
