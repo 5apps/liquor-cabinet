@@ -173,15 +173,9 @@ module RemoteStorage
     end
 
     def update_all_directory_objects(user, directory, timestamp)
-      parent_directories = directory.split("/")
-
-      while parent_directories.any?
-        parent_directory = parent_directories.join("/")
+      parent_directories_for(directory).each do |parent_directory|
         update_directory_object(user, parent_directory, timestamp)
-        parent_directories.pop
       end
-
-      update_directory_object(user, "", timestamp)
     end
 
     def update_directory_object(user, directory, timestamp)
@@ -202,11 +196,7 @@ module RemoteStorage
     end
 
     def delete_or_update_directory_objects(user, directory, timestamp)
-      parent_directories = directory.split("/")
-
-      while parent_directories.any?
-        parent_directory = parent_directories.join("/")
-
+      parent_directories_for(directory).each do |parent_directory|
         existing_files = directory_entries(user, parent_directory)
         existing_subdirectories = sub_directories(user, parent_directory)
 
@@ -215,14 +205,6 @@ module RemoteStorage
         else
           update_directory_object(user, parent_directory, timestamp)
         end
-
-        parent_directories.pop
-      end
-
-      if directory_entries(user, "").empty? && sub_directories(user, "").empty?
-        directory_bucket.delete "#{user}:"
-      else
-        update_directory_object(user, "", timestamp)
       end
     end
 
@@ -241,5 +223,16 @@ module RemoteStorage
       return false
     end
 
+    def parent_directories_for(directory)
+      directories = directory.split("/")
+      parent_directories = []
+
+      while directories.any?
+        parent_directories << directories.join("/")
+        directories.pop
+      end
+
+      parent_directories << ""
+    end
   end
 end
