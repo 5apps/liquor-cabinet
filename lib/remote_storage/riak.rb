@@ -82,9 +82,9 @@ module RemoteStorage
 
     def delete_data(user, directory, key)
       riak_response = data_bucket.delete("#{user}:#{directory}:#{key}")
-      if directory_entries(user, directory).empty?
-        directory_bucket.delete "#{user}:#{directory}"
-      end
+
+      delete_empty_directory_objects(user, directory)
+
       halt riak_response[:code]
     rescue ::Riak::HTTPFailedRequest
       halt 404
@@ -198,6 +198,27 @@ module RemoteStorage
         directory_object.indexes.merge!({:directory_bin => [parent_directory]})
       end
       directory_object.store
+    end
+
+    def delete_empty_directory_objects(user, directory)
+      parent_directories = directory.split("/")
+
+      while parent_directories.any?
+        parent_directory = parent_directories.join("/")
+
+        existing_files = directory_entries(user, parent_directory)
+        existing_subdirectories = sub_directories(user, parent_directory)
+
+        if existing_files.empty? && existing_subdirectories.empty?
+          directory_bucket.delete "#{user}:#{parent_directory}"
+        end
+
+        parent_directories.pop
+      end
+
+      if directory_entries(user, "").empty? && sub_directories(user, "").empty?
+        directory_bucket.delete "#{user}:"
+      end
     end
 
     def set_object_data(object, data)

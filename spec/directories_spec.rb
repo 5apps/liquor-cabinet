@@ -241,17 +241,40 @@ describe "Directories" do
     context "last file in directory" do
       before do
         directory_bucket.delete("jimmy:tasks")
-        put "/jimmy/tasks/trash", "take out the trash"
+        put "/jimmy/tasks/home/trash", "take out the trash"
       end
 
-      it "deletes the directory object" do
-        delete "/jimmy/tasks/trash"
+      it "deletes the directory objects for all empty parent directories" do
+        delete "/jimmy/tasks/home/trash"
 
         last_response.status.must_equal 204
 
         lambda {
+          directory_bucket.get("jimmy:tasks/home")
+        }.must_raise Riak::HTTPFailedRequest
+
+        lambda {
           directory_bucket.get("jimmy:tasks")
         }.must_raise Riak::HTTPFailedRequest
+
+        lambda {
+          directory_bucket.get("jimmy:")
+        }.must_raise Riak::HTTPFailedRequest
+      end
+    end
+
+    context "with additional files in directory" do
+      before do
+        put "/jimmy/tasks/home/trash", "take out the trash"
+        put "/jimmy/tasks/home/laundry/washing", "wash the clothes"
+      end
+
+      it "does not delete the directory objects for the parent directories" do
+        delete "/jimmy/tasks/home/trash"
+
+        directory_bucket.get("jimmy:tasks/home").wont_be_nil
+        directory_bucket.get("jimmy:tasks").wont_be_nil
+        directory_bucket.get("jimmy:").wont_be_nil
       end
     end
   end

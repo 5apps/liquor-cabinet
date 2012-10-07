@@ -264,10 +264,6 @@ describe "Permissions" do
         it "allows PUT requests" do
           put "/jimmy/1", "Gonna kick it root down"
 
-          # File.open('response.html', 'w') do |f|
-          #   f.write last_response.body
-          # end
-
           last_response.status.must_equal 200
           data_bucket.get("jimmy::1").data.must_equal "Gonna kick it root down"
         end
