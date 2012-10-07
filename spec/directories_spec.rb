@@ -88,7 +88,7 @@ describe "Directories" do
           put "/jimmy/tasks/private/projects/world-domination/start", "write a manifesto"
 
           object = data_bucket.get("jimmy:tasks/private/projects/world-domination:start")
-          directory.reload
+          directory = directory_bucket.get("jimmy:tasks")
 
           directory.data.to_i.must_equal object.last_modified.to_i
         end
