@@ -79,15 +79,18 @@ describe "Directories" do
           content["projects/"].to_s.length.must_be :>=, 10
         end
 
-        it "does not update existing directory objects" do
-          old_timestamp = (Time.now.to_i - 2).to_s
-          tasks_object = directory_bucket.get("jimmy:tasks")
-          tasks_object.data = old_timestamp
-          tasks_object.store
+        it "updates the timestamps of the existing directory objects" do
+          directory = directory_bucket.new("jimmy:tasks")
+          directory.content_type = "text/plain"
+          directory.data = 2.seconds.ago.to_i.to_s
+          directory.store
 
           put "/jimmy/tasks/private/projects/world-domination/start", "write a manifesto"
 
-          tasks_object.reload.data.must_equal old_timestamp
+          object = data_bucket.get("jimmy:tasks/private/projects/world-domination:start")
+          directory.reload
+
+          directory.data.to_i.must_equal object.last_modified.to_i
         end
       end
     end

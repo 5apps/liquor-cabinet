@@ -75,8 +75,7 @@ module RemoteStorage
 
       object.reload
       timestamp = object.last_modified.to_i
-      create_missing_directory_objects(user, directory, timestamp)
-      update_directory_object(user, directory, timestamp)
+      update_all_directory_objects(user, directory, timestamp)
     rescue ::Riak::HTTPFailedRequest
       halt 422
     end
@@ -172,20 +171,16 @@ module RemoteStorage
         run
     end
 
-    def create_missing_directory_objects(user, directory, timestamp)
+    def update_all_directory_objects(user, directory, timestamp)
       parent_directories = directory.split("/")
-      parent_directories.pop
+
       while parent_directories.any?
         parent_directory = parent_directories.join("/")
-        unless directory_bucket.exist?("#{user}:#{parent_directory}")
-          update_directory_object(user, parent_directory, timestamp)
-        end
+        update_directory_object(user, parent_directory, timestamp)
         parent_directories.pop
       end
 
-      unless directory_bucket.exist?("#{user}:")
-        update_directory_object(user, "", timestamp)
-      end
+      update_directory_object(user, "", timestamp)
     end
 
     def update_directory_object(user, directory, timestamp)
