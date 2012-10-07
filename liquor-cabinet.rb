@@ -42,6 +42,7 @@ class LiquorCabinet < Sinatra::Base
               'Access-Control-Allow-Methods' => 'GET, PUT, DELETE',
               'Access-Control-Allow-Headers' => 'Authorization, Content-Type, Origin'
       headers['Access-Control-Allow-Origin'] = env["HTTP_ORIGIN"] if env["HTTP_ORIGIN"]
+      headers['Cache-Control'] = 'no-cache'
 
       @user, @key = params[:user], params[:key]
       @directory = params[:splat] && params[:splat].first || ""
