@@ -83,7 +83,8 @@ module RemoteStorage
     def delete_data(user, directory, key)
       riak_response = data_bucket.delete("#{user}:#{directory}:#{key}")
 
-      delete_empty_directory_objects(user, directory)
+      timestamp = Time.now.to_i
+      delete_or_update_directory_objects(user, directory, timestamp)
 
       halt riak_response[:code]
     rescue ::Riak::HTTPFailedRequest
@@ -200,7 +201,7 @@ module RemoteStorage
       directory_object.store
     end
 
-    def delete_empty_directory_objects(user, directory)
+    def delete_or_update_directory_objects(user, directory, timestamp)
       parent_directories = directory.split("/")
 
       while parent_directories.any?
@@ -211,6 +212,8 @@ module RemoteStorage
 
         if existing_files.empty? && existing_subdirectories.empty?
           directory_bucket.delete "#{user}:#{parent_directory}"
+        else
+          update_directory_object(user, parent_directory, timestamp)
         end
 
         parent_directories.pop
@@ -218,6 +221,8 @@ module RemoteStorage
 
       if directory_entries(user, "").empty? && sub_directories(user, "").empty?
         directory_bucket.delete "#{user}:"
+      else
+        update_directory_object(user, "", timestamp)
       end
     end
 

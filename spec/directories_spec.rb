@@ -276,6 +276,26 @@ describe "Directories" do
         directory_bucket.get("jimmy:tasks").wont_be_nil
         directory_bucket.get("jimmy:").wont_be_nil
       end
+
+      describe "timestamps" do
+        before do
+          @old_timestamp = 2.seconds.ago.to_i
+
+          ["tasks/home", "tasks", ""].each do |dir|
+            directory = directory_bucket.get("jimmy:#{dir}")
+            directory.data = @old_timestamp.to_s
+            directory.store
+          end
+        end
+
+        it "updates the timestamp for the parent directories" do
+          delete "/jimmy/tasks/home/trash"
+
+          directory_bucket.get("jimmy:tasks/home").data.to_i.must_be :>, @old_timestamp
+          directory_bucket.get("jimmy:tasks").data.to_i.must_be :>, @old_timestamp
+          directory_bucket.get("jimmy:").data.to_i.must_be :>, @old_timestamp
+        end
+      end
     end
   end
 
