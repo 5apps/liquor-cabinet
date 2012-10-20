@@ -128,7 +128,7 @@ module RemoteStorage
 
       directory_entries(user, directory).each do |entry|
         timestamp = DateTime.rfc2822(entry["last_modified"]).to_i
-        listing.merge!({ entry["name"] => timestamp })
+        listing.merge!({ CGI.unescape(entry["name"]) => timestamp })
       end
 
       listing
@@ -146,7 +146,8 @@ module RemoteStorage
       map_query = <<-EOH
         function(v){
           keys = v.key.split(':');
-          key_name = keys[keys.length-1];
+          keys.splice(0, 2);
+          key_name = keys.join(':');
           last_modified_date = v.values[0]['metadata']['X-Riak-Last-Modified'];
           return [{
             name: key_name,

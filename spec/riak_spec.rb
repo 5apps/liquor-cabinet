@@ -174,6 +174,19 @@ describe "App with Riak backend" do
         end
       end
 
+      context "with escaped key" do
+        before do
+          put "/jimmy/documents/http%3A%2F%2F5apps.com", "super website"
+        end
+
+        it "delivers the data correctly" do
+          header "Authorization", "Bearer 123"
+          get "/jimmy/documents/http%3A%2F%2F5apps.com"
+
+          last_response.body.must_equal 'super website'
+        end
+      end
+
       context "invalid JSON" do
         context "empty body" do
           before do

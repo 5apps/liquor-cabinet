@@ -18,7 +18,7 @@ describe "Directories" do
 
     before do
       put "/jimmy/tasks/foo", "do the laundry"
-      put "/jimmy/tasks/bar", "do the laundry"
+      put "/jimmy/tasks/http%3A%2F%2F5apps.com", "prettify design"
     end
 
     it "lists the objects with a timestamp of the last modification" do
@@ -28,7 +28,7 @@ describe "Directories" do
       last_response.content_type.must_equal "application/json"
 
       content = JSON.parse(last_response.body)
-      content.must_include "bar"
+      content.must_include "http://5apps.com"
       content.must_include "foo"
       content["foo"].to_s.must_match /\d+/
       content["foo"].to_s.length.must_be :>=, 10
@@ -62,7 +62,7 @@ describe "Directories" do
 
         content = JSON.parse(last_response.body)
         content.must_include "foo"
-        content.must_include "bar"
+        content.must_include "http://5apps.com"
         content.must_include "home/"
         content["home/"].to_s.must_match /\d+/
         content["home/"].to_s.length.must_be :>=, 10
