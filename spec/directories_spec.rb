@@ -18,7 +18,7 @@ describe "Directories" do
 
     before do
       put "/jimmy/tasks/foo", "do the laundry"
-      put "/jimmy/tasks/bar", "do the laundry"
+      put "/jimmy/tasks/http%3A%2F%2F5apps.com", "prettify design"
     end
 
     it "lists the objects with a timestamp of the last modification" do
@@ -28,7 +28,7 @@ describe "Directories" do
       last_response.content_type.must_equal "application/json"
 
       content = JSON.parse(last_response.body)
-      content.must_include "bar"
+      content.must_include "http://5apps.com"
       content.must_include "foo"
       content["foo"].to_s.must_match /\d+/
       content["foo"].to_s.length.must_be :>=, 10
@@ -37,12 +37,14 @@ describe "Directories" do
     it "has a Last-Modifier header set" do
       get "/jimmy/tasks/"
 
+      last_response.status.must_equal 200
       last_response.headers["Last-Modified"].wont_be_nil
     end
 
     it "has CORS headers set" do
       get "/jimmy/tasks/"
 
+      last_response.status.must_equal 200
       last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
       last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
       last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin"
@@ -60,10 +62,34 @@ describe "Directories" do
 
         content = JSON.parse(last_response.body)
         content.must_include "foo"
-        content.must_include "bar"
+        content.must_include "http://5apps.com"
         content.must_include "home/"
         content["home/"].to_s.must_match /\d+/
         content["home/"].to_s.length.must_be :>=, 10
+      end
+
+      context "for a different user" do
+        before do
+          auth = auth_bucket.new("alice:321")
+          auth.data = [":r", "documents:r", "tasks:rw"]
+          auth.store
+
+          header "Authorization", "Bearer 321"
+
+          put "/alice/tasks/homework", "write an essay"
+        end
+
+        it "does not list the directories of jimmy" do
+          get "/alice/tasks/"
+
+          last_response.status.must_equal 200
+
+          content = JSON.parse(last_response.body)
+          content.wont_include "/"
+          content.wont_include "tasks/"
+          content.wont_include "home/"
+          content.must_include "homework"
+        end
       end
 
       context "sub-directories without objects" do
@@ -240,7 +266,6 @@ describe "Directories" do
   describe "DELETE file" do
     context "last file in directory" do
       before do
-        directory_bucket.delete("jimmy:tasks")
         put "/jimmy/tasks/home/trash", "take out the trash"
       end
 
