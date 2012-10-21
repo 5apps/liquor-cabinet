@@ -16,6 +16,7 @@ riak_config = YAML.load(config)[ENV['RACK_ENV']]['riak'].symbolize_keys
 set :riak_config, riak_config
 
 ::Riak.disable_list_keys_warnings = true
+::Riak.url_decoding = true
 
 def app
   LiquorCabinet

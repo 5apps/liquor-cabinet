@@ -5,6 +5,8 @@ require "cgi"
 module RemoteStorage
   module Riak
 
+    ::Riak.url_decoding = true
+
     def client
       @client ||= ::Riak::Client.new(LiquorCabinet.config['riak'].symbolize_keys)
     end
@@ -126,7 +128,7 @@ module RemoteStorage
 
       directory_entries(user, directory).each do |entry|
         timestamp = DateTime.rfc2822(entry["last_modified"]).to_i
-        listing.merge!({ entry["name"] => timestamp })
+        listing.merge!({ CGI.unescape(entry["name"]) => timestamp })
       end
 
       listing
@@ -134,10 +136,18 @@ module RemoteStorage
 
     def directory_entries(user, directory)
       directory = "/" if directory == ""
+
+      user_keys = data_bucket.get_index("user_id_bin", user)
+      directory_keys = data_bucket.get_index("directory_bin", directory)
+
+      all_keys = user_keys & directory_keys
+      return [] if all_keys.empty?
+
       map_query = <<-EOH
         function(v){
           keys = v.key.split(':');
-          key_name = keys[keys.length-1];
+          keys.splice(0, 2);
+          key_name = keys.join(':');
           last_modified_date = v.values[0]['metadata']['X-Riak-Last-Modified'];
           return [{
             name: key_name,
@@ -145,15 +155,26 @@ module RemoteStorage
           }];
         }
       EOH
-      objects = ::Riak::MapReduce.new(client).
-        index("user_data", "user_id_bin", user).
-        index("user_data", "directory_bin", directory).
+
+      map_reduce = ::Riak::MapReduce.new(client)
+      all_keys.each do |key|
+        map_reduce.add("user_data", key)
+      end
+
+      map_reduce.
         map(map_query, :keep => true).
         run
     end
 
     def sub_directories(user, directory)
       directory = "/" if directory == ""
+
+      user_keys = directory_bucket.get_index("user_id_bin", user)
+      directory_keys = directory_bucket.get_index("directory_bin", directory)
+
+      all_keys = user_keys & directory_keys
+      return [] if all_keys.empty?
+
       map_query = <<-EOH
         function(v){
           keys = v.key.split(':');
@@ -165,9 +186,13 @@ module RemoteStorage
           }];
         }
       EOH
-      objects = ::Riak::MapReduce.new(client).
-        index("rs_directories", "user_id_bin", user).
-        index("rs_directories", "directory_bin", directory).
+
+      map_reduce = ::Riak::MapReduce.new(client)
+      all_keys.each do |key|
+        map_reduce.add("rs_directories", key)
+      end
+
+      map_reduce.
         map(map_query, :keep => true).
         run
     end
