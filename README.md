@@ -7,11 +7,11 @@ remoteStorage-compatible storage provider API, based on Sinatra and currently
 using Riak as backend. You can use it on its own, or e.g. mount it from a Rails
 application.
 
-It's merely implementing the storage API, not including the Webfinger and Oauth
+It's merely implementing the storage API, not including the Webfinger and OAuth
 parts of remoteStorage. You have to set the authorization keys/values in the
 database yourself.
 
-If you have any questions about this thing, drop by #unhosted on Freenode, and
+If you have any questions about this thing, drop by #remotestorage on Freenode, and
 we'll happily answer them.
 
 ## Contributing
