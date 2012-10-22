@@ -130,7 +130,8 @@ module RemoteStorage
 
       directory_entries(user, directory).each do |entry|
         timestamp = DateTime.rfc2822(entry["last_modified"]).to_i
-        listing.merge!({ CGI.unescape(entry["name"]) => timestamp })
+        entry_name = CGI.unescape(entry["name"])
+        listing.merge!({ CGI.escape(entry_name) => timestamp })
       end
 
       listing

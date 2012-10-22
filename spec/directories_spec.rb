@@ -28,7 +28,7 @@ describe "Directories" do
       last_response.content_type.must_equal "application/json"
 
       content = JSON.parse(last_response.body)
-      content.must_include "http://5apps.com"
+      content.must_include "http%3A%2F%2F5apps.com"
       content.must_include "foo"
       content["foo"].must_be_kind_of Integer
       content["foo"].to_s.must_match /\d+/
@@ -63,7 +63,7 @@ describe "Directories" do
 
         content = JSON.parse(last_response.body)
         content.must_include "foo"
-        content.must_include "http://5apps.com"
+        content.must_include "http%3A%2F%2F5apps.com"
         content.must_include "home/"
         content["home/"].must_be_kind_of Integer
         content["home/"].to_s.must_match /\d+/
