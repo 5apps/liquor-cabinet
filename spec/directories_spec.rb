@@ -30,6 +30,7 @@ describe "Directories" do
       content = JSON.parse(last_response.body)
       content.must_include "http://5apps.com"
       content.must_include "foo"
+      content["foo"].must_be_kind_of Integer
       content["foo"].to_s.must_match /\d+/
       content["foo"].to_s.length.must_be :>=, 10
     end
@@ -64,6 +65,7 @@ describe "Directories" do
         content.must_include "foo"
         content.must_include "http://5apps.com"
         content.must_include "home/"
+        content["home/"].must_be_kind_of Integer
         content["home/"].to_s.must_match /\d+/
         content["home/"].to_s.length.must_be :>=, 10
       end

@@ -125,7 +125,7 @@ module RemoteStorage
 
       sub_directories(user, directory).each do |entry|
         directory_name = CGI.unescape(entry["name"]).split("/").last
-        listing.merge!({ "#{directory_name}/" => entry["timestamp"] })
+        listing.merge!({ "#{directory_name}/" => entry["timestamp"].to_i })
       end
 
       directory_entries(user, directory).each do |entry|
