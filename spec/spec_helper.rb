@@ -16,7 +16,6 @@ riak_config = YAML.load(config)[ENV['RACK_ENV']]['riak'].symbolize_keys
 set :riak_config, riak_config
 
 ::Riak.disable_list_keys_warnings = true
-::Riak.url_decoding = true
 
 def app
   LiquorCabinet
@@ -47,6 +46,12 @@ end
 def wait_a_second
   now = Time.now.to_i
   while Time.now.to_i == now; end
+end
+
+def write_last_response_to_file(filename = "last_response.html")
+  File.open(filename, "w") do |f|
+    f.write last_response.body
+  end
 end
 
 alias context describe
