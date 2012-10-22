@@ -72,7 +72,7 @@ module RemoteStorage
 
       directory_index = directory == "" ? "/" : directory
       object.indexes.merge!({:user_id_bin => [user],
-                             :directory_bin => [directory_index]})
+                             :directory_bin => [CGI.escape(directory_index)]})
       object.store
 
       object.reload
@@ -215,7 +215,7 @@ module RemoteStorage
       directory_object.data = timestamp.to_s
       directory_object.indexes.merge!({:user_id_bin => [user]})
       if parent_directory
-        directory_object.indexes.merge!({:directory_bin => [parent_directory]})
+        directory_object.indexes.merge!({:directory_bin => [CGI.escape(parent_directory)]})
       end
       directory_object.store
     end

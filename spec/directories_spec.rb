@@ -196,7 +196,7 @@ describe "Directories" do
           put "/jimmy/tasks/home/trash", "take out the trash"
 
           object = directory_bucket.get("jimmy:tasks")
-          object.indexes["directory_bin"].must_include "/"
+          object.indexes["directory_bin"].must_include CGI.escape("/")
           object.data.wont_be_nil
 
           object = directory_bucket.get("jimmy:")
