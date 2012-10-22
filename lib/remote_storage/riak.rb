@@ -78,6 +78,8 @@ module RemoteStorage
       object.reload
       timestamp = object.last_modified.to_i
       update_all_directory_objects(user, directory, timestamp)
+
+      halt 200
     rescue ::Riak::HTTPFailedRequest
       halt 422
     end

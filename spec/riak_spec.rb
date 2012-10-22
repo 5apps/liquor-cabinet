@@ -84,6 +84,7 @@ describe "App with Riak backend" do
 
         it "saves the value" do
           last_response.status.must_equal 200
+          last_response.body.must_equal ""
           data_bucket.get("jimmy:documents:bar").data.must_equal "another text"
         end
 
