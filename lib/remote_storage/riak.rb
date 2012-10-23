@@ -36,8 +36,10 @@ module RemoteStorage
 
     def get_data(user, directory, key)
       object = data_bucket.get("#{user}:#{directory}:#{key}")
+
       headers["Content-Type"] = object.content_type
-      headers["Last-Modified"] = object.last_modified.to_s(:rfc822)
+      headers["Last-Modified"] = last_modified_date_for(object)
+
       case object.content_type[/^[^;\s]+/]
       when "application/json"
         return object.data.to_json
@@ -51,6 +53,7 @@ module RemoteStorage
     def get_directory_listing(user, directory)
       directory_object = directory_bucket.get("#{user}:#{directory}")
       timestamp = directory_object.data.to_i
+      timestamp /= 1000 if timestamp.to_s.length == 13
       headers["Content-Type"] = "application/json"
       headers["Last-Modified"] = Time.at(timestamp).to_s(:rfc822)
 
@@ -73,10 +76,10 @@ module RemoteStorage
       directory_index = directory == "" ? "/" : directory
       object.indexes.merge!({:user_id_bin => [user],
                              :directory_bin => [CGI.escape(directory_index)]})
+      timestamp = (Time.now.to_f * 1000).to_i
+      object.meta["timestamp"] = timestamp
       object.store
 
-      object.reload
-      timestamp = object.last_modified.to_i
       update_all_directory_objects(user, directory, timestamp)
 
       halt 200
@@ -99,6 +102,14 @@ module RemoteStorage
 
     def serializer_for(content_type)
       ::Riak::Serializers[content_type[/^[^;\s]+/]]
+    end
+
+    def last_modified_date_for(object)
+      timestamp = object.meta["timestamp"]
+      timestamp = (timestamp[0].to_i / 1000) if timestamp
+      last_modified = timestamp ? Time.at(timestamp) : object.last_modified
+
+      last_modified.to_s(:rfc822)
     end
 
     def directory_permission(authorizations, directory)
@@ -125,12 +136,20 @@ module RemoteStorage
 
       sub_directories(user, directory).each do |entry|
         directory_name = CGI.unescape(entry["name"]).split("/").last
-        listing.merge!({ "#{directory_name}/" => entry["timestamp"].to_i })
+        timestamp = entry["timestamp"].to_i
+        timestamp /= 1000 if timestamp.to_s.length == 13
+
+        listing.merge!({ "#{directory_name}/" => timestamp })
       end
 
       directory_entries(user, directory).each do |entry|
-        timestamp = DateTime.rfc2822(entry["last_modified"]).to_i
         entry_name = CGI.unescape(entry["name"])
+        timestamp = if entry["timestamp"]
+                      entry["timestamp"].to_i
+                    else
+                      DateTime.rfc2822(entry["last_modified"]).to_i
+                    end
+
         listing.merge!({ CGI.escape(entry_name) => timestamp })
       end
 
@@ -152,9 +171,11 @@ module RemoteStorage
           keys.splice(0, 2);
           key_name = keys.join(':');
           last_modified_date = v.values[0]['metadata']['X-Riak-Last-Modified'];
+          timestamp = v.values[0]['metadata']['X-Riak-Meta']['X-Riak-Meta-Timestamp'];
           return [{
             name: key_name,
             last_modified: last_modified_date,
+            timestamp: timestamp,
           }];
         }
       EOH

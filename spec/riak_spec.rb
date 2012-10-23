@@ -14,13 +14,23 @@ describe "App with Riak backend" do
       object.content_type = "text/plain"
       object.data = "some text data"
       object.store
+
+      get "/jimmy/public/foo"
     end
 
     it "returns the value on all get requests" do
-      get "/jimmy/public/foo"
-
       last_response.status.must_equal 200
       last_response.body.must_equal "some text data"
+    end
+
+    it "has a Last-Modified header set" do
+      last_response.status.must_equal 200
+      last_response.headers["Last-Modified"].wont_be_nil
+
+      now = Time.now
+      last_modified = DateTime.parse(last_response.headers["Last-Modified"])
+      last_modified.year.must_equal now.year
+      last_modified.day.must_equal now.day
     end
   end
 

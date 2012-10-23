@@ -39,6 +39,11 @@ describe "Directories" do
 
       last_response.status.must_equal 200
       last_response.headers["Last-Modified"].wont_be_nil
+
+      now = Time.now
+      last_modified = DateTime.parse(last_response.headers["Last-Modified"])
+      last_modified.year.must_equal now.year
+      last_modified.day.must_equal now.day
     end
 
     it "has CORS headers set" do
@@ -116,7 +121,7 @@ describe "Directories" do
           object = data_bucket.get("jimmy:tasks/private/projects/world-domination:start")
           directory = directory_bucket.get("jimmy:tasks")
 
-          directory.data.to_i.must_equal object.last_modified.to_i
+          directory.data.to_i.must_equal object.meta['timestamp'][0].to_i
         end
       end
     end
@@ -182,7 +187,7 @@ describe "Directories" do
           directory = directory_bucket.get("jimmy:tasks/home")
 
           directory.data.wont_be_nil
-          directory.data.to_i.must_equal object.last_modified.to_i
+          directory.data.to_i.must_equal object.meta['timestamp'][0].to_i
         end
 
         it "sets the correct index for the directory object" do
@@ -221,7 +226,7 @@ describe "Directories" do
           object = data_bucket.get("jimmy:tasks/home:trash")
           directory = directory_bucket.get("jimmy:tasks/home")
 
-          directory.data.to_i.must_equal object.last_modified.to_i
+          directory.data.to_i.must_equal object.meta['timestamp'][0].to_i
         end
       end
     end
