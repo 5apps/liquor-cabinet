@@ -31,7 +31,7 @@ describe "Directories" do
       content.must_include "http%3A%2F%2F5apps.com"
       content.must_include "foo"
       content["foo"].must_be_kind_of Integer
-      content["foo"].to_s.length.must_be :>=, 10
+      content["foo"].to_s.length.must_equal 13
     end
 
     it "has a Last-Modifier header set" do
@@ -70,7 +70,7 @@ describe "Directories" do
         content.must_include "http%3A%2F%2F5apps.com"
         content.must_include "home/"
         content["home/"].must_be_kind_of Integer
-        content["home/"].to_s.length.must_be :>=, 10
+        content["home/"].to_s.length.must_equal 13
       end
 
       context "for a different user" do
@@ -107,7 +107,7 @@ describe "Directories" do
           content = JSON.parse(last_response.body)
           content.must_include "projects/"
           content["projects/"].must_be_kind_of Integer
-          content["projects/"].to_s.length.must_be :>=, 10
+          content["projects/"].to_s.length.must_equal 13
         end
 
         it "updates the timestamps of the existing directory objects" do
@@ -139,7 +139,7 @@ describe "Directories" do
         content = JSON.parse(last_response.body)
         content.must_include "laundry"
         content["laundry"].must_be_kind_of Integer
-        content["laundry"].to_s.length.must_be :>=, 10
+        content["laundry"].to_s.length.must_equal 13
       end
     end
 
@@ -172,7 +172,7 @@ describe "Directories" do
         content.must_include "root-2"
         content.must_include "tasks/"
         content["tasks/"].must_be_kind_of Integer
-        content["tasks/"].to_s.length.must_be :>=, 10
+        content["tasks/"].to_s.length.must_equal 13
       end
     end
   end

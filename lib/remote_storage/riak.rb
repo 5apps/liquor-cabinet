@@ -137,7 +137,6 @@ module RemoteStorage
       sub_directories(user, directory).each do |entry|
         directory_name = CGI.unescape(entry["name"]).split("/").last
         timestamp = entry["timestamp"].to_i
-        timestamp /= 1000 if timestamp.to_s.length == 13
 
         listing.merge!({ "#{directory_name}/" => timestamp })
       end
