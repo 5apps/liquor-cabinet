@@ -10,5 +10,5 @@ notifications:
   webhooks:
     urls:
       - http://hook-juggler.heroku.com/hooks/travis
-    on_success: change
+    on_success: always
     on_failure: always
