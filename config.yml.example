@@ -1,11 +1,21 @@
-development:
+defaults: &defaults
   riak:
     host: localhost
     http_port: 8098
+  buckets:
+    data: "user_data"
+    directories: "rs_directories"
+    authorizations: "authorizations"
+
+development:
+  <<: *defaults
 
 test:
-  riak:
-    host: localhost
-    http_port: 8098
+  <<: *defaults
+  buckets:
+    data: "user_data_test"
+    directories: "rs_directories_test"
+    authorizations: "authorizations_test"
 
 production:
+  <<: *defaults

@@ -11,9 +11,10 @@ require 'riak'
 set :environment, :test
 ENV["RACK_ENV"] = "test"
 
-config = File.read(File.expand_path('../config.yml', File.dirname(__FILE__)))
-riak_config = YAML.load(config)[ENV['RACK_ENV']]['riak'].symbolize_keys
-set :riak_config, riak_config
+config_file = File.read(File.expand_path('../config.yml', File.dirname(__FILE__)))
+config = YAML.load(config_file)[ENV['RACK_ENV']]
+set :riak_config, config['riak'].symbolize_keys
+set :bucket_config, config['buckets']
 
 ::Riak.disable_list_keys_warnings = true
 
@@ -26,15 +27,15 @@ def storage_client
 end
 
 def data_bucket
-  @data_bucket ||= storage_client.bucket("user_data")
+  @data_bucket ||= storage_client.bucket(settings.bucket_config['data'])
 end
 
 def auth_bucket
-  @auth_bucket ||= storage_client.bucket("authorizations")
+  @auth_bucket ||= storage_client.bucket(settings.bucket_config['authorizations'])
 end
 
 def directory_bucket
-  @directory_bucket ||= storage_client.bucket("rs_directories")
+  @directory_bucket ||= storage_client.bucket(settings.bucket_config['directories'])
 end
 
 def purge_all_buckets

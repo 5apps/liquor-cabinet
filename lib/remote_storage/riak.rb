@@ -12,18 +12,22 @@ module RemoteStorage
     end
 
     def data_bucket
-      @data_bucket ||= client.bucket("user_data")
+      @data_bucket ||= client.bucket(LiquorCabinet.config['buckets']['data'])
     end
 
     def directory_bucket
-      @directory_bucket ||= client.bucket("rs_directories")
+      @directory_bucket ||= client.bucket(LiquorCabinet.config['buckets']['directories'])
+    end
+
+    def auth_bucket
+      @auth_bucket ||= client.bucket(LiquorCabinet.config['buckets']['authorizations'])
     end
 
     def authorize_request(user, directory, token)
       request_method = env["REQUEST_METHOD"]
       return true if directory.split("/").first == "public" && request_method == "GET"
 
-      authorizations = client.bucket("authorizations").get("#{user}:#{token}").data
+      authorizations = auth_bucket.get("#{user}:#{token}").data
       permission = directory_permission(authorizations, directory)
 
       halt 403 unless permission
@@ -181,7 +185,7 @@ module RemoteStorage
 
       map_reduce = ::Riak::MapReduce.new(client)
       all_keys.each do |key|
-        map_reduce.add("user_data", key)
+        map_reduce.add(data_bucket.name, key)
       end
 
       map_reduce.
@@ -212,7 +216,7 @@ module RemoteStorage
 
       map_reduce = ::Riak::MapReduce.new(client)
       all_keys.each do |key|
-        map_reduce.add("rs_directories", key)
+        map_reduce.add(directory_bucket.name, key)
       end
 
       map_reduce.
