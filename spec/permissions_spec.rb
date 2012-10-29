@@ -8,8 +8,8 @@ describe "Permissions" do
     purge_all_buckets
   end
 
-  describe "public data" do
-    describe "GET" do
+  describe "GET" do
+    context "public data" do
       before do
         object = data_bucket.new("jimmy:public:foo")
         object.content_type = "text/plain"
@@ -38,10 +38,8 @@ describe "Permissions" do
         last_response.body.must_equal "some text data"
       end
     end
-  end
 
-  describe "private data" do
-    describe "GET" do
+    context "private data" do
       before do
         object = data_bucket.new("jimmy:documents:foo")
         object.content_type = "text/plain"
@@ -65,7 +63,7 @@ describe "Permissions" do
         header "Authorization", "Bearer 123"
       end
 
-      describe "when authorized" do
+      context "when authorized" do
         it "returns the value for a key in a top-level directory" do
           get "/jimmy/documents/foo"
 
@@ -81,7 +79,7 @@ describe "Permissions" do
         end
       end
 
-      describe "when not authorized" do
+      context "when not authorized" do
         it "returns a 403 for a key in a top-level directory" do
           get "/jimmy/confidential/bar"
 
@@ -89,119 +87,119 @@ describe "Permissions" do
         end
       end
     end
+  end
 
-    describe "PUT" do
-      before do
-        auth = auth_bucket.new("jimmy:123")
-        auth.data = ["documents:r", "contacts:rw", "tasks:r", "tasks/home:rw"]
-        auth.store
+  describe "PUT" do
+    before do
+      auth = auth_bucket.new("jimmy:123")
+      auth.data = ["documents:r", "contacts:rw", "tasks:r", "tasks/home:rw"]
+      auth.store
 
-        header "Authorization", "Bearer 123"
+      header "Authorization", "Bearer 123"
+    end
+
+    context "to a top-level directory" do
+      it "saves the value when there are write permissions" do
+        put "/jimmy/contacts/1", "John Doe"
+
+        last_response.status.must_equal 200
+        data_bucket.get("jimmy:contacts:1").data.must_equal "John Doe"
       end
 
-      describe "to a top-level directory" do
-        it "saves the value when there are write permissions" do
-          put "/jimmy/contacts/1", "John Doe"
+      it "returns a 403 when there are read permissions only" do
+        put "/jimmy/documents/foo", "some text"
 
-          last_response.status.must_equal 200
-          data_bucket.get("jimmy:contacts:1").data.must_equal "John Doe"
-        end
-
-        it "returns a 403 when there are read permissions only" do
-          put "/jimmy/documents/foo", "some text"
-
-          last_response.status.must_equal 403
-        end
-      end
-
-      describe "to a sub-directory" do
-        it "saves the value when there are direct write permissions" do
-          put "/jimmy/tasks/home/1", "take out the trash"
-
-          last_response.status.must_equal 200
-          data_bucket.get("jimmy:tasks/home:1").data.must_equal "take out the trash"
-        end
-
-        it "saves the value when there are write permissions for a parent directory" do
-          put "/jimmy/contacts/family/1", "Bobby Brother"
-
-          last_response.status.must_equal 200
-          data_bucket.get("jimmy:contacts/family:1").data.must_equal "Bobby Brother"
-        end
-
-        it "returns a 403 when there are read permissions only" do
-          put "/jimmy/documents/business/1", "some text"
-
-          last_response.status.must_equal 403
-        end
+        last_response.status.must_equal 403
       end
     end
 
-    describe "DELETE" do
+    context "to a sub-directory" do
+      it "saves the value when there are direct write permissions" do
+        put "/jimmy/tasks/home/1", "take out the trash"
+
+        last_response.status.must_equal 200
+        data_bucket.get("jimmy:tasks/home:1").data.must_equal "take out the trash"
+      end
+
+      it "saves the value when there are write permissions for a parent directory" do
+        put "/jimmy/contacts/family/1", "Bobby Brother"
+
+        last_response.status.must_equal 200
+        data_bucket.get("jimmy:contacts/family:1").data.must_equal "Bobby Brother"
+      end
+
+      it "returns a 403 when there are read permissions only" do
+        put "/jimmy/documents/business/1", "some text"
+
+        last_response.status.must_equal 403
+      end
+    end
+  end
+
+  describe "DELETE" do
+    before do
+      auth = auth_bucket.new("jimmy:123")
+      auth.data = ["documents:r", "tasks:rw"]
+      auth.store
+
+      header "Authorization", "Bearer 123"
+    end
+
+    context "when authorized" do
       before do
-        auth = auth_bucket.new("jimmy:123")
-        auth.data = ["documents:r", "tasks:rw"]
-        auth.store
+        object = data_bucket.new("jimmy:tasks:1")
+        object.content_type = "text/plain"
+        object.data = "do the laundry"
+        object.store
 
-        header "Authorization", "Bearer 123"
+        object = data_bucket.new("jimmy:tasks/home:1")
+        object.content_type = "text/plain"
+        object.data = "take out the trash"
+        object.store
       end
 
-      describe "when authorized" do
-        before do
-          object = data_bucket.new("jimmy:tasks:1")
-          object.content_type = "text/plain"
-          object.data = "do the laundry"
-          object.store
+      it "removes the key from a top-level directory" do
+        delete "/jimmy/tasks/1"
 
-          object = data_bucket.new("jimmy:tasks/home:1")
-          object.content_type = "text/plain"
-          object.data = "take out the trash"
-          object.store
-        end
-
-        it "removes the key from a top-level directory" do
-          delete "/jimmy/tasks/1"
-
-          last_response.status.must_equal 204
-          lambda {
-            data_bucket.get("jimmy:tasks:1")
-          }.must_raise Riak::HTTPFailedRequest
-        end
-
-        it "removes the key from a top-level directory" do
-          delete "/jimmy/tasks/home/1"
-
-          last_response.status.must_equal 204
-          lambda {
-            data_bucket.get("jimmy:tasks/home:1")
-          }.must_raise Riak::HTTPFailedRequest
-        end
+        last_response.status.must_equal 204
+        lambda {
+          data_bucket.get("jimmy:tasks:1")
+        }.must_raise Riak::HTTPFailedRequest
       end
 
-      describe "when not authorized" do
-        before do
-          object = data_bucket.new("jimmy:documents:private")
-          object.content_type = "text/plain"
-          object.data = "some private, authorized text data"
-          object.store
+      it "removes the key from a top-level directory" do
+        delete "/jimmy/tasks/home/1"
 
-          object = data_bucket.new("jimmy:documents/business:foo")
-          object.content_type = "text/plain"
-          object.data = "some private, authorized text data"
-          object.store
-        end
+        last_response.status.must_equal 204
+        lambda {
+          data_bucket.get("jimmy:tasks/home:1")
+        }.must_raise Riak::HTTPFailedRequest
+      end
+    end
 
-        it "returns a 403 for a key in a top-level directory" do
-          delete "/jimmy/documents/private"
+    context "when not authorized" do
+      before do
+        object = data_bucket.new("jimmy:documents:private")
+        object.content_type = "text/plain"
+        object.data = "some private, authorized text data"
+        object.store
 
-          last_response.status.must_equal 403
-        end
+        object = data_bucket.new("jimmy:documents/business:foo")
+        object.content_type = "text/plain"
+        object.data = "some private, authorized text data"
+        object.store
+      end
 
-        it "returns a 403 for a key in a sub-directory" do
-          delete "/jimmy/documents/business/foo"
+      it "returns a 403 for a key in a top-level directory" do
+        delete "/jimmy/documents/private"
 
-          last_response.status.must_equal 403
-        end
+        last_response.status.must_equal 403
+      end
+
+      it "returns a 403 for a key in a sub-directory" do
+        delete "/jimmy/documents/business/foo"
+
+        last_response.status.must_equal 403
       end
     end
   end
@@ -214,7 +212,7 @@ describe "Permissions" do
       object.store
     end
 
-    describe "write all" do
+    context "write all" do
       before do
         auth = auth_bucket.new("jimmy:123")
         auth.data = [":rw", "documents:r"]
@@ -279,7 +277,7 @@ describe "Permissions" do
       end
     end
 
-    describe "read all" do
+    context "read all" do
       before do
         auth = auth_bucket.new("jimmy:123")
         auth.data = [":r", "contacts:rw"]
