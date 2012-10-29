@@ -23,9 +23,12 @@ module RemoteStorage
       @auth_bucket ||= client.bucket(LiquorCabinet.config['buckets']['authorizations'])
     end
 
-    def authorize_request(user, directory, token)
+    def authorize_request(user, directory, token, listing=false)
       request_method = env["REQUEST_METHOD"]
-      return true if directory.split("/").first == "public" && request_method == "GET"
+
+      if directory.split("/").first == "public"
+        return true if request_method == "GET" && !listing
+      end
 
       authorizations = auth_bucket.get("#{user}:#{token}").data
       permission = directory_permission(authorizations, directory)
@@ -125,10 +128,11 @@ module RemoteStorage
       permission = authorizations[""]
 
       authorizations.each do |key, value|
-        if directory.match key
+        if directory.match /^(public\/)?#{key}(\/|$)/
           if permission.nil? || permission == "r"
             permission = value
           end
+          return permission if permission == "rw"
         end
       end
 

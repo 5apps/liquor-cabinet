@@ -15,7 +15,6 @@ describe "Directories" do
   end
 
   describe "GET listing" do
-
     before do
       put "/jimmy/tasks/foo", "do the laundry"
       put "/jimmy/tasks/http%3A%2F%2F5apps.com", "prettify design"
@@ -173,6 +172,62 @@ describe "Directories" do
         content.must_include "tasks/"
         content["tasks/"].must_be_kind_of Integer
         content["tasks/"].to_s.length.must_equal 13
+      end
+    end
+
+    context "for the public directory" do
+      before do
+        auth = auth_bucket.new("jimmy:123")
+        auth.data = ["documents:r", "bookmarks:rw"]
+        auth.store
+
+        put "/jimmy/public/bookmarks/5apps", "http://5apps.com"
+      end
+
+      context "when authorized for the category" do
+        it "lists the files" do
+          get "/jimmy/public/bookmarks/"
+
+          last_response.status.must_equal 200
+
+          content = JSON.parse(last_response.body)
+          content.must_include "5apps"
+        end
+      end
+
+      context "when directly authorized for the public directory" do
+        before do
+          auth = auth_bucket.new("jimmy:123")
+          auth.data = ["documents:r", "public/bookmarks:rw"]
+          auth.store
+        end
+
+        it "lists the files" do
+          get "/jimmy/public/bookmarks/"
+
+          last_response.status.must_equal 200
+
+          content = JSON.parse(last_response.body)
+          content.must_include "5apps"
+        end
+      end
+
+      context "when not authorized" do
+        before do
+          auth_bucket.delete("jimmy:123")
+        end
+
+        it "does not allow a directory listing of the public root" do
+          get "/jimmy/public/"
+
+          last_response.status.must_equal 403
+        end
+
+        it "does not allow a directory listing of a sub-directory" do
+          get "/jimmy/public/bookmarks/"
+
+          last_response.status.must_equal 403
+        end
       end
     end
   end

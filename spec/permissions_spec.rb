@@ -134,6 +134,32 @@ describe "Permissions" do
         last_response.status.must_equal 403
       end
     end
+
+    context "to the public directory" do
+      context "when authorized for the corresponding category" do
+        it "saves the value" do
+          put "/jimmy/public/contacts/foo", "Foo Bar"
+
+          last_response.status.must_equal 200
+          data_bucket.get("jimmy:public/contacts:foo").data.must_equal "Foo Bar"
+        end
+
+        it "saves the value to a sub-directory" do
+          put "/jimmy/public/contacts/family/foo", "Foo Bar"
+
+          last_response.status.must_equal 200
+          data_bucket.get("jimmy:public/contacts/family:foo").data.must_equal "Foo Bar"
+        end
+      end
+
+      context "when not authorized for the corresponding category" do
+        it "returns a 403" do
+          put "/jimmy/public/documents/foo", "Foo Bar"
+
+          last_response.status.must_equal 403
+        end
+      end
+    end
   end
 
   describe "DELETE" do
@@ -175,6 +201,24 @@ describe "Permissions" do
           data_bucket.get("jimmy:tasks/home:1")
         }.must_raise Riak::HTTPFailedRequest
       end
+
+      context "public directory" do
+        before do
+          object = data_bucket.new("jimmy:public/tasks:open")
+          object.content_type = "text/plain"
+          object.data = "hello world"
+          object.store
+        end
+
+        it "removes the key" do
+          delete "/jimmy/public/tasks/open"
+
+          last_response.status.must_equal 204
+          lambda {
+            data_bucket.get("jimmy:public/tasks:open")
+          }.must_raise Riak::HTTPFailedRequest
+        end
+      end
     end
 
     context "when not authorized" do
@@ -200,6 +244,21 @@ describe "Permissions" do
         delete "/jimmy/documents/business/foo"
 
         last_response.status.must_equal 403
+      end
+
+      context "public directory" do
+        before do
+          object = data_bucket.new("jimmy:public/documents:foo")
+          object.content_type = "text/plain"
+          object.data = "some private, authorized text data"
+          object.store
+        end
+
+        it "returns a 403" do
+          delete "/jimmy/public/documents/foo"
+
+          last_response.status.must_equal 403
+        end
       end
     end
   end
@@ -275,6 +334,37 @@ describe "Permissions" do
           }.must_raise Riak::HTTPFailedRequest
         end
       end
+
+      context "public directory" do
+        before do
+          object = data_bucket.new("jimmy:public/tasks:hello")
+          object.content_type = "text/plain"
+          object.data = "Hello World"
+          object.store
+        end
+
+        it "allows GET requests" do
+          get "/jimmy/public/tasks/"
+
+          last_response.status.must_equal 200
+        end
+
+        it "allows PUT requests" do
+          put "/jimmy/public/1", "Hello World"
+
+          last_response.status.must_equal 200
+          data_bucket.get("jimmy:public:1").data.must_equal "Hello World"
+        end
+
+        it "allows DELETE requests" do
+          delete "/jimmy/public/tasks/hello"
+
+          last_response.status.must_equal 204
+          lambda {
+            data_bucket.get("jimmy:public/tasks:hello")
+          }.must_raise Riak::HTTPFailedRequest
+        end
+      end
     end
 
     context "read all" do
@@ -303,6 +393,33 @@ describe "Permissions" do
         delete "/jimmy/documents/very/interesting/text"
 
         last_response.status.must_equal 403
+      end
+
+      context "public directory" do
+        before do
+          object = data_bucket.new("jimmy:public/tasks:hello")
+          object.content_type = "text/plain"
+          object.data = "Hello World"
+          object.store
+        end
+
+        it "allows GET requests" do
+          get "/jimmy/tasks/"
+
+          last_response.status.must_equal 200
+        end
+
+        it "disallows PUT requests" do
+          put "/jimmy/tasks/foo", "some text"
+
+          last_response.status.must_equal 403
+        end
+
+        it "disallows DELETE requests" do
+          delete "/jimmy/tasks/hello"
+
+          last_response.status.must_equal 403
+        end
       end
     end
   end
