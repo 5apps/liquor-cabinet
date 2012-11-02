@@ -5,6 +5,7 @@ defaults: &defaults
   buckets:
     data: "user_data"
     directories: "rs_directories"
+    binaries: "rs_binaries"
     authorizations: "authorizations"
 
 development:
@@ -15,6 +16,7 @@ test:
   buckets:
     data: "user_data_test"
     directories: "rs_directories_test"
+    binaries: "rs_binaries_test"
     authorizations: "authorizations_test"
 
 production:

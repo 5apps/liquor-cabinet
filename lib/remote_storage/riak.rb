@@ -23,6 +23,10 @@ module RemoteStorage
       @auth_bucket ||= client.bucket(LiquorCabinet.config['buckets']['authorizations'])
     end
 
+    def binary_bucket
+      @binary_bucket ||= client.bucket(LiquorCabinet.config['buckets']['binaries'])
+    end
+
     def authorize_request(user, directory, token, listing=false)
       request_method = env["REQUEST_METHOD"]
 
@@ -46,6 +50,10 @@ module RemoteStorage
 
       headers["Content-Type"] = object.content_type
       headers["Last-Modified"] = last_modified_date_for(object)
+
+      if binary_link = object.links.select {|l| l.tag == "binary"}.first
+        object = client[binary_link.bucket].get(binary_link.key)
+      end
 
       case object.content_type[/^[^;\s]+/]
       when "application/json"
@@ -76,8 +84,10 @@ module RemoteStorage
       object = data_bucket.new("#{user}:#{directory}:#{key}")
       object.content_type = content_type || "text/plain; charset=utf-8"
 
-      unless set_object_data(object, data)
-        halt 422
+      if binary_data?(content_type)
+        save_binary_data(object, data) or halt 422
+      else
+        set_object_data(object, data) or halt 422
       end
 
       directory_index = directory == "" ? "/" : directory
@@ -277,6 +287,21 @@ module RemoteStorage
       end
     rescue JSON::ParserError
       return false
+    end
+
+    def save_binary_data(object, data)
+      binary_object = binary_bucket.new(object.key)
+      binary_object.content_type = object.content_type
+      binary_object.raw_data = data
+      binary_object.store
+
+      link = ::Riak::Link.new(binary_bucket.name, binary_object.key, "binary")
+      object.links << link
+      object.raw_data = ""
+    end
+
+    def binary_data?(content_type)
+      content_type[/[^;\s]+$/] == "charset=binary"
     end
 
     def parent_directories_for(directory)
