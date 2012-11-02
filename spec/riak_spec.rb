@@ -177,11 +177,33 @@ describe "App with Riak backend" do
         end
 
         it "delivers the data correctly" do
-          header "Authorization", "Bearer 123"
           get "/jimmy/documents/jason"
 
           last_response.body.must_equal '{"foo":"bar","unhosted":1}'
           last_response.content_type.must_equal "application/json; charset=UTF-8"
+        end
+      end
+
+      context "with binary data" do
+        before do
+          header "Content-Type", "image/jpeg; charset=binary"
+          filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+          @image = File.open(filename, "r").read
+          put "/jimmy/documents/jaypeg", @image
+        end
+
+        it "uses the requested content type" do
+          get "/jimmy/documents/jaypeg"
+
+          last_response.status.must_equal 200
+          last_response.content_type.must_equal "image/jpeg; charset=binary"
+        end
+
+        it "delivers the data correctly" do
+          get "/jimmy/documents/jaypeg"
+
+          last_response.status.must_equal 200
+          last_response.body.must_equal @image
         end
       end
 
