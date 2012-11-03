@@ -38,6 +38,10 @@ def directory_bucket
   @directory_bucket ||= storage_client.bucket(settings.bucket_config['directories'])
 end
 
+def binary_bucket
+  @binary_bucket ||= storage_client.bucket(settings.bucket_config['binaries'])
+end
+
 def purge_all_buckets
   [data_bucket, directory_bucket, auth_bucket].each do |bucket|
     bucket.keys.each {|key| bucket.delete key}

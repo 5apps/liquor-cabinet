@@ -84,17 +84,19 @@ module RemoteStorage
       object = data_bucket.new("#{user}:#{directory}:#{key}")
       object.content_type = content_type || "text/plain; charset=utf-8"
 
+      directory_index = directory == "" ? "/" : directory
+      object.indexes.merge!({:user_id_bin => [user],
+                             :directory_bin => [CGI.escape(directory_index)]})
+
+      timestamp = (Time.now.to_f * 1000).to_i
+      object.meta["timestamp"] = timestamp
+
       if binary_data?(content_type)
         save_binary_data(object, data) or halt 422
       else
         set_object_data(object, data) or halt 422
       end
 
-      directory_index = directory == "" ? "/" : directory
-      object.indexes.merge!({:user_id_bin => [user],
-                             :directory_bin => [CGI.escape(directory_index)]})
-      timestamp = (Time.now.to_f * 1000).to_i
-      object.meta["timestamp"] = timestamp
       object.store
 
       update_all_directory_objects(user, directory, timestamp)
@@ -299,6 +301,7 @@ module RemoteStorage
       binary_object = binary_bucket.new(object.key)
       binary_object.content_type = object.content_type
       binary_object.raw_data = data
+      binary_object.indexes = object.indexes
       binary_object.store
 
       link = ::Riak::Link.new(binary_bucket.name, binary_object.key, "binary")
