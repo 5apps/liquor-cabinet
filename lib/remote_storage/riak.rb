@@ -107,7 +107,7 @@ module RemoteStorage
     def delete_data(user, directory, key)
       riak_response = data_bucket.delete("#{user}:#{directory}:#{key}")
 
-      timestamp = Time.now.to_i
+      timestamp = (Time.now.to_f * 1000).to_i
       delete_or_update_directory_objects(user, directory, timestamp)
 
       halt riak_response[:code]

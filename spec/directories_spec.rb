@@ -112,7 +112,7 @@ describe "Directories" do
         it "updates the timestamps of the existing directory objects" do
           directory = directory_bucket.new("jimmy:tasks")
           directory.content_type = "text/plain"
-          directory.data = 2.seconds.ago.to_i.to_s
+          directory.data = (2.seconds.ago.to_f * 1000).to_i
           directory.store
 
           put "/jimmy/tasks/private/projects/world-domination/start", "write a manifesto"
@@ -289,7 +289,7 @@ describe "Directories" do
         before do
           directory = directory_bucket.new("jimmy:tasks/home")
           directory.content_type = "text/plain"
-          directory.data = 2.seconds.ago.to_i.to_s
+          directory.data = (2.seconds.ago.to_f * 1000).to_i
           directory.store
         end
 
@@ -384,7 +384,7 @@ describe "Directories" do
 
       describe "timestamps" do
         before do
-          @old_timestamp = 2.seconds.ago.to_i
+          @old_timestamp = (2.seconds.ago.to_f * 1000).to_i
 
           ["tasks/home", "tasks", ""].each do |dir|
             directory = directory_bucket.get("jimmy:#{dir}")
