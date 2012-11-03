@@ -105,6 +105,12 @@ module RemoteStorage
     end
 
     def delete_data(user, directory, key)
+      object = data_bucket.get("#{user}:#{directory}:#{key}")
+
+      if binary_link = object.links.select {|l| l.tag == "binary"}.first
+        client[binary_link.bucket].delete(binary_link.key)
+      end
+
       riak_response = data_bucket.delete("#{user}:#{directory}:#{key}")
 
       timestamp = (Time.now.to_f * 1000).to_i

@@ -248,14 +248,44 @@ describe "App with Riak backend" do
     end
 
     describe "DELETE" do
-      it "removes the key" do
+      before do
         header "Authorization", "Bearer 123"
+      end
+
+      it "removes the key" do
         delete "/jimmy/documents/foo"
 
         last_response.status.must_equal 204
         lambda {
           data_bucket.get("jimmy:documents:foo")
         }.must_raise Riak::HTTPFailedRequest
+      end
+
+      context "binary data" do
+        before do
+          header "Content-Type", "image/jpeg; charset=binary"
+          filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+          @image = File.open(filename, "r").read
+          put "/jimmy/documents/jaypeg", @image
+        end
+
+        it "removes the main object" do
+          delete "/jimmy/documents/jaypeg"
+
+          last_response.status.must_equal 204
+          lambda {
+            data_bucket.get("jimmy:documents:jaypeg")
+          }.must_raise Riak::HTTPFailedRequest
+        end
+
+        it "removes the binary object" do
+          delete "/jimmy/documents/jaypeg"
+
+          last_response.status.must_equal 204
+          lambda {
+            binary_bucket.get("jimmy:documents:jaypeg")
+          }.must_raise Riak::HTTPFailedRequest
+        end
       end
     end
   end
