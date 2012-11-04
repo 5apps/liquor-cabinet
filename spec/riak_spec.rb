@@ -185,33 +185,66 @@ describe "App with Riak backend" do
       end
 
       context "with binary data" do
-        before do
-          header "Content-Type", "image/jpeg; charset=binary"
-          filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
-          @image = File.open(filename, "r").read
-          put "/jimmy/documents/jaypeg", @image
+        context "binary charset in content-type header" do
+          before do
+            header "Content-Type", "image/jpeg; charset=binary"
+            filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+            @image = File.open(filename, "r").read
+            put "/jimmy/documents/jaypeg", @image
+          end
+
+          it "uses the requested content type" do
+            get "/jimmy/documents/jaypeg"
+
+            last_response.status.must_equal 200
+            last_response.content_type.must_equal "image/jpeg; charset=binary"
+          end
+
+          it "delivers the data correctly" do
+            get "/jimmy/documents/jaypeg"
+
+            last_response.status.must_equal 200
+            last_response.body.must_equal @image
+          end
+
+          it "indexes the binary set" do
+            indexes = binary_bucket.get("jimmy:documents:jaypeg").indexes
+            indexes["user_id_bin"].must_be_kind_of Set
+            indexes["user_id_bin"].must_include "jimmy"
+
+            indexes["directory_bin"].must_include "documents"
+          end
         end
 
-        it "uses the requested content type" do
-          get "/jimmy/documents/jaypeg"
+        context "no binary charset in content-type header" do
+          before do
+            header "Content-Type", "image/jpeg"
+            filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+            @image = File.open(filename, "r").read
+            put "/jimmy/documents/jaypeg", @image
+          end
 
-          last_response.status.must_equal 200
-          last_response.content_type.must_equal "image/jpeg; charset=binary"
-        end
+          it "uses the requested content type" do
+            get "/jimmy/documents/jaypeg"
 
-        it "delivers the data correctly" do
-          get "/jimmy/documents/jaypeg"
+            last_response.status.must_equal 200
+            last_response.content_type.must_equal "image/jpeg"
+          end
 
-          last_response.status.must_equal 200
-          last_response.body.must_equal @image
-        end
+          it "delivers the data correctly" do
+            get "/jimmy/documents/jaypeg"
 
-        it "indexes the binary set" do
-          indexes = binary_bucket.get("jimmy:documents:jaypeg").indexes
-          indexes["user_id_bin"].must_be_kind_of Set
-          indexes["user_id_bin"].must_include "jimmy"
+            last_response.status.must_equal 200
+            last_response.body.must_equal @image
+          end
 
-          indexes["directory_bin"].must_include "documents"
+          it "indexes the binary set" do
+            indexes = binary_bucket.get("jimmy:documents:jaypeg").indexes
+            indexes["user_id_bin"].must_be_kind_of Set
+            indexes["user_id_bin"].must_include "jimmy"
+
+            indexes["directory_bin"].must_include "documents"
+          end
         end
       end
 

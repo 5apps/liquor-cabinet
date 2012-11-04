@@ -125,22 +125,44 @@ describe "Directories" do
       end
 
       context "with binary data" do
-        before do
-          header "Content-Type", "image/jpeg; charset=binary"
-          filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
-          @image = File.open(filename, "r").read
-          put "/jimmy/tasks/jaypeg.jpg", @image
+        context "charset given in content-type header" do
+          before do
+            header "Content-Type", "image/jpeg; charset=binary"
+            filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+            @image = File.open(filename, "r").read
+            put "/jimmy/tasks/jaypeg.jpg", @image
+          end
+
+          it "lists the binary files" do
+            get "/jimmy/tasks/"
+
+            last_response.status.must_equal 200
+
+            content = JSON.parse(last_response.body)
+            content.must_include "jaypeg.jpg"
+            content["jaypeg.jpg"].must_be_kind_of Integer
+            content["jaypeg.jpg"].to_s.length.must_equal 13
+          end
         end
 
-        it "lists the binary files" do
-          get "/jimmy/tasks/"
+        context "no charset in content-type header" do
+          before do
+            header "Content-Type", "image/jpeg"
+            filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+            @image = File.open(filename, "r").read
+            put "/jimmy/tasks/jaypeg.jpg", @image
+          end
 
-          last_response.status.must_equal 200
+          it "lists the binary files" do
+            get "/jimmy/tasks/"
 
-          content = JSON.parse(last_response.body)
-          content.must_include "jaypeg.jpg"
-          content["jaypeg.jpg"].must_be_kind_of Integer
-          content["jaypeg.jpg"].to_s.length.must_equal 13
+            last_response.status.must_equal 200
+
+            content = JSON.parse(last_response.body)
+            content.must_include "jaypeg.jpg"
+            content["jaypeg.jpg"].must_be_kind_of Integer
+            content["jaypeg.jpg"].to_s.length.must_equal 13
+          end
         end
       end
     end

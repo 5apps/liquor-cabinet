@@ -43,7 +43,7 @@ def binary_bucket
 end
 
 def purge_all_buckets
-  [data_bucket, directory_bucket, auth_bucket].each do |bucket|
+  [data_bucket, directory_bucket, auth_bucket, binary_bucket].each do |bucket|
     bucket.keys.each {|key| bucket.delete key}
   end
 end

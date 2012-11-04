@@ -91,7 +91,7 @@ module RemoteStorage
       timestamp = (Time.now.to_f * 1000).to_i
       object.meta["timestamp"] = timestamp
 
-      if binary_data?(content_type)
+      if binary_data?(object.content_type, data)
         save_binary_data(object, data) or halt 422
       else
         set_object_data(object, data) or halt 422
@@ -309,8 +309,15 @@ module RemoteStorage
       object.raw_data = ""
     end
 
-    def binary_data?(content_type)
-      content_type[/[^;\s]+$/] == "charset=binary"
+    def binary_data?(content_type, data)
+      return true if content_type[/[^;\s]+$/] == "charset=binary"
+
+      original_encoding = data.encoding
+      data.force_encoding("UTF-8")
+      is_binary = !data.valid_encoding?
+      data.force_encoding(original_encoding)
+
+      is_binary
     end
 
     def parent_directories_for(directory)
