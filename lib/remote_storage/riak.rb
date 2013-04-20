@@ -27,6 +27,10 @@ module RemoteStorage
       @binary_bucket ||= client.bucket(LiquorCabinet.config['buckets']['binaries'])
     end
 
+    def info_bucket
+      @info_bucket ||= client.bucket(LiquorCabinet.config['buckets']['info'])
+    end
+
     def authorize_request(user, directory, token, listing=false)
       request_method = env["REQUEST_METHOD"]
 
@@ -81,24 +85,24 @@ module RemoteStorage
     end
 
     def put_data(user, directory, key, data, content_type=nil)
-      object = data_bucket.new("#{user}:#{directory}:#{key}")
-      object.content_type = content_type || "text/plain; charset=utf-8"
+      object = build_data_object(user, directory, key, data, content_type)
 
-      directory_index = directory == "" ? "/" : directory
-      object.indexes.merge!({:user_id_bin => [user],
-                             :directory_bin => [CGI.escape(directory_index)]})
+      existing_object_size = object_size(object)
 
       timestamp = (Time.now.to_f * 1000).to_i
       object.meta["timestamp"] = timestamp
 
       if binary_data?(object.content_type, data)
         save_binary_data(object, data) or halt 422
+        new_object_size = data.size
       else
         set_object_data(object, data) or halt 422
+        new_object_size = object.raw_data.size
       end
 
       object.store
 
+      log_object_size(user, directory, new_object_size, existing_object_size)
       update_all_directory_objects(user, directory, timestamp)
 
       halt 200
@@ -108,12 +112,15 @@ module RemoteStorage
 
     def delete_data(user, directory, key)
       object = data_bucket.get("#{user}:#{directory}:#{key}")
+      existing_object_size = object_size(object)
 
       if binary_link = object.links.select {|l| l.tag == "binary"}.first
         client[binary_link.bucket].delete(binary_link.key)
       end
 
       riak_response = data_bucket.delete("#{user}:#{directory}:#{key}")
+
+      log_object_size(user, directory, 0, existing_object_size)
 
       timestamp = (Time.now.to_f * 1000).to_i
       delete_or_update_directory_objects(user, directory, timestamp)
@@ -123,7 +130,67 @@ module RemoteStorage
       halt 404
     end
 
+
     private
+
+    def extract_category(directory)
+      if directory.match(/^public\//)
+        "public/#{directory.split('/')[1]}"
+      else
+        directory.split('/').first
+      end
+    end
+
+    def build_data_object(user, directory, key, data, content_type=nil)
+      object = data_bucket.get_or_new("#{user}:#{directory}:#{key}")
+
+      object.content_type = content_type || "text/plain; charset=utf-8"
+
+      directory_index = directory == "" ? "/" : directory
+      object.indexes.merge!({:user_id_bin => [user],
+                             :directory_bin => [CGI.escape(directory_index)]})
+
+      object
+    end
+
+    def log_object_size(user, directory, new_size=0, old_size=0)
+      category = extract_category(directory)
+      info = info_bucket.get_or_new("usage:size:#{user}:#{category}")
+
+      info.content_type = "text/plain"
+      size = -old_size + new_size
+      size += info.data.to_i
+
+      info.data = size.to_s
+      info.store
+    end
+
+    def object_size(object)
+      if binary_link = object.links.select {|l| l.tag == "binary"}.first
+        response = head(LiquorCabinet.config['buckets']['binaries'], escape(binary_link.key))
+        response[:headers]["content-length"].first.to_i
+      else
+        object.raw_data.nil? ? 0 : object.raw_data.size
+      end
+    end
+
+    def escape(string)
+      ::Riak.escaper.escape(string).gsub("+", "%20").gsub('/', "%2F")
+    end
+
+    # Perform a HEAD request via the backend method
+    def head(bucket, key)
+      client.http do |h|
+        url = riak_uri(bucket, key)
+        h.head [200], url
+      end
+    end
+
+    # A URI object that can be used with HTTP backend methods
+    def riak_uri(bucket, key)
+      rc = LiquorCabinet.config['riak'].symbolize_keys
+      URI.parse "http://#{rc[:host]}:#{rc[:http_port]}/riak/#{bucket}/#{key}"
+    end
 
     def serializer_for(content_type)
       ::Riak::Serializers[content_type[/^[^;\s]+/]]
@@ -146,7 +213,7 @@ module RemoteStorage
       permission = authorizations[""]
 
       authorizations.each do |key, value|
-        if directory.match /^(public\/)?#{key}(\/|$)/
+        if directory.match(/^(public\/)?#{key}(\/|$)/)
           if permission.nil? || permission == "r"
             permission = value
           end
@@ -253,7 +320,7 @@ module RemoteStorage
     end
 
     def update_directory_object(user, directory, timestamp)
-      if directory.match /\//
+      if directory.match(/\//)
         parent_directory = directory[0..directory.rindex("/")-1]
       elsif directory != ""
         parent_directory = "/"
