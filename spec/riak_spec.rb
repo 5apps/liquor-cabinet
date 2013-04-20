@@ -214,7 +214,6 @@ describe "App with Riak backend" do
         end
 
         it "increases the overall category size" do
-          puts info_bucket.keys.inspect
           info_bucket.get("usage:size:jimmy:documents").data.must_equal "30"
         end
       end
