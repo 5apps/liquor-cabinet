@@ -111,8 +111,11 @@ describe "App with Riak backend" do
           data_bucket.get("jimmy:documents:bar").content_type.must_equal "text/plain; charset=utf-8"
         end
 
-        it "increases the overall category size" do
+        it "increases the usage size counter" do
           info_bucket.get("usage:size:jimmy:documents").data.must_equal "35"
+
+          indexes = info_bucket.get("usage:size:jimmy:documents").indexes
+          indexes["user_id_bin"].must_include "jimmy"
         end
 
         it "indexes the data set" do
