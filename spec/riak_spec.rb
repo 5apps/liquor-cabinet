@@ -1,9 +1,9 @@
 require_relative "spec_helper"
 
-def set_usage_size_info(user, category, size)
-  object = info_bucket.get_or_new("usage:size:#{user}:#{category}")
+def set_usage_info(user, category, type, value)
+  object = info_bucket.get_or_new("usage:#{type}:#{user}:#{category}")
   object.content_type = "text/plain"
-  object.data = size.to_s
+  object.data = value.to_s
   object.store
 end
 
@@ -93,7 +93,7 @@ describe "App with Riak backend" do
     describe "PUT" do
       before do
         header "Authorization", "Bearer 123"
-        set_usage_size_info "jimmy", "documents", "23"
+        set_usage_info "jimmy", "documents", "size", "23"
       end
 
       describe "with implicit content type" do
@@ -206,7 +206,7 @@ describe "App with Riak backend" do
 
       describe "with existing content" do
         before do
-          set_usage_size_info "jimmy", "documents", "10"
+          set_usage_info "jimmy", "documents", "size", "10"
           put "/jimmy/documents/archive/foo", "lorem ipsum"
           put "/jimmy/documents/archive/foo", "some awesome content"
         end
@@ -223,17 +223,26 @@ describe "App with Riak backend" do
 
       describe "public data" do
         before do
-          set_usage_size_info "jimmy", "public/documents", "10"
+          set_usage_info "jimmy", "public/documents", "size", "10"
+          set_usage_info "jimmy", "public/documents", "count", "100"
           put "/jimmy/public/documents/notes/foo", "note to self"
         end
+
+        # after do
+        #   info_bucket.delete "usage:size:jimmy:public/documents"
+        # end
 
         it "saves the value" do
           last_response.status.must_equal 200
           data_bucket.get("jimmy:public/documents/notes:foo").data.must_equal "note to self"
         end
 
-        it "increases the overall category size" do
+        it "increases the category size counter" do
           info_bucket.get("usage:size:jimmy:public/documents").data.must_equal "22"
+        end
+
+        it "increases the category object counter" do
+          info_bucket.get("usage:count:jimmy:public/documents").data.must_equal "101"
         end
       end
 
@@ -348,7 +357,8 @@ describe "App with Riak backend" do
     describe "DELETE" do
       before do
         header "Authorization", "Bearer 123"
-        set_usage_size_info "jimmy", "documents", "123"
+        set_usage_info "jimmy", "documents", "size", "123"
+        set_usage_info "jimmy", "documents", "count", "1000"
         delete "/jimmy/documents/foo"
       end
 
@@ -359,8 +369,12 @@ describe "App with Riak backend" do
         }.must_raise Riak::HTTPFailedRequest
       end
 
-      it "decreases the overall category size" do
+      it "decreases the category size counter" do
         info_bucket.get("usage:size:jimmy:documents").data.must_equal "101"
+      end
+
+      it "decreases the category object counter" do
+        info_bucket.get("usage:count:jimmy:documents").data.must_equal "999"
       end
 
       context "binary data" do
@@ -369,7 +383,7 @@ describe "App with Riak backend" do
           filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
           @image = File.open(filename, "r").read
           put "/jimmy/documents/jaypeg", @image
-          set_usage_size_info "jimmy", "documents", "100000"
+          set_usage_info "jimmy", "documents", "size", "100000"
 
           delete "/jimmy/documents/jaypeg"
         end

@@ -87,6 +87,7 @@ module RemoteStorage
     def put_data(user, directory, key, data, content_type=nil)
       object = build_data_object(user, directory, key, data, content_type)
 
+      object_exists = !object.data.nil?
       existing_object_size = object_size(object)
 
       timestamp = (Time.now.to_f * 1000).to_i
@@ -102,6 +103,7 @@ module RemoteStorage
 
       object.store
 
+      log_object_count(user, directory, 1) unless object_exists
       log_object_size(user, directory, new_object_size, existing_object_size)
       update_all_directory_objects(user, directory, timestamp)
 
@@ -120,6 +122,7 @@ module RemoteStorage
 
       riak_response = data_bucket.delete("#{user}:#{directory}:#{key}")
 
+      log_object_count(user, directory, -1)
       log_object_size(user, directory, 0, existing_object_size)
 
       timestamp = (Time.now.to_f * 1000).to_i
@@ -162,6 +165,20 @@ module RemoteStorage
       size += info.data.to_i
 
       info.data = size.to_s
+      info.indexes.merge!({:user_id_bin => [user]})
+      info.store
+    end
+
+    def log_object_count(user, directory, change)
+      category = extract_category(directory)
+
+      info = info_bucket.get_or_new("usage:count:#{user}:#{category}")
+      info.content_type = "text/plain"
+
+      count = change.to_i
+      count += info.data.to_i
+
+      info.data = count.to_s
       info.indexes.merge!({:user_id_bin => [user]})
       info.store
     end
