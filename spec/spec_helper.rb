@@ -42,8 +42,12 @@ def binary_bucket
   @binary_bucket ||= storage_client.bucket(settings.bucket_config['binaries'])
 end
 
+def info_bucket
+  @info_bucket ||= storage_client.bucket(settings.bucket_config['info'])
+end
+
 def purge_all_buckets
-  [data_bucket, directory_bucket, auth_bucket, binary_bucket].each do |bucket|
+  [data_bucket, directory_bucket, auth_bucket, binary_bucket, info_bucket].each do |bucket|
     bucket.keys.each {|key| bucket.delete key}
   end
 end

@@ -7,6 +7,7 @@ defaults: &defaults
     directories: "rs_directories"
     binaries: "rs_binaries"
     authorizations: "authorizations"
+    info: "rs_info"
 
 development:
   <<: *defaults
@@ -18,6 +19,7 @@ test:
     directories: "rs_directories_test"
     binaries: "rs_binaries_test"
     authorizations: "authorizations_test"
+    info: "rs_info_test"
 
 production:
   <<: *defaults
