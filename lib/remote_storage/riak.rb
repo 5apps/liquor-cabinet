@@ -158,27 +158,22 @@ module RemoteStorage
 
     def log_object_size(user, directory, new_size=0, old_size=0)
       category = extract_category(directory)
-      info = info_bucket.get_or_new("usage:size:#{user}:#{category}")
-      info.content_type = "text/plain"
-
-      size = -old_size + new_size
-      size += info.data.to_i
-
-      info.data = size.to_s
+      info = info_bucket.get_or_new("usage:#{user}:#{category}")
+      info.content_type = "application/json"
+      info.data ||= {}
+      info.data["size"] ||= 0
+      info.data["size"] += (-old_size + new_size)
       info.indexes.merge!({:user_id_bin => [user]})
       info.store
     end
 
     def log_object_count(user, directory, change)
       category = extract_category(directory)
-
-      info = info_bucket.get_or_new("usage:count:#{user}:#{category}")
-      info.content_type = "text/plain"
-
-      count = change.to_i
-      count += info.data.to_i
-
-      info.data = count.to_s
+      info = info_bucket.get_or_new("usage:#{user}:#{category}")
+      info.content_type = "application/json"
+      info.data ||= {}
+      info.data["count"] ||= 0
+      info.data["count"] += change
       info.indexes.merge!({:user_id_bin => [user]})
       info.store
     end
