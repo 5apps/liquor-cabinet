@@ -374,6 +374,20 @@ describe "App with Riak backend" do
         info_bucket.get("usage:jimmy:documents").data["count"].must_equal 999
       end
 
+      context "non-existing object" do
+        before do
+          set_usage_info "jimmy", "documents", "size", 10
+          set_usage_info "jimmy", "documents", "count", 10
+          delete "/jimmy/documents/foozius"
+        end
+
+        it "doesn't change the category usage info" do
+          usage = info_bucket.get("usage:jimmy:documents").data
+          usage["size"].must_equal 10
+          usage["count"].must_equal 10
+        end
+      end
+
       context "binary data" do
         before do
           header "Content-Type", "image/jpeg; charset=binary"

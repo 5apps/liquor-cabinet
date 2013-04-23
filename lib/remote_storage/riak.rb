@@ -122,8 +122,10 @@ module RemoteStorage
 
       riak_response = data_bucket.delete("#{user}:#{directory}:#{key}")
 
-      log_object_count(user, directory, -1)
-      log_object_size(user, directory, 0, existing_object_size)
+      if riak_response[:code] != 404
+        log_object_count(user, directory, -1)
+        log_object_size(user, directory, 0, existing_object_size)
+      end
 
       timestamp = (Time.now.to_f * 1000).to_i
       delete_or_update_directory_objects(user, directory, timestamp)
