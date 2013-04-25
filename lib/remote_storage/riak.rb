@@ -1,6 +1,8 @@
 require "riak"
 require "json"
 require "cgi"
+require "active_support/core_ext/time/conversions"
+require "active_support/core_ext/numeric/time"
 
 module RemoteStorage
   module Riak
@@ -8,23 +10,24 @@ module RemoteStorage
     ::Riak.url_decoding = true
 
     def client
-      @client ||= ::Riak::Client.new(LiquorCabinet.config['riak'].symbolize_keys)
+      @client ||= ::Riak::Client.new(:host => settings.riak['host'],
+                                     :http_port => settings.riak['http_port'])
     end
 
     def data_bucket
-      @data_bucket ||= client.bucket(LiquorCabinet.config['buckets']['data'])
+      @data_bucket ||= client.bucket(settings.riak['buckets']['data'])
     end
 
     def directory_bucket
-      @directory_bucket ||= client.bucket(LiquorCabinet.config['buckets']['directories'])
+      @directory_bucket ||= client.bucket(settings.riak['buckets']['directories'])
     end
 
     def auth_bucket
-      @auth_bucket ||= client.bucket(LiquorCabinet.config['buckets']['authorizations'])
+      @auth_bucket ||= client.bucket(settings.riak['buckets']['authorizations'])
     end
 
     def binary_bucket
-      @binary_bucket ||= client.bucket(LiquorCabinet.config['buckets']['binaries'])
+      @binary_bucket ||= client.bucket(settings.riak['buckets']['binaries'])
     end
 
     def authorize_request(user, directory, token, listing=false)
@@ -146,7 +149,7 @@ module RemoteStorage
       permission = authorizations[""]
 
       authorizations.each do |key, value|
-        if directory.match /^(public\/)?#{key}(\/|$)/
+        if directory.match(/^(public\/)?#{key}(\/|$)/)
           if permission.nil? || permission == "r"
             permission = value
           end
@@ -253,7 +256,7 @@ module RemoteStorage
     end
 
     def update_directory_object(user, directory, timestamp)
-      if directory.match /\//
+      if directory.match(/\//)
         parent_directory = directory[0..directory.rindex("/")-1]
       elsif directory != ""
         parent_directory = "/"

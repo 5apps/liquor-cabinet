@@ -2,7 +2,6 @@ require_relative "spec_helper"
 
 describe "Directories" do
   include Rack::Test::Methods
-  include RemoteStorage::Riak
 
   before do
     purge_all_buckets

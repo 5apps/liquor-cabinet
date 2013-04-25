@@ -2,8 +2,8 @@ source "http://rubygems.org"
 
 gem "sinatra"
 gem "sinatra-contrib"
+gem "activesupport"
 gem "riak-client"
-gem "airbrake"
 
 group :test do
   gem 'rake'
