@@ -11,7 +11,6 @@ end
 
 describe "App with Riak backend" do
   include Rack::Test::Methods
-  include RemoteStorage::Riak
 
   before do
     purge_all_buckets
@@ -126,6 +125,11 @@ describe "App with Riak backend" do
 
           indexes["directory_bin"].must_include "documents"
         end
+
+        # it "logs the operation" do
+        #   logs = storage_client.get_index("rs_opslog", "user_id_bin", "jimmy")
+        #   logs.count.must_equal 1
+        # end
       end
 
       describe "with explicit content type" do

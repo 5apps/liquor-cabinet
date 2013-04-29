@@ -2,39 +2,42 @@ $LOAD_PATH << File.join(File.expand_path(File.dirname(__FILE__)), 'lib')
 
 require "json"
 require "sinatra/base"
+require 'sinatra/config_file'
 require "sinatra/reloader"
 require "remote_storage/riak"
 
 class LiquorCabinet < Sinatra::Base
 
-  include RemoteStorage::Riak
+  #
+  # Configuration
+  #
 
-  def self.config=(config)
-    @config = config
-    configure_airbrake
-  end
+  configure do
+    disable :protection
 
-  def self.config
-    return @config if @config
-    config = File.read(File.expand_path('config.yml', File.dirname(__FILE__)))
-    self.config = YAML.load(config)[ENV['RACK_ENV']]
+    register Sinatra::ConfigFile
+    set :environments, %w{development test production staging}
+    config_file 'config.yml'
   end
 
   configure :development do
     register Sinatra::Reloader
+  end
+
+  configure :development, :staging, :production do
     enable :logging
-    disable :protection
   end
 
-  configure :production do
-    disable :logging
-    disable :protection
+  if settings.riak
+    include RemoteStorage::Riak
+  # elsif settings.redis
+  #  include RemoteStorage::Redis
+  # end
   end
 
-  configure :staging do
-    disable :logging
-    disable :protection
-  end
+  #
+  # Cabinet doors
+  #
 
   ["/:user/*/:key", "/:user/:key", "/:user/*/", "/:user/"].each do |path|
     before path do
@@ -88,21 +91,6 @@ class LiquorCabinet < Sinatra::Base
   ["/:user/*/:key", "/:user/:key", "/:user/*/", "/:user/"].each do |path|
     options path do
       halt 200
-    end
-  end
-
-  private
-
-  def self.configure_airbrake
-    if @config['airbrake'] && @config['airbrake']['api_key']
-      require "airbrake"
-
-      Airbrake.configure do |airbrake|
-        airbrake.api_key = @config['airbrake']['api_key']
-      end
-
-      use Airbrake::Rack
-      enable :raise_errors
     end
   end
 

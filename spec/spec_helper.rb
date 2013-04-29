@@ -8,49 +8,13 @@ require 'rack/test'
 require 'purdytest'
 require 'riak'
 
-set :environment, :test
 ENV["RACK_ENV"] = "test"
-
-config_file = File.read(File.expand_path('../config.yml', File.dirname(__FILE__)))
-config = YAML.load(config_file)[ENV['RACK_ENV']]
-set :riak_config, config['riak'].symbolize_keys
-set :bucket_config, config['buckets']
-
-::Riak.disable_list_keys_warnings = true
 
 def app
   LiquorCabinet
 end
 
-def storage_client
-  @storage_client ||= ::Riak::Client.new(settings.riak_config)
-end
-
-def data_bucket
-  @data_bucket ||= storage_client.bucket(settings.bucket_config['data'])
-end
-
-def auth_bucket
-  @auth_bucket ||= storage_client.bucket(settings.bucket_config['authorizations'])
-end
-
-def directory_bucket
-  @directory_bucket ||= storage_client.bucket(settings.bucket_config['directories'])
-end
-
-def binary_bucket
-  @binary_bucket ||= storage_client.bucket(settings.bucket_config['binaries'])
-end
-
-def info_bucket
-  @info_bucket ||= storage_client.bucket(settings.bucket_config['info'])
-end
-
-def purge_all_buckets
-  [data_bucket, directory_bucket, auth_bucket, binary_bucket, info_bucket].each do |bucket|
-    bucket.keys.each {|key| bucket.delete key}
-  end
-end
+app.set :environment, :test
 
 def wait_a_second
   now = Time.now.to_i
@@ -64,3 +28,38 @@ def write_last_response_to_file(filename = "last_response.html")
 end
 
 alias context describe
+
+if app.settings.riak
+  ::Riak.disable_list_keys_warnings = true
+
+  def client
+    @client ||= ::Riak::Client.new(:host => app.settings.riak['host'],
+                                   :http_port => app.settings.riak['http_port'])
+  end
+
+  def data_bucket
+    @data_bucket ||= client.bucket(app.settings.riak['buckets']['data'])
+  end
+
+  def auth_bucket
+    @auth_bucket ||= client.bucket(app.settings.riak['buckets']['authorizations'])
+  end
+
+  def directory_bucket
+    @directory_bucket ||= client.bucket(app.settings.riak['buckets']['directories'])
+  end
+
+  def binary_bucket
+    @binary_bucket ||= client.bucket(app.settings.riak['buckets']['binaries'])
+  end
+
+  def opslog_bucket
+    @opslog_bucket ||= client.bucket(app.settings.riak['buckets']['opslog'])
+  end
+
+  def purge_all_buckets
+    [data_bucket, directory_bucket, auth_bucket, binary_bucket].each do |bucket|
+      bucket.keys.each {|key| bucket.delete key}
+    end
+  end
+end
