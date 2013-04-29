@@ -1,14 +1,5 @@
 require_relative "spec_helper"
 
-def set_usage_info(user, category, type, value)
-  object = info_bucket.get_or_new("usage:#{user}:#{category}")
-  object.content_type = "application/json"
-  data = object.data || {}
-  data.merge!(type => value)
-  object.data = data
-  object.store
-end
-
 describe "App with Riak backend" do
   include Rack::Test::Methods
 
@@ -94,7 +85,6 @@ describe "App with Riak backend" do
     describe "PUT" do
       before do
         header "Authorization", "Bearer 123"
-        set_usage_info "jimmy", "documents", "size", 23
       end
 
       describe "with implicit content type" do
@@ -112,12 +102,6 @@ describe "App with Riak backend" do
           data_bucket.get("jimmy:documents:bar").content_type.must_equal "text/plain; charset=utf-8"
         end
 
-        it "increases the usage size counter" do
-          usage = info_bucket.get("usage:jimmy:documents")
-          usage.data["size"].must_equal 35
-          usage.indexes["user_id_bin"].must_include "jimmy"
-        end
-
         it "indexes the data set" do
           indexes = data_bucket.get("jimmy:documents:bar").indexes
           indexes["user_id_bin"].must_be_kind_of Set
@@ -126,10 +110,15 @@ describe "App with Riak backend" do
           indexes["directory_bin"].must_include "documents"
         end
 
-        # it "logs the operation" do
-        #   logs = storage_client.get_index("rs_opslog", "user_id_bin", "jimmy")
-        #   logs.count.must_equal 1
-        # end
+        it "logs the operation" do
+          objects = []
+          opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+
+          log_entry = objects.select{|o| o.data["action"] == "create"}.first
+          log_entry.data["size"].must_equal 12
+          log_entry.data["category"].must_equal "documents"
+          log_entry.indexes["user_id_bin"].must_include "jimmy"
+        end
       end
 
       describe "with explicit content type" do
@@ -146,10 +135,6 @@ describe "App with Riak backend" do
 
         it "uses the requested content type" do
           data_bucket.get("jimmy:documents:jason").content_type.must_equal "application/json"
-        end
-
-        it "increases the category size counter" do
-          info_bucket.get("usage:jimmy:documents").data["size"].must_equal 49
         end
 
         it "delivers the data correctly" do
@@ -211,7 +196,6 @@ describe "App with Riak backend" do
 
       describe "with existing content" do
         before do
-          set_usage_info "jimmy", "documents", "size", 10
           put "/jimmy/documents/archive/foo", "lorem ipsum"
           put "/jimmy/documents/archive/foo", "some awesome content"
         end
@@ -221,15 +205,24 @@ describe "App with Riak backend" do
           data_bucket.get("jimmy:documents/archive:foo").data.must_equal "some awesome content"
         end
 
-        it "increases the category size counter" do
-          info_bucket.get("usage:jimmy:documents").data["size"].must_equal 30
+        it "logs the operations" do
+          objects = []
+          opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+
+          create_entry = objects.select{|o| o.data["action"] == "create"}.first
+          create_entry.data["size"].must_equal 11
+          create_entry.data["category"].must_equal "documents"
+          create_entry.indexes["user_id_bin"].must_include "jimmy"
+
+          update_entry = objects.select{|o| o.data["action"] == "update"}.first
+          update_entry.data["size"].must_equal 9
+          update_entry.data["category"].must_equal "documents"
+          update_entry.indexes["user_id_bin"].must_include "jimmy"
         end
       end
 
       describe "public data" do
         before do
-          set_usage_info "jimmy", "public/documents", "size", 10
-          set_usage_info "jimmy", "public/documents", "count", 100
           put "/jimmy/public/documents/notes/foo", "note to self"
         end
 
@@ -238,12 +231,14 @@ describe "App with Riak backend" do
           data_bucket.get("jimmy:public/documents/notes:foo").data.must_equal "note to self"
         end
 
-        it "increases the category size counter" do
-          info_bucket.get("usage:jimmy:public/documents").data["size"].must_equal 22
-        end
+        it "logs the operation" do
+          objects = []
+          opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
 
-        it "increases the category object counter" do
-          info_bucket.get("usage:jimmy:public/documents").data["count"].must_equal 101
+          log_entry = objects.select{|o| o.data["action"] == "create"}.first
+          log_entry.data["size"].must_equal 12
+          log_entry.data["category"].must_equal "public/documents"
+          log_entry.indexes["user_id_bin"].must_include "jimmy"
         end
       end
 
@@ -270,16 +265,22 @@ describe "App with Riak backend" do
             last_response.body.must_equal @image
           end
 
-          it "increases the category size counter" do
-            info_bucket.get("usage:jimmy:documents").data["size"].must_equal 16067
-          end
-
           it "indexes the binary set" do
             indexes = binary_bucket.get("jimmy:documents:jaypeg").indexes
             indexes["user_id_bin"].must_be_kind_of Set
             indexes["user_id_bin"].must_include "jimmy"
 
             indexes["directory_bin"].must_include "documents"
+          end
+
+          it "logs the operation" do
+            objects = []
+            opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+
+            log_entry = objects.select{|o| o.data["action"] == "create"}.first
+            log_entry.data["size"].must_equal 16044
+            log_entry.data["category"].must_equal "documents"
+            log_entry.indexes["user_id_bin"].must_include "jimmy"
           end
         end
 
@@ -358,8 +359,6 @@ describe "App with Riak backend" do
     describe "DELETE" do
       before do
         header "Authorization", "Bearer 123"
-        set_usage_info "jimmy", "documents", "size", 123
-        set_usage_info "jimmy", "documents", "count", 1000
         delete "/jimmy/documents/foo"
       end
 
@@ -370,25 +369,25 @@ describe "App with Riak backend" do
         }.must_raise Riak::HTTPFailedRequest
       end
 
-      it "decreases the category size counter" do
-        info_bucket.get("usage:jimmy:documents").data["size"].must_equal 101
-      end
+      it "logs the operation" do
+        objects = []
+        opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
 
-      it "decreases the category object counter" do
-        info_bucket.get("usage:jimmy:documents").data["count"].must_equal 999
+        log_entry = objects.select{|o| o.data["action"] == "delete"}.first
+        log_entry.data["size"].must_equal(-22)
+        log_entry.data["category"].must_equal "documents"
+        log_entry.indexes["user_id_bin"].must_include "jimmy"
       end
 
       context "non-existing object" do
         before do
-          set_usage_info "jimmy", "documents", "size", 10
-          set_usage_info "jimmy", "documents", "count", 10
           delete "/jimmy/documents/foozius"
         end
 
-        it "doesn't change the category usage info" do
-          usage = info_bucket.get("usage:jimmy:documents").data
-          usage["size"].must_equal 10
-          usage["count"].must_equal 10
+        it "doesn't log the operation" do
+          objects = []
+          opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+          objects.select{|o| o.data["action"] == "delete"}.size.must_equal 1
         end
       end
 
@@ -398,8 +397,6 @@ describe "App with Riak backend" do
           filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
           @image = File.open(filename, "r").read
           put "/jimmy/documents/jaypeg", @image
-          set_usage_info "jimmy", "documents", "size", 100000
-          set_usage_info "jimmy", "documents", "count", 10
 
           delete "/jimmy/documents/jaypeg"
         end
@@ -418,12 +415,13 @@ describe "App with Riak backend" do
           }.must_raise Riak::HTTPFailedRequest
         end
 
-        it "decreases the category size counter" do
-          info_bucket.get("usage:jimmy:documents").data["size"].must_equal 83956
-        end
+        it "logs the operation" do
+          objects = []
+          opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
 
-        it "decreases the category object counter" do
-          info_bucket.get("usage:jimmy:documents").data["count"].must_equal 9
+          log_entry = objects.select{|o| o.data["action"] == "delete" && o.data["size"] == -16044}.first
+          log_entry.data["category"].must_equal "documents"
+          log_entry.indexes["user_id_bin"].must_include "jimmy"
         end
       end
     end

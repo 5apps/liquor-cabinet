@@ -30,8 +30,8 @@ module RemoteStorage
       @binary_bucket ||= client.bucket(settings.riak['buckets']['binaries'])
     end
 
-    def info_bucket
-      @info_bucket ||= client.bucket(LiquorCabinet.config['buckets']['info'])
+    def opslog_bucket
+      @opslog_bucket ||= client.bucket(settings.riak['buckets']['opslog'])
     end
 
     def authorize_request(user, directory, token, listing=false)
@@ -106,8 +106,9 @@ module RemoteStorage
 
       object.store
 
-      log_object_count(user, directory, 1) unless object_exists
-      log_object_size(user, directory, new_object_size, existing_object_size)
+      log_action = object_exists ? "update" : "create"
+      log_operation(user, directory, log_action, new_object_size, existing_object_size)
+
       update_all_directory_objects(user, directory, timestamp)
 
       halt 200
@@ -126,8 +127,7 @@ module RemoteStorage
       riak_response = data_bucket.delete("#{user}:#{directory}:#{key}")
 
       if riak_response[:code] != 404
-        log_object_count(user, directory, -1)
-        log_object_size(user, directory, 0, existing_object_size)
+        log_operation(user, directory, "delete", 0, existing_object_size)
       end
 
       timestamp = (Time.now.to_f * 1000).to_i
@@ -161,31 +161,21 @@ module RemoteStorage
       object
     end
 
-    def log_object_size(user, directory, new_size=0, old_size=0)
-      category = extract_category(directory)
-      info = info_bucket.get_or_new("usage:#{user}:#{category}")
-      info.content_type = "application/json"
-      info.data ||= {}
-      info.data["size"] ||= 0
-      info.data["size"] += (-old_size + new_size)
-      info.indexes.merge!({:user_id_bin => [user]})
-      info.store
-    end
-
-    def log_object_count(user, directory, change)
-      category = extract_category(directory)
-      info = info_bucket.get_or_new("usage:#{user}:#{category}")
-      info.content_type = "application/json"
-      info.data ||= {}
-      info.data["count"] ||= 0
-      info.data["count"] += change
-      info.indexes.merge!({:user_id_bin => [user]})
-      info.store
+    def log_operation(user, directory, action, new_size=0, old_size=0)
+      log_entry = opslog_bucket.new
+      log_entry.content_type = "application/json"
+      log_entry.data = {
+        "action" => action,
+        "size" => (-old_size + new_size),
+        "category" => extract_category(directory)
+      }
+      log_entry.indexes.merge!({:user_id_bin => [user]})
+      log_entry.store
     end
 
     def object_size(object)
       if binary_link = object.links.select {|l| l.tag == "binary"}.first
-        response = head(LiquorCabinet.config['buckets']['binaries'], escape(binary_link.key))
+        response = head(settings.riak['buckets']['binaries'], escape(binary_link.key))
         response[:headers]["content-length"].first.to_i
       else
         object.raw_data.nil? ? 0 : object.raw_data.size
@@ -206,7 +196,7 @@ module RemoteStorage
 
     # A URI object that can be used with HTTP backend methods
     def riak_uri(bucket, key)
-      rc = LiquorCabinet.config['riak'].symbolize_keys
+      rc = settings.riak.symbolize_keys
       URI.parse "http://#{rc[:host]}:#{rc[:http_port]}/riak/#{bucket}/#{key}"
     end
 
