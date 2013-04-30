@@ -114,7 +114,7 @@ describe "App with Riak backend" do
           objects = []
           opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
 
-          log_entry = objects.select{|o| o.data["action"] == "create"}.first
+          log_entry = objects.select{|o| o.data["count"] == 1}.first
           log_entry.data["size"].must_equal 12
           log_entry.data["category"].must_equal "documents"
           log_entry.indexes["user_id_bin"].must_include "jimmy"
@@ -209,12 +209,12 @@ describe "App with Riak backend" do
           objects = []
           opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
 
-          create_entry = objects.select{|o| o.data["action"] == "create"}.first
+          create_entry = objects.select{|o| o.data["count"] == 1}.first
           create_entry.data["size"].must_equal 11
           create_entry.data["category"].must_equal "documents"
           create_entry.indexes["user_id_bin"].must_include "jimmy"
 
-          update_entry = objects.select{|o| o.data["action"] == "update"}.first
+          update_entry = objects.select{|o| o.data["count"] == 0}.first
           update_entry.data["size"].must_equal 9
           update_entry.data["category"].must_equal "documents"
           update_entry.indexes["user_id_bin"].must_include "jimmy"
@@ -235,7 +235,7 @@ describe "App with Riak backend" do
           objects = []
           opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
 
-          log_entry = objects.select{|o| o.data["action"] == "create"}.first
+          log_entry = objects.select{|o| o.data["count"] == 1}.first
           log_entry.data["size"].must_equal 12
           log_entry.data["category"].must_equal "public/documents"
           log_entry.indexes["user_id_bin"].must_include "jimmy"
@@ -277,7 +277,7 @@ describe "App with Riak backend" do
             objects = []
             opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
 
-            log_entry = objects.select{|o| o.data["action"] == "create"}.first
+            log_entry = objects.select{|o| o.data["count"] == 1}.first
             log_entry.data["size"].must_equal 16044
             log_entry.data["category"].must_equal "documents"
             log_entry.indexes["user_id_bin"].must_include "jimmy"
@@ -373,7 +373,7 @@ describe "App with Riak backend" do
         objects = []
         opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
 
-        log_entry = objects.select{|o| o.data["action"] == "delete"}.first
+        log_entry = objects.select{|o| o.data["count"] == -1}.first
         log_entry.data["size"].must_equal(-22)
         log_entry.data["category"].must_equal "documents"
         log_entry.indexes["user_id_bin"].must_include "jimmy"
@@ -387,7 +387,7 @@ describe "App with Riak backend" do
         it "doesn't log the operation" do
           objects = []
           opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
-          objects.select{|o| o.data["action"] == "delete"}.size.must_equal 1
+          objects.select{|o| o.data["count"] == -1}.size.must_equal 1
         end
       end
 
@@ -419,7 +419,7 @@ describe "App with Riak backend" do
           objects = []
           opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
 
-          log_entry = objects.select{|o| o.data["action"] == "delete" && o.data["size"] == -16044}.first
+          log_entry = objects.select{|o| o.data["count"] == -1 && o.data["size"] == -16044}.first
           log_entry.data["category"].must_equal "documents"
           log_entry.indexes["user_id_bin"].must_include "jimmy"
         end

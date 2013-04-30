@@ -106,8 +106,8 @@ module RemoteStorage
 
       object.store
 
-      log_action = object_exists ? "update" : "create"
-      log_operation(user, directory, log_action, new_object_size, existing_object_size)
+      log_count = object_exists ? 0 : 1
+      log_operation(user, directory, log_count, new_object_size, existing_object_size)
 
       update_all_directory_objects(user, directory, timestamp)
 
@@ -127,7 +127,7 @@ module RemoteStorage
       riak_response = data_bucket.delete("#{user}:#{directory}:#{key}")
 
       if riak_response[:code] != 404
-        log_operation(user, directory, "delete", 0, existing_object_size)
+        log_operation(user, directory, -1, 0, existing_object_size)
       end
 
       timestamp = (Time.now.to_f * 1000).to_i
@@ -161,11 +161,11 @@ module RemoteStorage
       object
     end
 
-    def log_operation(user, directory, action, new_size=0, old_size=0)
+    def log_operation(user, directory, count, new_size=0, old_size=0)
       log_entry = opslog_bucket.new
       log_entry.content_type = "application/json"
       log_entry.data = {
-        "action" => action,
+        "count" => count,
         "size" => (-old_size + new_size),
         "category" => extract_category(directory)
       }
