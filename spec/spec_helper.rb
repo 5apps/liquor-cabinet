@@ -1,3 +1,5 @@
+ENV["RACK_ENV"] = "test"
+
 require 'rubygems'
 require 'bundler'
 Bundler.require
@@ -7,8 +9,6 @@ require 'minitest/autorun'
 require 'rack/test'
 require 'purdytest'
 require 'riak'
-
-ENV["RACK_ENV"] = "test"
 
 def app
   LiquorCabinet
