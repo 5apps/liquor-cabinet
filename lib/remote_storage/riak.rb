@@ -156,7 +156,7 @@ module RemoteStorage
 
       directory_index = directory == "" ? "/" : directory
       object.indexes.merge!({:user_id_bin => [user],
-                             :directory_bin => [CGI.escape(directory_index)]})
+                             :directory_bin => [directory_index]})
 
       object
     end
@@ -236,14 +236,14 @@ module RemoteStorage
       listing = {}
 
       sub_directories(user, directory).each do |entry|
-        directory_name = CGI.unescape(entry["name"]).split("/").last
+        directory_name = entry["name"].split("/").last
         timestamp = entry["timestamp"].to_i
 
         listing.merge!({ "#{directory_name}/" => timestamp })
       end
 
       directory_entries(user, directory).each do |entry|
-        entry_name = CGI.unescape(entry["name"])
+        entry_name = entry["name"]
         timestamp = if entry["timestamp"]
                       entry["timestamp"].to_i
                     else
@@ -339,7 +339,7 @@ module RemoteStorage
       directory_object.data = timestamp.to_s
       directory_object.indexes.merge!({:user_id_bin => [user]})
       if parent_directory
-        directory_object.indexes.merge!({:directory_bin => [CGI.escape(parent_directory)]})
+        directory_object.indexes.merge!({:directory_bin => [parent_directory]})
       end
       directory_object.store
     end
