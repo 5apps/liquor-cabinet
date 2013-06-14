@@ -192,6 +192,38 @@ describe "Directories" do
       end
     end
 
+    context "special characters in directory name" do
+      before do
+        put "/jimmy/tasks/foo~bar/task1", "some task"
+      end
+
+      it "lists the directory in the parent directory" do
+        get "/jimmy/tasks/"
+
+        last_response.status.must_equal 200
+
+        content = JSON.parse(last_response.body)
+        content.must_include "foo~bar/"
+      end
+
+      it "lists the containing objects" do
+        get "/jimmy/tasks/foo~bar/"
+
+        last_response.status.must_equal 200
+
+        content = JSON.parse(last_response.body)
+        content.must_include "task1"
+      end
+
+      it "returns the requested object" do
+        get "/jimmy/tasks/foo~bar/task1"
+
+        last_response.status.must_equal 200
+
+        last_response.body.must_equal "some task"
+      end
+    end
+
     context "for the root directory" do
       before do
         auth = auth_bucket.new("jimmy:123")
