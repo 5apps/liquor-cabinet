@@ -250,7 +250,7 @@ module RemoteStorage
                       DateTime.rfc2822(entry["last_modified"]).to_i
                     end
 
-        listing.merge!({ CGI.escape(entry_name) => timestamp })
+        listing.merge!({ entry_name => timestamp })
       end
 
       listing
