@@ -6,6 +6,16 @@ require 'sinatra/config_file'
 require "sinatra/reloader"
 require "remote_storage/riak"
 
+# Disable Rack logger completely
+module Rack
+  class CommonLogger
+    def call(env)
+      # do nothing
+      @app.call(env)
+    end
+  end
+end
+
 class LiquorCabinet < Sinatra::Base
 
   #
@@ -13,7 +23,8 @@ class LiquorCabinet < Sinatra::Base
   #
 
   configure do
-    disable :protection
+    disable :protection, :logging
+    enable :dump_errors
 
     register Sinatra::ConfigFile
     set :environments, %w{development test production staging}
@@ -22,9 +33,6 @@ class LiquorCabinet < Sinatra::Base
 
   configure :development do
     register Sinatra::Reloader
-  end
-
-  configure :development, :staging, :production do
     enable :logging
   end
 
