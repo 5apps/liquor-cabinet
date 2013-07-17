@@ -247,7 +247,7 @@ module RemoteStorage
         timestamp = if entry["timestamp"]
                       entry["timestamp"].to_i
                     else
-                      DateTime.rfc2822(entry["last_modified"]).to_i
+                      DateTime.rfc2822(entry["last_modified"]).to_time.to_i
                     end
 
         listing.merge!({ entry_name => timestamp })
