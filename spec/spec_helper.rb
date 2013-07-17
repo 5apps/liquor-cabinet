@@ -1,3 +1,5 @@
+ENV["RACK_ENV"] = "test"
+
 require 'rubygems'
 require 'bundler'
 Bundler.require
@@ -7,8 +9,6 @@ require 'minitest/autorun'
 require 'rack/test'
 require 'purdytest'
 require 'riak'
-
-ENV["RACK_ENV"] = "test"
 
 def app
   LiquorCabinet
@@ -53,8 +53,12 @@ if app.settings.riak
     @binary_bucket ||= client.bucket(app.settings.riak['buckets']['binaries'])
   end
 
+  def opslog_bucket
+    @opslog_bucket ||= client.bucket(app.settings.riak['buckets']['opslog'])
+  end
+
   def purge_all_buckets
-    [data_bucket, directory_bucket, auth_bucket, binary_bucket].each do |bucket|
+    [data_bucket, directory_bucket, auth_bucket, binary_bucket, opslog_bucket].each do |bucket|
       bucket.keys.each {|key| bucket.delete key}
     end
   end

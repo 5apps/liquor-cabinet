@@ -22,6 +22,7 @@ describe "App with Riak backend" do
       last_response.body.must_equal "some text data"
     end
 
+    # If this one fails, try restarting Riak
     it "has a Last-Modified header set" do
       last_response.status.must_equal 200
       last_response.headers["Last-Modified"].wont_be_nil
@@ -109,10 +110,15 @@ describe "App with Riak backend" do
           indexes["directory_bin"].must_include "documents"
         end
 
-        # it "logs the operation" do
-        #   logs = storage_client.get_index("rs_opslog", "user_id_bin", "jimmy")
-        #   logs.count.must_equal 1
-        # end
+        it "logs the operation" do
+          objects = []
+          opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+
+          log_entry = objects.select{|o| o.data["count"] == 1}.first
+          log_entry.data["size"].must_equal 12
+          log_entry.data["category"].must_equal "documents"
+          log_entry.indexes["user_id_bin"].must_include "jimmy"
+        end
       end
 
       describe "with explicit content type" do
@@ -188,6 +194,54 @@ describe "App with Riak backend" do
         end
       end
 
+      describe "with existing content" do
+        before do
+          put "/jimmy/documents/archive/foo", "lorem ipsum"
+          put "/jimmy/documents/archive/foo", "some awesome content"
+        end
+
+        it "saves the value" do
+          last_response.status.must_equal 200
+          data_bucket.get("jimmy:documents/archive:foo").data.must_equal "some awesome content"
+        end
+
+        it "logs the operations" do
+          objects = []
+          opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+
+          create_entry = objects.select{|o| o.data["count"] == 1}.first
+          create_entry.data["size"].must_equal 11
+          create_entry.data["category"].must_equal "documents"
+          create_entry.indexes["user_id_bin"].must_include "jimmy"
+
+          update_entry = objects.select{|o| o.data["count"] == 0}.first
+          update_entry.data["size"].must_equal 9
+          update_entry.data["category"].must_equal "documents"
+          update_entry.indexes["user_id_bin"].must_include "jimmy"
+        end
+      end
+
+      describe "public data" do
+        before do
+          put "/jimmy/public/documents/notes/foo", "note to self"
+        end
+
+        it "saves the value" do
+          last_response.status.must_equal 200
+          data_bucket.get("jimmy:public/documents/notes:foo").data.must_equal "note to self"
+        end
+
+        it "logs the operation" do
+          objects = []
+          opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+
+          log_entry = objects.select{|o| o.data["count"] == 1}.first
+          log_entry.data["size"].must_equal 12
+          log_entry.data["category"].must_equal "public/documents"
+          log_entry.indexes["user_id_bin"].must_include "jimmy"
+        end
+      end
+
       context "with binary data" do
         context "binary charset in content-type header" do
           before do
@@ -217,6 +271,16 @@ describe "App with Riak backend" do
             indexes["user_id_bin"].must_include "jimmy"
 
             indexes["directory_bin"].must_include "documents"
+          end
+
+          it "logs the operation" do
+            objects = []
+            opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+
+            log_entry = objects.select{|o| o.data["count"] == 1}.first
+            log_entry.data["size"].must_equal 16044
+            log_entry.data["category"].must_equal "documents"
+            log_entry.indexes["user_id_bin"].must_include "jimmy"
           end
         end
 
@@ -295,15 +359,36 @@ describe "App with Riak backend" do
     describe "DELETE" do
       before do
         header "Authorization", "Bearer 123"
+        delete "/jimmy/documents/foo"
       end
 
       it "removes the key" do
-        delete "/jimmy/documents/foo"
-
         last_response.status.must_equal 204
         lambda {
           data_bucket.get("jimmy:documents:foo")
         }.must_raise Riak::HTTPFailedRequest
+      end
+
+      it "logs the operation" do
+        objects = []
+        opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+
+        log_entry = objects.select{|o| o.data["count"] == -1}.first
+        log_entry.data["size"].must_equal(-22)
+        log_entry.data["category"].must_equal "documents"
+        log_entry.indexes["user_id_bin"].must_include "jimmy"
+      end
+
+      context "non-existing object" do
+        before do
+          delete "/jimmy/documents/foozius"
+        end
+
+        it "doesn't log the operation" do
+          objects = []
+          opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+          objects.select{|o| o.data["count"] == -1}.size.must_equal 1
+        end
       end
 
       context "binary data" do
@@ -312,11 +397,11 @@ describe "App with Riak backend" do
           filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
           @image = File.open(filename, "r").read
           put "/jimmy/documents/jaypeg", @image
+
+          delete "/jimmy/documents/jaypeg"
         end
 
         it "removes the main object" do
-          delete "/jimmy/documents/jaypeg"
-
           last_response.status.must_equal 204
           lambda {
             data_bucket.get("jimmy:documents:jaypeg")
@@ -324,12 +409,19 @@ describe "App with Riak backend" do
         end
 
         it "removes the binary object" do
-          delete "/jimmy/documents/jaypeg"
-
           last_response.status.must_equal 204
           lambda {
             binary_bucket.get("jimmy:documents:jaypeg")
           }.must_raise Riak::HTTPFailedRequest
+        end
+
+        it "logs the operation" do
+          objects = []
+          opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+
+          log_entry = objects.select{|o| o.data["count"] == -1 && o.data["size"] == -16044}.first
+          log_entry.data["category"].must_equal "documents"
+          log_entry.indexes["user_id_bin"].must_include "jimmy"
         end
       end
     end

@@ -30,6 +30,10 @@ module RemoteStorage
       @binary_bucket ||= client.bucket(settings.riak['buckets']['binaries'])
     end
 
+    def opslog_bucket
+      @opslog_bucket ||= client.bucket(settings.riak['buckets']['opslog'])
+    end
+
     def authorize_request(user, directory, token, listing=false)
       request_method = env["REQUEST_METHOD"]
 
@@ -84,23 +88,26 @@ module RemoteStorage
     end
 
     def put_data(user, directory, key, data, content_type=nil)
-      object = data_bucket.new("#{user}:#{directory}:#{key}")
-      object.content_type = content_type || "text/plain; charset=utf-8"
+      object = build_data_object(user, directory, key, data, content_type)
 
-      directory_index = directory == "" ? "/" : directory
-      object.indexes.merge!({:user_id_bin => [user],
-                             :directory_bin => [CGI.escape(directory_index)]})
+      object_exists = !object.data.nil?
+      existing_object_size = object_size(object)
 
       timestamp = (Time.now.to_f * 1000).to_i
       object.meta["timestamp"] = timestamp
 
       if binary_data?(object.content_type, data)
         save_binary_data(object, data) or halt 422
+        new_object_size = data.size
       else
         set_object_data(object, data) or halt 422
+        new_object_size = object.raw_data.size
       end
 
       object.store
+
+      log_count = object_exists ? 0 : 1
+      log_operation(user, directory, log_count, new_object_size, existing_object_size)
 
       update_all_directory_objects(user, directory, timestamp)
 
@@ -111,12 +118,17 @@ module RemoteStorage
 
     def delete_data(user, directory, key)
       object = data_bucket.get("#{user}:#{directory}:#{key}")
+      existing_object_size = object_size(object)
 
       if binary_link = object.links.select {|l| l.tag == "binary"}.first
         client[binary_link.bucket].delete(binary_link.key)
       end
 
       riak_response = data_bucket.delete("#{user}:#{directory}:#{key}")
+
+      if riak_response[:code] != 404
+        log_operation(user, directory, -1, 0, existing_object_size)
+      end
 
       timestamp = (Time.now.to_f * 1000).to_i
       delete_or_update_directory_objects(user, directory, timestamp)
@@ -126,7 +138,67 @@ module RemoteStorage
       halt 404
     end
 
+
     private
+
+    def extract_category(directory)
+      if directory.match(/^public\//)
+        "public/#{directory.split('/')[1]}"
+      else
+        directory.split('/').first
+      end
+    end
+
+    def build_data_object(user, directory, key, data, content_type=nil)
+      object = data_bucket.get_or_new("#{user}:#{directory}:#{key}")
+
+      object.content_type = content_type || "text/plain; charset=utf-8"
+
+      directory_index = directory == "" ? "/" : directory
+      object.indexes.merge!({:user_id_bin => [user],
+                             :directory_bin => [directory_index]})
+
+      object
+    end
+
+    def log_operation(user, directory, count, new_size=0, old_size=0)
+      log_entry = opslog_bucket.new
+      log_entry.content_type = "application/json"
+      log_entry.data = {
+        "count" => count,
+        "size" => (-old_size + new_size),
+        "category" => extract_category(directory)
+      }
+      log_entry.indexes.merge!({:user_id_bin => [user]})
+      log_entry.store
+    end
+
+    def object_size(object)
+      if binary_link = object.links.select {|l| l.tag == "binary"}.first
+        response = head(settings.riak['buckets']['binaries'], escape(binary_link.key))
+        response[:headers]["content-length"].first.to_i
+      else
+        object.raw_data.nil? ? 0 : object.raw_data.size
+      end
+    end
+
+    def escape(string)
+      ::Riak.escaper.escape(string).gsub("+", "%20").gsub('/', "%2F")
+    end
+
+    # Perform a HEAD request via the backend method
+    def head(bucket, key)
+      client.http do |h|
+        url = riak_uri(bucket, key)
+        h.head [200], url
+      end
+    end
+
+    # A URI object that can be used with HTTP backend methods
+    def riak_uri(bucket, key)
+      rc = settings.riak.symbolize_keys
+      URI.parse "http://#{rc[:host]}:#{rc[:http_port]}/riak/#{bucket}/#{key}"
+    end
 
     def serializer_for(content_type)
       ::Riak::Serializers[content_type[/^[^;\s]+/]]
@@ -164,21 +236,21 @@ module RemoteStorage
       listing = {}
 
       sub_directories(user, directory).each do |entry|
-        directory_name = CGI.unescape(entry["name"]).split("/").last
+        directory_name = entry["name"].split("/").last
         timestamp = entry["timestamp"].to_i
 
         listing.merge!({ "#{directory_name}/" => timestamp })
       end
 
       directory_entries(user, directory).each do |entry|
-        entry_name = CGI.unescape(entry["name"])
+        entry_name = entry["name"]
         timestamp = if entry["timestamp"]
                       entry["timestamp"].to_i
                     else
                       DateTime.rfc2822(entry["last_modified"]).to_i
                     end
 
-        listing.merge!({ CGI.escape(entry_name) => timestamp })
+        listing.merge!({ entry_name => timestamp })
       end
 
       listing
@@ -267,7 +339,7 @@ module RemoteStorage
       directory_object.data = timestamp.to_s
       directory_object.indexes.merge!({:user_id_bin => [user]})
       if parent_directory
-        directory_object.indexes.merge!({:directory_bin => [CGI.escape(parent_directory)]})
+        directory_object.indexes.merge!({:directory_bin => [parent_directory]})
       end
       directory_object.store
     end
