@@ -26,7 +26,7 @@ describe "Directories" do
       last_response.content_type.must_equal "application/json"
 
       content = JSON.parse(last_response.body)
-      content.must_include "http%3A%2F%2F5apps.com"
+      content.must_include "http://5apps.com"
       content.must_include "foo"
       content["foo"].must_be_kind_of Integer
       content["foo"].to_s.length.must_equal 13
@@ -65,7 +65,7 @@ describe "Directories" do
 
         content = JSON.parse(last_response.body)
         content.must_include "foo"
-        content.must_include "http%3A%2F%2F5apps.com"
+        content.must_include "http://5apps.com"
         content.must_include "home/"
         content["home/"].must_be_kind_of Integer
         content["home/"].to_s.length.must_equal 13
@@ -192,6 +192,53 @@ describe "Directories" do
       end
     end
 
+    context "special characters in directory name" do
+      before do
+        put "/jimmy/tasks/foo~bar/task1", "some task"
+      end
+
+      it "lists the directory in the parent directory" do
+        get "/jimmy/tasks/"
+
+        last_response.status.must_equal 200
+
+        content = JSON.parse(last_response.body)
+        content.must_include "foo~bar/"
+      end
+
+      it "lists the containing objects" do
+        get "/jimmy/tasks/foo~bar/"
+
+        last_response.status.must_equal 200
+
+        content = JSON.parse(last_response.body)
+        content.must_include "task1"
+      end
+
+      it "returns the requested object" do
+        get "/jimmy/tasks/foo~bar/task1"
+
+        last_response.status.must_equal 200
+
+        last_response.body.must_equal "some task"
+      end
+    end
+
+    context "special characters in object name" do
+      before do
+        put "/jimmy/tasks/bla~blub", "some task"
+      end
+
+      it "lists the containing object" do
+        get "/jimmy/tasks/"
+
+        last_response.status.must_equal 200
+
+        content = JSON.parse(last_response.body)
+        content.must_include "bla~blub"
+      end
+    end
+
     context "for the root directory" do
       before do
         auth = auth_bucket.new("jimmy:123")
@@ -297,7 +344,7 @@ describe "Directories" do
           put "/jimmy/tasks/home/trash", "take out the trash"
 
           object = directory_bucket.get("jimmy:tasks")
-          object.indexes["directory_bin"].must_include CGI.escape("/")
+          object.indexes["directory_bin"].must_include "/"
           object.data.wont_be_nil
 
           object = directory_bucket.get("jimmy:")
