@@ -36,6 +36,10 @@ class LiquorCabinet < Sinatra::Base
     disable :protection
   end
 
+  before do
+    halt 503 if LiquorCabinet.config['maintenance']
+  end
+
   ["/:user/*/:key", "/:user/:key", "/:user/*/", "/:user/"].each do |path|
     before path do
       headers 'Access-Control-Allow-Origin' => '*',

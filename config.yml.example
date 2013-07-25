@@ -1,4 +1,5 @@
 defaults: &defaults
+  maintenance: false
   riak:
     host: localhost
     http_port: 8098
