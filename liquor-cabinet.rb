@@ -47,6 +47,10 @@ class LiquorCabinet < Sinatra::Base
   # Cabinet doors
   #
 
+  before do
+    halt 503 if settings.maintenance rescue false
+  end
+
   ["/:user/*/:key", "/:user/:key", "/:user/*/", "/:user/"].each do |path|
     before path do
       headers 'Access-Control-Allow-Origin' => '*',
