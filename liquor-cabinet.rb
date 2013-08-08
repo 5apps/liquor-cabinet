@@ -4,17 +4,8 @@ require "json"
 require "sinatra/base"
 require 'sinatra/config_file'
 require "sinatra/reloader"
+require "rack/common_logger"
 require "remote_storage/riak"
-
-# Disable Rack logger completely
-module Rack
-  class CommonLogger
-    def call(env)
-      # do nothing
-      @app.call(env)
-    end
-  end
-end
 
 class LiquorCabinet < Sinatra::Base
 
