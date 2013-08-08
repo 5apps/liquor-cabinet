@@ -345,7 +345,7 @@ describe "Permissions" do
         it "allows GET requests" do
           get "/jimmy/public/tasks/"
 
-          last_response.status.must_equal 200
+          last_response.status.must_equal 404
         end
 
         it "allows PUT requests" do
@@ -403,19 +403,19 @@ describe "Permissions" do
         end
 
         it "allows GET requests" do
-          get "/jimmy/tasks/"
+          get "/jimmy/public/tasks/"
 
-          last_response.status.must_equal 200
+          last_response.status.must_equal 404
         end
 
         it "disallows PUT requests" do
-          put "/jimmy/tasks/foo", "some text"
+          put "/jimmy/public/tasks/foo", "some text"
 
           last_response.status.must_equal 403
         end
 
         it "disallows DELETE requests" do
-          delete "/jimmy/tasks/hello"
+          delete "/jimmy/public/tasks/hello"
 
           last_response.status.must_equal 403
         end

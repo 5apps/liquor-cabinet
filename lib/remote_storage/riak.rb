@@ -75,8 +75,7 @@ module RemoteStorage
 
       return listing.to_json
     rescue ::Riak::HTTPFailedRequest
-      server.headers["Content-Type"] = "application/json"
-      return "{}"
+      server.halt 404
     end
 
     def put_data(user, directory, key, data, content_type=nil)

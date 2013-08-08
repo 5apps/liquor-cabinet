@@ -187,8 +187,7 @@ describe "Directories" do
       it "returns an empty listing" do
         get "/jimmy/documents/notfound/"
 
-        last_response.status.must_equal 200
-        last_response.body.must_equal "{}"
+        last_response.status.must_equal 404
       end
     end
 
