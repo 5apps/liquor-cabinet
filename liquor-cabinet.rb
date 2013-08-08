@@ -66,21 +66,17 @@ class LiquorCabinet < Sinatra::Base
 
       authorize_request(@user, @directory, token, @key.blank?) unless request.options?
     end
+
+    options path do
+      halt 200
+    end
   end
 
   ["/:user/*/:key", "/:user/:key"].each do |path|
     get path do
       get_data(@user, @directory, @key)
     end
-  end
 
-  ["/:user/*/", "/:user/"].each do |path|
-    get path do
-      get_directory_listing(@user, @directory)
-    end
-  end
-
-  ["/:user/*/:key", "/:user/:key"].each do |path|
     put path do
       data = request.body.read
 
@@ -92,17 +88,15 @@ class LiquorCabinet < Sinatra::Base
 
       put_data(@user, @directory, @key, data, content_type)
     end
-  end
 
-  ["/:user/*/:key", "/:user/:key"].each do |path|
     delete path do
       delete_data(@user, @directory, @key)
     end
   end
 
-  ["/:user/*/:key", "/:user/:key", "/:user/*/", "/:user/"].each do |path|
-    options path do
-      halt 200
+  ["/:user/*/", "/:user/"].each do |path|
+    get path do
+      get_directory_listing(@user, @directory)
     end
   end
 
