@@ -36,13 +36,6 @@ class LiquorCabinet < Sinatra::Base
     enable :logging
   end
 
-  if settings.riak
-    include RemoteStorage::Riak
-  # elsif settings.redis
-  #  include RemoteStorage::Redis
-  # end
-  end
-
   #
   # Cabinet doors
   #
@@ -64,7 +57,7 @@ class LiquorCabinet < Sinatra::Base
 
       token = env["HTTP_AUTHORIZATION"] ? env["HTTP_AUTHORIZATION"].split(" ")[1] : ""
 
-      authorize_request(@user, @directory, token, @key.blank?) unless request.options?
+      storage.authorize_request(@user, @directory, token, @key.blank?) unless request.options?
     end
 
     options path do
@@ -74,7 +67,7 @@ class LiquorCabinet < Sinatra::Base
 
   ["/:user/*/:key", "/:user/:key"].each do |path|
     get path do
-      get_data(@user, @directory, @key)
+      storage.get_data(@user, @directory, @key)
     end
 
     put path do
@@ -86,17 +79,29 @@ class LiquorCabinet < Sinatra::Base
         content_type = env['CONTENT_TYPE']
       end
 
-      put_data(@user, @directory, @key, data, content_type)
+      storage.put_data(@user, @directory, @key, data, content_type)
     end
 
     delete path do
-      delete_data(@user, @directory, @key)
+      storage.delete_data(@user, @directory, @key)
     end
   end
 
   ["/:user/*/", "/:user/"].each do |path|
     get path do
-      get_directory_listing(@user, @directory)
+      storage.get_directory_listing(@user, @directory)
+    end
+  end
+
+  private
+
+  def storage
+    @storage ||= begin
+      if settings.riak
+        RemoteStorage::Riak.new(settings.riak, self)
+      # elsif settings.redis
+      #  include RemoteStorage::Redis
+      end
     end
   end
 
