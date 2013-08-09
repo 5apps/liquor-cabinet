@@ -10,7 +10,6 @@ before_script:
   - sudo cp .travis/app.config /etc/riak/
   - sudo service riak restart
   - sleep 3
-  - sudo riak-admin status
 script: rake test
 notifications:
   webhooks:
