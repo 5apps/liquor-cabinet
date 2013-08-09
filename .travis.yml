@@ -9,6 +9,7 @@ before_script:
   - cat /etc/riak/app.config
   - sudo cp .travis/app.config /etc/riak/
   - sudo service riak restart
+  - sleep 1
   - sudo riak-admin status
 script: rake test
 notifications:
