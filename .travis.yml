@@ -5,6 +5,9 @@ rvm:
 services: riak
 before_script:
   - cp config.yml.example config.yml
+  - cat /etc/riak/app.config
+  - sudo riak-admin status
+  - sudo riak restart
 script: rake test
 notifications:
   webhooks:
