@@ -219,6 +219,23 @@ describe "App with Riak backend" do
           update_entry.data["category"].must_equal "documents"
           update_entry.indexes["user_id_bin"].must_include "jimmy"
         end
+
+        describe "when no serializer is registered for the given content-type" do
+          before do
+            header "Content-Type", "text/html; charset=UTF-8"
+            put "/jimmy/documents/html", '<html></html>'
+            put "/jimmy/documents/html", '<html><body></body></html>'
+          end
+
+          it "saves the value" do
+            last_response.status.must_equal 200
+            data_bucket.get("jimmy:documents:html").raw_data.must_equal "<html><body></body></html>"
+          end
+
+          it "uses the requested content type" do
+            data_bucket.get("jimmy:documents:html").content_type.must_equal "text/html; charset=UTF-8"
+          end
+        end
       end
 
       describe "public data" do

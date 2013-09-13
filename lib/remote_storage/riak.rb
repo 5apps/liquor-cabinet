@@ -90,7 +90,7 @@ module RemoteStorage
     def put_data(user, directory, key, data, content_type=nil)
       object = build_data_object(user, directory, key, data, content_type)
 
-      object_exists = !object.data.nil?
+      object_exists = !object.raw_data.nil?
       existing_object_size = object_size(object)
 
       timestamp = (Time.now.to_f * 1000).to_i
