@@ -4,7 +4,6 @@ require "json"
 require "sinatra/base"
 require 'sinatra/config_file'
 require "sinatra/reloader"
-require "rack/common_logger"
 require "remote_storage/riak"
 
 class LiquorCabinet < Sinatra::Base
@@ -25,6 +24,10 @@ class LiquorCabinet < Sinatra::Base
   configure :development do
     register Sinatra::Reloader
     enable :logging
+  end
+
+  configure :production, :staging do
+    require "rack/common_logger"
   end
 
   #
