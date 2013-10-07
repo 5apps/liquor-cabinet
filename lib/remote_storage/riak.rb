@@ -40,8 +40,15 @@ module RemoteStorage
       server.headers["Content-Type"] = object.content_type
       server.headers["Last-Modified"] = last_modified_date_for(object)
 
-      if binary_link = object.links.select {|l| l.tag == "binary"}.first
-        object = client[binary_link.bucket].get(binary_link.key)
+      if binary_key = object.meta["binary_key"]
+        object = cs_binary_bucket.files.get(binary_key[0])
+
+        case object.content_type[/^[^;\s]+/]
+        when "application/json"
+          return object.body.to_json
+        else
+          return object.body
+        end
       end
 
       case object.content_type[/^[^;\s]+/]
@@ -86,7 +93,7 @@ module RemoteStorage
         new_object_size = object.raw_data.size
       end
 
-      object.store
+      response = object.store
 
       log_count = object_exists ? 0 : 1
       log_operation(user, directory, log_count, new_object_size, existing_object_size)
@@ -102,8 +109,9 @@ module RemoteStorage
       object = data_bucket.get("#{user}:#{directory}:#{key}")
       existing_object_size = object_size(object)
 
-      if binary_link = object.links.select {|l| l.tag == "binary"}.first
-        client[binary_link.bucket].delete(binary_link.key)
+      if binary_key = object.meta["binary_key"]
+        object = cs_binary_bucket.files.get(binary_key[0])
+        object.destroy
       end
 
       riak_response = data_bucket.delete("#{user}:#{directory}:#{key}")
@@ -155,9 +163,9 @@ module RemoteStorage
     end
 
     def object_size(object)
-      if binary_link = object.links.select {|l| l.tag == "binary"}.first
-        response = head(settings['buckets']['binaries'], escape(binary_link.key))
-        response[:headers]["content-length"].first.to_i
+      if binary_key = object.meta["binary_key"]
+        response = cs_client.head_object cs_binary_bucket.key, binary_key[0]
+        response.headers["Content-Length"].to_i
       else
         object.raw_data.nil? ? 0 : object.raw_data.size
       end
@@ -165,14 +173,6 @@ module RemoteStorage
 
     def escape(string)
       ::Riak.escaper.escape(string).gsub("+", "%20").gsub('/', "%2F")
-    end
-
-    # Perform a HEAD request via the backend method
-    def head(bucket, key)
-      client.http do |h|
-        url = riak_uri(bucket, key)
-        h.head [200], url
-      end
     end
 
     # A URI object that can be used with HTTP backend methods
@@ -354,14 +354,13 @@ module RemoteStorage
     end
 
     def save_binary_data(object, data)
-      binary_object = binary_bucket.new(object.key)
-      binary_object.content_type = object.content_type
-      binary_object.raw_data = data
-      binary_object.indexes = object.indexes
-      binary_object.store
+      cs_binary_object = cs_binary_bucket.files.create(
+        :key          => object.key,
+        :body         => data,
+        :content_type => object.content_type
+      )
 
-      link = ::Riak::Link.new(binary_bucket.name, binary_object.key, "binary")
-      object.links << link
+      object.meta["binary_key"] = cs_binary_object.key
       object.raw_data = ""
     end
 
@@ -389,7 +388,7 @@ module RemoteStorage
     end
 
     def client
-      @client ||= ::Riak::Client.new(:host => settings['host'],
+      @client ||= ::Riak::Client.new(:host      => settings['host'],
                                      :http_port => settings['http_port'])
     end
 
@@ -412,5 +411,19 @@ module RemoteStorage
     def opslog_bucket
       @opslog_bucket ||= client.bucket(settings['buckets']['opslog'])
     end
+
+    def cs_client
+      @cs_client ||= Fog::Storage.new({
+        :provider                 => 'AWS',
+        :aws_access_key_id        => settings['riak_cs']['access_key'],
+        :aws_secret_access_key    => settings['riak_cs']['secret_key'],
+        :endpoint                 => settings['riak_cs']['endpoint']
+      })
+    end
+
+    def cs_binary_bucket
+      @cs_binary_bucket ||= cs_client.directories.create(:key => settings['buckets']['cs_binaries'])
+    end
+
   end
 end
