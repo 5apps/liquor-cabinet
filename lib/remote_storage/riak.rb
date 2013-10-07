@@ -393,23 +393,43 @@ module RemoteStorage
     end
 
     def data_bucket
-      @data_bucket ||= client.bucket(settings['buckets']['data'])
+      @data_bucket ||= begin
+                         bucket = client.bucket(settings['buckets']['data'])
+                         bucket.allow_mult = false
+                         bucket
+                       end
     end
 
     def directory_bucket
-      @directory_bucket ||= client.bucket(settings['buckets']['directories'])
+      @directory_bucket ||= begin
+                              bucket = client.bucket(settings['buckets']['directories'])
+                              bucket.allow_mult = false
+                              bucket
+                            end
     end
 
     def auth_bucket
-      @auth_bucket ||= client.bucket(settings['buckets']['authorizations'])
+      @auth_bucket ||= begin
+                         bucket = client.bucket(settings['buckets']['authorizations'])
+                         bucket.allow_mult = false
+                         bucket
+                       end
     end
 
     def binary_bucket
-      @binary_bucket ||= client.bucket(settings['buckets']['binaries'])
+      @binary_bucket ||= begin
+                           bucket = client.bucket(settings['buckets']['binaries'])
+                           bucket.allow_mult = false
+                           bucket
+                         end
     end
 
     def opslog_bucket
-      @opslog_bucket ||= client.bucket(settings['buckets']['opslog'])
+      @opslog_bucket ||= begin
+                           bucket = client.bucket(settings['buckets']['opslog'])
+                           bucket.allow_mult = false
+                           bucket
+                         end
     end
 
     def cs_client

@@ -38,23 +38,43 @@ if app.settings.riak
   end
 
   def data_bucket
-    @data_bucket ||= client.bucket(app.settings.riak['buckets']['data'])
-  end
-
-  def auth_bucket
-    @auth_bucket ||= client.bucket(app.settings.riak['buckets']['authorizations'])
+    @data_bucket ||= begin
+                       bucket = client.bucket(app.settings.riak['buckets']['data'])
+                       bucket.allow_mult = false
+                       bucket
+                     end
   end
 
   def directory_bucket
-    @directory_bucket ||= client.bucket(app.settings.riak['buckets']['directories'])
+    @directory_bucket ||= begin
+                            bucket = client.bucket(app.settings.riak['buckets']['directories'])
+                            bucket.allow_mult = false
+                            bucket
+                          end
+  end
+
+  def auth_bucket
+    @auth_bucket ||= begin
+                       bucket = client.bucket(app.settings.riak['buckets']['authorizations'])
+                       bucket.allow_mult = false
+                       bucket
+                     end
   end
 
   def binary_bucket
-    @binary_bucket ||= client.bucket(app.settings.riak['buckets']['binaries'])
+    @binary_bucket ||= begin
+                         bucket = client.bucket(app.settings.riak['buckets']['binaries'])
+                         bucket.allow_mult = false
+                         bucket
+                       end
   end
 
   def opslog_bucket
-    @opslog_bucket ||= client.bucket(app.settings.riak['buckets']['opslog'])
+    @opslog_bucket ||= begin
+                         bucket = client.bucket(app.settings.riak['buckets']['opslog'])
+                         bucket.allow_mult = false
+                         bucket
+                       end
   end
 
   def purge_all_buckets
