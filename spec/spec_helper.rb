@@ -61,14 +61,6 @@ if app.settings.riak
                      end
   end
 
-  def binary_bucket
-    @binary_bucket ||= begin
-                         bucket = client.bucket(app.settings.riak['buckets']['binaries'])
-                         bucket.allow_mult = false
-                         bucket
-                       end
-  end
-
   def opslog_bucket
     @opslog_bucket ||= begin
                          bucket = client.bucket(app.settings.riak['buckets']['opslog'])
@@ -91,8 +83,12 @@ if app.settings.riak
   end
 
   def purge_all_buckets
-    [data_bucket, directory_bucket, auth_bucket, binary_bucket, opslog_bucket].each do |bucket|
+    [data_bucket, directory_bucket, auth_bucket, opslog_bucket].each do |bucket|
       bucket.keys.each {|key| bucket.delete key}
+    end
+
+    cs_binary_bucket.files.each do |file|
+      file.destroy
     end
   end
 end
