@@ -428,10 +428,8 @@ describe "App with Riak backend" do
         it "removes the binary object" do
           last_response.status.must_equal 204
 
-          skip "check if object is removed from Riak CS"
-        #   lambda {
-        #     binary_bucket.get("jimmy:documents:jaypeg")
-        #   }.must_raise Riak::HTTPFailedRequest
+          binary = cs_binary_bucket.files.get("jimmy:documents:jaypeg")
+          binary.must_be_nil
         end
 
         it "logs the operation" do

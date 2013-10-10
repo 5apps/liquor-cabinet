@@ -77,6 +77,19 @@ if app.settings.riak
                        end
   end
 
+  def cs_client
+    @cs_client ||= Fog::Storage.new({
+      :provider                 => 'AWS',
+      :aws_access_key_id        => app.settings.riak['riak_cs']['access_key'],
+      :aws_secret_access_key    => app.settings.riak['riak_cs']['secret_key'],
+      :endpoint                 => app.settings.riak['riak_cs']['endpoint']
+    })
+  end
+
+  def cs_binary_bucket
+    @cs_binary_bucket ||= cs_client.directories.create(:key => app.settings.riak['buckets']['cs_binaries'])
+  end
+
   def purge_all_buckets
     [data_bucket, directory_bucket, auth_bucket, binary_bucket, opslog_bucket].each do |bucket|
       bucket.keys.each {|key| bucket.delete key}
