@@ -9,11 +9,14 @@ module RemoteStorage
 
     ::Riak.url_decoding = true
 
-    attr_accessor :settings, :server
+    attr_accessor :settings, :server, :cs_credentials
 
     def initialize(settings, server)
       self.settings = settings
       self.server = server
+
+      credentials = File.read(settings['riak_cs']['credentials_file'])
+      self.cs_credentials = JSON.parse(credentials)
     end
 
     def authorize_request(user, directory, token, listing=false)
@@ -435,8 +438,8 @@ module RemoteStorage
     def cs_client
       @cs_client ||= Fog::Storage.new({
         :provider                 => 'AWS',
-        :aws_access_key_id        => settings['riak_cs']['access_key'],
-        :aws_secret_access_key    => settings['riak_cs']['secret_key'],
+        :aws_access_key_id        => cs_credentials['key_id'],
+        :aws_secret_access_key    => cs_credentials['key_secret'],
         :endpoint                 => settings['riak_cs']['endpoint']
       })
     end

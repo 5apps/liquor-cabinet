@@ -69,11 +69,18 @@ if app.settings.riak
                        end
   end
 
+  def cs_credentials
+    @cs_credentials ||= begin
+                          credentials = File.read(app.settings.riak['riak_cs']['credentials_file'])
+                          JSON.parse(credentials)
+                        end
+  end
+
   def cs_client
     @cs_client ||= Fog::Storage.new({
       :provider                 => 'AWS',
-      :aws_access_key_id        => app.settings.riak['riak_cs']['access_key'],
-      :aws_secret_access_key    => app.settings.riak['riak_cs']['secret_key'],
+      :aws_access_key_id        => cs_credentials['key_id'],
+      :aws_secret_access_key    => cs_credentials['key_secret'],
       :endpoint                 => app.settings.riak['riak_cs']['endpoint']
     })
   end
