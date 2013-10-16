@@ -5,37 +5,22 @@ require "active_support/core_ext/time/conversions"
 require "active_support/core_ext/numeric/time"
 
 module RemoteStorage
-  module Riak
+  class Riak
 
     ::Riak.url_decoding = true
 
-    def client
-      @client ||= ::Riak::Client.new(:host => settings.riak['host'],
-                                     :http_port => settings.riak['http_port'])
-    end
+    attr_accessor :settings, :server, :cs_credentials
 
-    def data_bucket
-      @data_bucket ||= client.bucket(settings.riak['buckets']['data'])
-    end
+    def initialize(settings, server)
+      self.settings = settings
+      self.server = server
 
-    def directory_bucket
-      @directory_bucket ||= client.bucket(settings.riak['buckets']['directories'])
-    end
-
-    def auth_bucket
-      @auth_bucket ||= client.bucket(settings.riak['buckets']['authorizations'])
-    end
-
-    def binary_bucket
-      @binary_bucket ||= client.bucket(settings.riak['buckets']['binaries'])
-    end
-
-    def opslog_bucket
-      @opslog_bucket ||= client.bucket(settings.riak['buckets']['opslog'])
+      credentials = File.read(settings['riak_cs']['credentials_file'])
+      self.cs_credentials = JSON.parse(credentials)
     end
 
     def authorize_request(user, directory, token, listing=false)
-      request_method = env["REQUEST_METHOD"]
+      request_method = server.env["REQUEST_METHOD"]
 
       if directory.split("/").first == "public"
         return true if request_method == "GET" && !listing
@@ -44,22 +29,29 @@ module RemoteStorage
       authorizations = auth_bucket.get("#{user}:#{token}").data
       permission = directory_permission(authorizations, directory)
 
-      halt 403 unless permission
+      server.halt 403 unless permission
       if ["PUT", "DELETE"].include? request_method
-        halt 403 unless permission == "rw"
+        server.halt 403 unless permission == "rw"
       end
     rescue ::Riak::HTTPFailedRequest
-      halt 403
+      server.halt 403
     end
 
     def get_data(user, directory, key)
       object = data_bucket.get("#{user}:#{directory}:#{key}")
 
-      headers["Content-Type"] = object.content_type
-      headers["Last-Modified"] = last_modified_date_for(object)
+      server.headers["Content-Type"] = object.content_type
+      server.headers["Last-Modified"] = last_modified_date_for(object)
 
-      if binary_link = object.links.select {|l| l.tag == "binary"}.first
-        object = client[binary_link.bucket].get(binary_link.key)
+      if binary_key = object.meta["binary_key"]
+        object = cs_binary_bucket.files.get(binary_key[0])
+
+        case object.content_type[/^[^;\s]+/]
+        when "application/json"
+          return object.body.to_json
+        else
+          return object.body
+        end
       end
 
       case object.content_type[/^[^;\s]+/]
@@ -69,21 +61,21 @@ module RemoteStorage
         return serializer_for(object.content_type) ? object.data : object.raw_data
       end
     rescue ::Riak::HTTPFailedRequest
-      halt 404
+      server.halt 404
     end
 
     def get_directory_listing(user, directory)
       directory_object = directory_bucket.get("#{user}:#{directory}")
       timestamp = directory_object.data.to_i
       timestamp /= 1000 if timestamp.to_s.length == 13
-      headers["Content-Type"] = "application/json"
-      headers["Last-Modified"] = Time.at(timestamp).to_s(:rfc822)
+      server.headers["Content-Type"] = "application/json"
+      server.headers["Last-Modified"] = Time.at(timestamp).to_s(:rfc822)
 
       listing = directory_listing(user, directory)
 
       return listing.to_json
     rescue ::Riak::HTTPFailedRequest
-      headers["Content-Type"] = "application/json"
+      server.headers["Content-Type"] = "application/json"
       return "{}"
     end
 
@@ -97,31 +89,32 @@ module RemoteStorage
       object.meta["timestamp"] = timestamp
 
       if binary_data?(object.content_type, data)
-        save_binary_data(object, data) or halt 422
+        save_binary_data(object, data) or server.halt 422
         new_object_size = data.size
       else
-        set_object_data(object, data) or halt 422
+        set_object_data(object, data) or server.halt 422
         new_object_size = object.raw_data.size
       end
 
-      object.store
+      response = object.store
 
       log_count = object_exists ? 0 : 1
       log_operation(user, directory, log_count, new_object_size, existing_object_size)
 
       update_all_directory_objects(user, directory, timestamp)
 
-      halt 200
+      server.halt 200
     rescue ::Riak::HTTPFailedRequest
-      halt 422
+      server.halt 422
     end
 
     def delete_data(user, directory, key)
       object = data_bucket.get("#{user}:#{directory}:#{key}")
       existing_object_size = object_size(object)
 
-      if binary_link = object.links.select {|l| l.tag == "binary"}.first
-        client[binary_link.bucket].delete(binary_link.key)
+      if binary_key = object.meta["binary_key"]
+        object = cs_binary_bucket.files.get(binary_key[0])
+        object.destroy
       end
 
       riak_response = data_bucket.delete("#{user}:#{directory}:#{key}")
@@ -133,11 +126,10 @@ module RemoteStorage
       timestamp = (Time.now.to_f * 1000).to_i
       delete_or_update_directory_objects(user, directory, timestamp)
 
-      halt riak_response[:code]
+      server.halt riak_response[:code]
     rescue ::Riak::HTTPFailedRequest
-      halt 404
+      server.halt 404
     end
-
 
     private
 
@@ -174,9 +166,9 @@ module RemoteStorage
     end
 
     def object_size(object)
-      if binary_link = object.links.select {|l| l.tag == "binary"}.first
-        response = head(settings.riak['buckets']['binaries'], escape(binary_link.key))
-        response[:headers]["content-length"].first.to_i
+      if binary_key = object.meta["binary_key"]
+        response = cs_client.head_object cs_binary_bucket.key, binary_key[0]
+        response.headers["Content-Length"].to_i
       else
         object.raw_data.nil? ? 0 : object.raw_data.size
       end
@@ -186,17 +178,9 @@ module RemoteStorage
       ::Riak.escaper.escape(string).gsub("+", "%20").gsub('/', "%2F")
     end
 
-    # Perform a HEAD request via the backend method
-    def head(bucket, key)
-      client.http do |h|
-        url = riak_uri(bucket, key)
-        h.head [200], url
-      end
-    end
-
     # A URI object that can be used with HTTP backend methods
     def riak_uri(bucket, key)
-      rc = settings.riak.symbolize_keys
+      rc = settings.symbolize_keys
       URI.parse "http://#{rc[:host]}:#{rc[:http_port]}/riak/#{bucket}/#{key}"
     end
 
@@ -373,14 +357,13 @@ module RemoteStorage
     end
 
     def save_binary_data(object, data)
-      binary_object = binary_bucket.new(object.key)
-      binary_object.content_type = object.content_type
-      binary_object.raw_data = data
-      binary_object.indexes = object.indexes
-      binary_object.store
+      cs_binary_object = cs_binary_bucket.files.create(
+        :key          => object.key,
+        :body         => data,
+        :content_type => object.content_type
+      )
 
-      link = ::Riak::Link.new(binary_bucket.name, binary_object.key, "binary")
-      object.links << link
+      object.meta["binary_key"] = cs_binary_object.key
       object.raw_data = ""
     end
 
@@ -406,5 +389,64 @@ module RemoteStorage
 
       parent_directories << ""
     end
+
+    def client
+      @client ||= ::Riak::Client.new(:host      => settings['host'],
+                                     :http_port => settings['http_port'])
+    end
+
+    def data_bucket
+      @data_bucket ||= begin
+                         bucket = client.bucket(settings['buckets']['data'])
+                         bucket.allow_mult = false
+                         bucket
+                       end
+    end
+
+    def directory_bucket
+      @directory_bucket ||= begin
+                              bucket = client.bucket(settings['buckets']['directories'])
+                              bucket.allow_mult = false
+                              bucket
+                            end
+    end
+
+    def auth_bucket
+      @auth_bucket ||= begin
+                         bucket = client.bucket(settings['buckets']['authorizations'])
+                         bucket.allow_mult = false
+                         bucket
+                       end
+    end
+
+    def binary_bucket
+      @binary_bucket ||= begin
+                           bucket = client.bucket(settings['buckets']['binaries'])
+                           bucket.allow_mult = false
+                           bucket
+                         end
+    end
+
+    def opslog_bucket
+      @opslog_bucket ||= begin
+                           bucket = client.bucket(settings['buckets']['opslog'])
+                           bucket.allow_mult = false
+                           bucket
+                         end
+    end
+
+    def cs_client
+      @cs_client ||= Fog::Storage.new({
+        :provider                 => 'AWS',
+        :aws_access_key_id        => cs_credentials['key_id'],
+        :aws_secret_access_key    => cs_credentials['key_secret'],
+        :endpoint                 => settings['riak_cs']['endpoint']
+      })
+    end
+
+    def cs_binary_bucket
+      @cs_binary_bucket ||= cs_client.directories.create(:key => settings['buckets']['cs_binaries'])
+    end
+
   end
 end

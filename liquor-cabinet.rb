@@ -6,16 +6,6 @@ require 'sinatra/config_file'
 require "sinatra/reloader"
 require "remote_storage/riak"
 
-# Disable Rack logger completely
-module Rack
-  class CommonLogger
-    def call(env)
-      # do nothing
-      @app.call(env)
-    end
-  end
-end
-
 class LiquorCabinet < Sinatra::Base
 
   #
@@ -36,11 +26,8 @@ class LiquorCabinet < Sinatra::Base
     enable :logging
   end
 
-  if settings.riak
-    include RemoteStorage::Riak
-  # elsif settings.redis
-  #  include RemoteStorage::Redis
-  # end
+  configure :production, :staging do
+    require "rack/common_logger"
   end
 
   #
@@ -64,23 +51,19 @@ class LiquorCabinet < Sinatra::Base
 
       token = env["HTTP_AUTHORIZATION"] ? env["HTTP_AUTHORIZATION"].split(" ")[1] : ""
 
-      authorize_request(@user, @directory, token, @key.blank?) unless request.options?
+      storage.authorize_request(@user, @directory, token, @key.blank?) unless request.options?
+    end
+
+    options path do
+      halt 200
     end
   end
 
   ["/:user/*/:key", "/:user/:key"].each do |path|
     get path do
-      get_data(@user, @directory, @key)
+      storage.get_data(@user, @directory, @key)
     end
-  end
 
-  ["/:user/*/", "/:user/"].each do |path|
-    get path do
-      get_directory_listing(@user, @directory)
-    end
-  end
-
-  ["/:user/*/:key", "/:user/:key"].each do |path|
     put path do
       data = request.body.read
 
@@ -90,19 +73,29 @@ class LiquorCabinet < Sinatra::Base
         content_type = env['CONTENT_TYPE']
       end
 
-      put_data(@user, @directory, @key, data, content_type)
+      storage.put_data(@user, @directory, @key, data, content_type)
     end
-  end
 
-  ["/:user/*/:key", "/:user/:key"].each do |path|
     delete path do
-      delete_data(@user, @directory, @key)
+      storage.delete_data(@user, @directory, @key)
     end
   end
 
-  ["/:user/*/:key", "/:user/:key", "/:user/*/", "/:user/"].each do |path|
-    options path do
-      halt 200
+  ["/:user/*/", "/:user/"].each do |path|
+    get path do
+      storage.get_directory_listing(@user, @directory)
+    end
+  end
+
+  private
+
+  def storage
+    @storage ||= begin
+      if settings.riak
+        RemoteStorage::Riak.new(settings.riak, self)
+      # elsif settings.redis
+      #  include RemoteStorage::Redis
+      end
     end
   end
 
