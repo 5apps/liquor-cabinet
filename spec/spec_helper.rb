@@ -38,28 +38,64 @@ if app.settings.riak
   end
 
   def data_bucket
-    @data_bucket ||= client.bucket(app.settings.riak['buckets']['data'])
-  end
-
-  def auth_bucket
-    @auth_bucket ||= client.bucket(app.settings.riak['buckets']['authorizations'])
+    @data_bucket ||= begin
+                       bucket = client.bucket(app.settings.riak['buckets']['data'])
+                       bucket.allow_mult = false
+                       bucket
+                     end
   end
 
   def directory_bucket
-    @directory_bucket ||= client.bucket(app.settings.riak['buckets']['directories'])
+    @directory_bucket ||= begin
+                            bucket = client.bucket(app.settings.riak['buckets']['directories'])
+                            bucket.allow_mult = false
+                            bucket
+                          end
   end
 
-  def binary_bucket
-    @binary_bucket ||= client.bucket(app.settings.riak['buckets']['binaries'])
+  def auth_bucket
+    @auth_bucket ||= begin
+                       bucket = client.bucket(app.settings.riak['buckets']['authorizations'])
+                       bucket.allow_mult = false
+                       bucket
+                     end
   end
 
   def opslog_bucket
-    @opslog_bucket ||= client.bucket(app.settings.riak['buckets']['opslog'])
+    @opslog_bucket ||= begin
+                         bucket = client.bucket(app.settings.riak['buckets']['opslog'])
+                         bucket.allow_mult = false
+                         bucket
+                       end
+  end
+
+  def cs_credentials
+    @cs_credentials ||= begin
+                          credentials = File.read(app.settings.riak['riak_cs']['credentials_file'])
+                          JSON.parse(credentials)
+                        end
+  end
+
+  def cs_client
+    @cs_client ||= Fog::Storage.new({
+      :provider                 => 'AWS',
+      :aws_access_key_id        => cs_credentials['key_id'],
+      :aws_secret_access_key    => cs_credentials['key_secret'],
+      :endpoint                 => app.settings.riak['riak_cs']['endpoint']
+    })
+  end
+
+  def cs_binary_bucket
+    @cs_binary_bucket ||= cs_client.directories.create(:key => app.settings.riak['buckets']['cs_binaries'])
   end
 
   def purge_all_buckets
-    [data_bucket, directory_bucket, auth_bucket, binary_bucket, opslog_bucket].each do |bucket|
+    [data_bucket, directory_bucket, auth_bucket, opslog_bucket].each do |bucket|
       bucket.keys.each {|key| bucket.delete key}
+    end
+
+    cs_binary_bucket.files.each do |file|
+      file.destroy
     end
   end
 end
