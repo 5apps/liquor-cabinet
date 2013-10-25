@@ -124,8 +124,8 @@ module RemoteStorage
       existing_object_size = object_size(object)
       etag = object.etag
 
-      if match_requirement = server.env["HTTP_IF_MATCH"]
-        server.halt 412 unless match_requirement == etag
+      if required_match = server.env["HTTP_IF_MATCH"]
+        server.halt 412 unless required_match == etag
       end
 
       if binary_key = object.meta["binary_key"]

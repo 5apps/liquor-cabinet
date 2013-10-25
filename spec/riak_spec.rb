@@ -32,6 +32,11 @@ describe "App with Riak backend" do
       last_modified.year.must_equal now.year
       last_modified.day.must_equal now.day
     end
+
+    it "has an ETag header set" do
+      last_response.status.must_equal 200
+      last_response.headers["ETag"].wont_be_nil
+    end
   end
 
   describe "GET data with custom content type" do
@@ -100,6 +105,10 @@ describe "App with Riak backend" do
 
         it "stores the data as plain text with utf-8 encoding" do
           data_bucket.get("jimmy:documents:bar").content_type.must_equal "text/plain; charset=utf-8"
+        end
+
+        it "sets the ETag header" do
+          last_response.headers["ETag"].wont_be_nil
         end
 
         it "indexes the data set" do
@@ -197,15 +206,18 @@ describe "App with Riak backend" do
       describe "with existing content" do
         before do
           put "/jimmy/documents/archive/foo", "lorem ipsum"
-          put "/jimmy/documents/archive/foo", "some awesome content"
         end
 
         it "saves the value" do
+          put "/jimmy/documents/archive/foo", "some awesome content"
+
           last_response.status.must_equal 200
           data_bucket.get("jimmy:documents/archive:foo").data.must_equal "some awesome content"
         end
 
         it "logs the operations" do
+          put "/jimmy/documents/archive/foo", "some awesome content"
+
           objects = []
           opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
 
@@ -220,21 +232,29 @@ describe "App with Riak backend" do
           update_entry.indexes["user_id_bin"].must_include "jimmy"
         end
 
-        describe "when no serializer is registered for the given content-type" do
-          before do
-            header "Content-Type", "text/html; charset=UTF-8"
-            put "/jimmy/documents/html", '<html></html>'
-            put "/jimmy/documents/html", '<html><body></body></html>'
-          end
+        it "changes the ETag header" do
+          old_etag = last_response.headers["ETag"]
+          put "/jimmy/documents/archive/foo", "some awesome content"
 
-          it "saves the value" do
-            last_response.status.must_equal 200
-            data_bucket.get("jimmy:documents:html").raw_data.must_equal "<html><body></body></html>"
-          end
+          last_response.headers["ETag"].wont_be_nil
+          last_response.headers["ETag"].wont_equal old_etag
+        end
+      end
 
-          it "uses the requested content type" do
-            data_bucket.get("jimmy:documents:html").content_type.must_equal "text/html; charset=UTF-8"
-          end
+      describe "exsting content without serializer registered for the given content-type" do
+        before do
+          header "Content-Type", "text/html; charset=UTF-8"
+          put "/jimmy/documents/html", '<html></html>'
+          put "/jimmy/documents/html", '<html><body></body></html>'
+        end
+
+        it "saves the value" do
+          last_response.status.must_equal 200
+          data_bucket.get("jimmy:documents:html").raw_data.must_equal "<html><body></body></html>"
+        end
+
+        it "uses the requested content type" do
+          data_bucket.get("jimmy:documents:html").content_type.must_equal "text/html; charset=UTF-8"
         end
       end
 
@@ -394,6 +414,10 @@ describe "App with Riak backend" do
         log_entry.data["size"].must_equal(-22)
         log_entry.data["category"].must_equal "documents"
         log_entry.indexes["user_id_bin"].must_include "jimmy"
+      end
+
+      it "sets the ETag header" do
+        last_response.headers["ETag"].wont_be_nil
       end
 
       context "non-existing object" do

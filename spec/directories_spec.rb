@@ -44,6 +44,18 @@ describe "Directories" do
       last_modified.day.must_equal now.day
     end
 
+    it "has an ETag header set" do
+      get "/jimmy/tasks/"
+
+      last_response.status.must_equal 200
+      last_response.headers["ETag"].wont_be_nil
+
+      # check that ETag stays the same
+      etag = last_response.headers["ETag"]
+      get "/jimmy/tasks/"
+      last_response.headers["ETag"].must_equal etag
+    end
+
     it "has CORS headers set" do
       get "/jimmy/tasks/"
 
@@ -55,6 +67,9 @@ describe "Directories" do
 
     context "with sub-directories" do
       before do
+        get "/jimmy/tasks/"
+        @old_etag = last_response.headers["ETag"]
+
         put "/jimmy/tasks/home/laundry", "do the laundry"
       end
 
@@ -69,6 +84,13 @@ describe "Directories" do
         content.must_include "home/"
         content["home/"].must_be_kind_of Integer
         content["home/"].to_s.length.must_equal 13
+      end
+
+      it "updates the ETag of the parent directory" do
+        get "/jimmy/tasks/"
+
+        last_response.headers["ETag"].wont_be_nil
+        last_response.headers["ETag"].wont_equal @old_etag
       end
 
       context "for a different user" do
@@ -260,6 +282,13 @@ describe "Directories" do
         content["tasks/"].must_be_kind_of Integer
         content["tasks/"].to_s.length.must_equal 13
       end
+
+      it "has an ETag header set" do
+        get "/jimmy/"
+
+        last_response.status.must_equal 200
+        last_response.headers["ETag"].wont_be_nil
+      end
     end
 
     context "for the public directory" do
@@ -279,6 +308,13 @@ describe "Directories" do
 
           content = JSON.parse(last_response.body)
           content.must_include "5apps"
+        end
+
+        it "has an ETag header set" do
+          get "/jimmy/public/bookmarks/"
+
+          last_response.status.must_equal 200
+          last_response.headers["ETag"].wont_be_nil
         end
       end
 
@@ -447,6 +483,17 @@ describe "Directories" do
         directory_bucket.get("jimmy:tasks/home").wont_be_nil
         directory_bucket.get("jimmy:tasks").wont_be_nil
         directory_bucket.get("jimmy:").wont_be_nil
+      end
+
+      it "updates the ETag header of the parent directory" do
+        get "/jimmy/tasks/"
+        @old_etag = last_response.headers["ETag"]
+
+        delete "/jimmy/tasks/home/trash"
+
+        get "/jimmy/tasks/"
+        last_response.headers["ETag"].wont_be_nil
+        last_response.headers["ETag"].wont_equal @old_etag
       end
 
       describe "timestamps" do
