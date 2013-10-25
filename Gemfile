@@ -14,4 +14,5 @@ end
 
 group :staging, :production do
   gem "unicorn"
+  gem "rainbows"
 end
