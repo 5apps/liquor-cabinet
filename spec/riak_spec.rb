@@ -63,18 +63,41 @@ describe "App with Riak backend" do
       object.data = "some private text data"
       object.store
 
+      @etag = object.etag
+
       auth = auth_bucket.new("jimmy:123")
       auth.data = ["documents", "public"]
       auth.store
     end
 
     describe "GET" do
-      it "returns the value" do
+      before do
         header "Authorization", "Bearer 123"
+      end
+
+      it "returns the value" do
         get "/jimmy/documents/foo"
 
         last_response.status.must_equal 200
         last_response.body.must_equal "some private text data"
+      end
+
+      describe "when If-None-Match header is set" do
+        it "responds with 'not modified' when it matches the current ETag" do
+          header "If-None-Match", @etag
+          get "/jimmy/documents/foo"
+
+          last_response.status.must_equal 304
+          last_response.body.must_be_empty
+        end
+
+        it "responds normally when it does not match the current ETag" do
+          header "If-None-Match", "FOO"
+          get "/jimmy/documents/foo"
+
+          last_response.status.must_equal 200
+          last_response.body.must_equal "some private text data"
+        end
       end
     end
 

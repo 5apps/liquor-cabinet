@@ -65,6 +65,30 @@ describe "Directories" do
       last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin"
     end
 
+    context "when If-None-Match header is set" do
+      before do
+        get "/jimmy/tasks/"
+
+        @etag = last_response.headers["ETag"]
+      end
+
+      it "responds with 'not modified' when it matches the current ETag" do
+        header "If-None-Match", @etag
+        get "/jimmy/tasks/"
+
+        last_response.status.must_equal 304
+        last_response.body.must_be_empty
+      end
+
+      it "responds normally when it does not match the current ETag" do
+        header "If-None-Match", "FOO"
+        get "/jimmy/tasks/"
+
+        last_response.status.must_equal 200
+        last_response.body.wont_be_empty
+      end
+    end
+
     context "with sub-directories" do
       before do
         get "/jimmy/tasks/"
