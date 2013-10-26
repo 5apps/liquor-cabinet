@@ -262,6 +262,27 @@ describe "App with Riak backend" do
             last_response.body.must_equal "lorem ipsum"
           end
         end
+
+        describe "when If-None-Match header is set" do
+          before do
+            header "If-None-Match", "*"
+          end
+
+          it "fails when the document already exists" do
+            put "/jimmy/documents/archive/foo", "some awesome content"
+
+            last_response.status.must_equal 412
+
+            get "/jimmy/documents/archive/foo"
+            last_response.body.must_equal "lorem ipsum"
+          end
+
+          it "succeeds when the document does not exist" do
+            put "/jimmy/documents/archive/bar", "my little content"
+
+            last_response.status.must_equal 200
+          end
+        end
       end
 
       describe "exsting content without serializer registered for the given content-type" do

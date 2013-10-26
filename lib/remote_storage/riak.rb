@@ -95,6 +95,8 @@ module RemoteStorage
       object_exists = !object.raw_data.nil?
       existing_object_size = object_size(object)
 
+      server.halt 412 if object_exists && server.env["HTTP_IF_NONE_MATCH"] == "*"
+
       timestamp = (Time.now.to_f * 1000).to_i
       object.meta["timestamp"] = timestamp
 
