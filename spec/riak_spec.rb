@@ -239,6 +239,29 @@ describe "App with Riak backend" do
           last_response.headers["ETag"].wont_be_nil
           last_response.headers["ETag"].wont_equal old_etag
         end
+
+        describe "when If-Match header is set" do
+          it "allows the request if the header matches the current ETag" do
+            old_etag = last_response.headers["ETag"]
+            header "If-Match", old_etag
+
+            put "/jimmy/documents/archive/foo", "some awesome content"
+            last_response.status.must_equal 200
+
+            get "/jimmy/documents/archive/foo"
+            last_response.body.must_equal "some awesome content"
+          end
+
+          it "fails the request if the header does not match the current ETag" do
+            header "If-Match", "WONTMATCH"
+
+            put "/jimmy/documents/archive/foo", "some awesome content"
+            last_response.status.must_equal 412
+
+            get "/jimmy/documents/archive/foo"
+            last_response.body.must_equal "lorem ipsum"
+          end
+        end
       end
 
       describe "exsting content without serializer registered for the given content-type" do
@@ -396,28 +419,33 @@ describe "App with Riak backend" do
     describe "DELETE" do
       before do
         header "Authorization", "Bearer 123"
-        delete "/jimmy/documents/foo"
       end
 
-      it "removes the key" do
-        last_response.status.must_equal 204
-        lambda {
-          data_bucket.get("jimmy:documents:foo")
-        }.must_raise Riak::HTTPFailedRequest
-      end
+      describe "basics" do
+        before do
+          delete "/jimmy/documents/foo"
+        end
 
-      it "logs the operation" do
-        objects = []
-        opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+        it "removes the key" do
+          last_response.status.must_equal 204
+          lambda {
+            data_bucket.get("jimmy:documents:foo")
+          }.must_raise Riak::HTTPFailedRequest
+        end
 
-        log_entry = objects.select{|o| o.data["count"] == -1}.first
-        log_entry.data["size"].must_equal(-22)
-        log_entry.data["category"].must_equal "documents"
-        log_entry.indexes["user_id_bin"].must_include "jimmy"
-      end
+        it "logs the operation" do
+          objects = []
+          opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
 
-      it "sets the ETag header" do
-        last_response.headers["ETag"].wont_be_nil
+          log_entry = objects.select{|o| o.data["count"] == -1}.first
+          log_entry.data["size"].must_equal(-22)
+          log_entry.data["category"].must_equal "documents"
+          log_entry.indexes["user_id_bin"].must_include "jimmy"
+        end
+
+        it "sets the ETag header" do
+          last_response.headers["ETag"].wont_be_nil
+        end
       end
 
       context "non-existing object" do
@@ -425,10 +453,39 @@ describe "App with Riak backend" do
           delete "/jimmy/documents/foozius"
         end
 
+        it "responds with 404" do
+          last_response.status.must_equal 404
+        end
+
         it "doesn't log the operation" do
           objects = []
           opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
-          objects.select{|o| o.data["count"] == -1}.size.must_equal 1
+          objects.select{|o| o.data["count"] == -1}.size.must_equal 0
+        end
+      end
+
+      context "when an If-Match header is given" do
+        it "allows the request if it matches the current ETag" do
+          get "/jimmy/documents/foo"
+          old_etag = last_response.headers["ETag"]
+          header "If-Match", old_etag
+
+          delete "/jimmy/documents/foo"
+          last_response.status.must_equal 204
+
+          get "/jimmy/documents/foo"
+          last_response.status.must_equal 404
+        end
+
+        it "fails the request if it does not match the current ETag" do
+          header "If-Match", "WONTMATCH"
+
+          delete "/jimmy/documents/foo"
+          last_response.status.must_equal 412
+
+          get "/jimmy/documents/foo"
+          last_response.status.must_equal 200
+          last_response.body.must_equal "some private text data"
         end
       end
 
