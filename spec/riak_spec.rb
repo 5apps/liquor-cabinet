@@ -32,6 +32,11 @@ describe "App with Riak backend" do
       last_modified.year.must_equal now.year
       last_modified.day.must_equal now.day
     end
+
+    it "has an ETag header set" do
+      last_response.status.must_equal 200
+      last_response.headers["ETag"].wont_be_nil
+    end
   end
 
   describe "GET data with custom content type" do
@@ -58,18 +63,41 @@ describe "App with Riak backend" do
       object.data = "some private text data"
       object.store
 
+      @etag = object.etag
+
       auth = auth_bucket.new("jimmy:123")
       auth.data = ["documents", "public"]
       auth.store
     end
 
     describe "GET" do
-      it "returns the value" do
+      before do
         header "Authorization", "Bearer 123"
+      end
+
+      it "returns the value" do
         get "/jimmy/documents/foo"
 
         last_response.status.must_equal 200
         last_response.body.must_equal "some private text data"
+      end
+
+      describe "when If-None-Match header is set" do
+        it "responds with 'not modified' when it matches the current ETag" do
+          header "If-None-Match", @etag
+          get "/jimmy/documents/foo"
+
+          last_response.status.must_equal 304
+          last_response.body.must_be_empty
+        end
+
+        it "responds normally when it does not match the current ETag" do
+          header "If-None-Match", "FOO"
+          get "/jimmy/documents/foo"
+
+          last_response.status.must_equal 200
+          last_response.body.must_equal "some private text data"
+        end
       end
     end
 
@@ -100,6 +128,10 @@ describe "App with Riak backend" do
 
         it "stores the data as plain text with utf-8 encoding" do
           data_bucket.get("jimmy:documents:bar").content_type.must_equal "text/plain; charset=utf-8"
+        end
+
+        it "sets the ETag header" do
+          last_response.headers["ETag"].wont_be_nil
         end
 
         it "indexes the data set" do
@@ -197,15 +229,18 @@ describe "App with Riak backend" do
       describe "with existing content" do
         before do
           put "/jimmy/documents/archive/foo", "lorem ipsum"
-          put "/jimmy/documents/archive/foo", "some awesome content"
         end
 
         it "saves the value" do
+          put "/jimmy/documents/archive/foo", "some awesome content"
+
           last_response.status.must_equal 200
           data_bucket.get("jimmy:documents/archive:foo").data.must_equal "some awesome content"
         end
 
         it "logs the operations" do
+          put "/jimmy/documents/archive/foo", "some awesome content"
+
           objects = []
           opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
 
@@ -220,21 +255,73 @@ describe "App with Riak backend" do
           update_entry.indexes["user_id_bin"].must_include "jimmy"
         end
 
-        describe "when no serializer is registered for the given content-type" do
-          before do
-            header "Content-Type", "text/html; charset=UTF-8"
-            put "/jimmy/documents/html", '<html></html>'
-            put "/jimmy/documents/html", '<html><body></body></html>'
-          end
+        it "changes the ETag header" do
+          old_etag = last_response.headers["ETag"]
+          put "/jimmy/documents/archive/foo", "some awesome content"
 
-          it "saves the value" do
+          last_response.headers["ETag"].wont_be_nil
+          last_response.headers["ETag"].wont_equal old_etag
+        end
+
+        describe "when If-Match header is set" do
+          it "allows the request if the header matches the current ETag" do
+            old_etag = last_response.headers["ETag"]
+            header "If-Match", old_etag
+
+            put "/jimmy/documents/archive/foo", "some awesome content"
             last_response.status.must_equal 200
-            data_bucket.get("jimmy:documents:html").raw_data.must_equal "<html><body></body></html>"
+
+            get "/jimmy/documents/archive/foo"
+            last_response.body.must_equal "some awesome content"
           end
 
-          it "uses the requested content type" do
-            data_bucket.get("jimmy:documents:html").content_type.must_equal "text/html; charset=UTF-8"
+          it "fails the request if the header does not match the current ETag" do
+            header "If-Match", "WONTMATCH"
+
+            put "/jimmy/documents/archive/foo", "some awesome content"
+            last_response.status.must_equal 412
+
+            get "/jimmy/documents/archive/foo"
+            last_response.body.must_equal "lorem ipsum"
           end
+        end
+
+        describe "when If-None-Match header is set" do
+          before do
+            header "If-None-Match", "*"
+          end
+
+          it "fails when the document already exists" do
+            put "/jimmy/documents/archive/foo", "some awesome content"
+
+            last_response.status.must_equal 412
+
+            get "/jimmy/documents/archive/foo"
+            last_response.body.must_equal "lorem ipsum"
+          end
+
+          it "succeeds when the document does not exist" do
+            put "/jimmy/documents/archive/bar", "my little content"
+
+            last_response.status.must_equal 200
+          end
+        end
+      end
+
+      describe "exsting content without serializer registered for the given content-type" do
+        before do
+          header "Content-Type", "text/html; charset=UTF-8"
+          put "/jimmy/documents/html", '<html></html>'
+          put "/jimmy/documents/html", '<html><body></body></html>'
+        end
+
+        it "saves the value" do
+          last_response.status.must_equal 200
+          data_bucket.get("jimmy:documents:html").raw_data.must_equal "<html><body></body></html>"
+        end
+
+        it "uses the requested content type" do
+          data_bucket.get("jimmy:documents:html").content_type.must_equal "text/html; charset=UTF-8"
         end
       end
 
@@ -282,13 +369,23 @@ describe "App with Riak backend" do
             last_response.body.must_equal @image
           end
 
-          # it "indexes the binary set" do
-          #   indexes = binary_bucket.get("jimmy:documents:jaypeg").indexes
-          #   indexes["user_id_bin"].must_be_kind_of Set
-          #   indexes["user_id_bin"].must_include "jimmy"
+          it "responds with an ETag header" do
+            last_response.headers["ETag"].wont_be_nil
+            etag = last_response.headers["ETag"]
 
-          #   indexes["directory_bin"].must_include "documents"
-          # end
+            get "/jimmy/documents/jaypeg"
+
+            last_response.headers["ETag"].wont_be_nil
+            last_response.headers["ETag"].must_equal etag
+          end
+
+          it "changes the ETag when updating the file" do
+            old_etag = last_response.headers["ETag"]
+            put "/jimmy/documents/jaypeg", @image
+
+            last_response.headers["ETag"].wont_be_nil
+            last_response.headers["ETag"].wont_equal old_etag
+          end
 
           it "logs the operation" do
             objects = []
@@ -322,14 +419,6 @@ describe "App with Riak backend" do
             last_response.status.must_equal 200
             last_response.body.must_equal @image
           end
-
-          # it "indexes the binary set" do
-          #   indexes = binary_bucket.get("jimmy:documents:jaypeg").indexes
-          #   indexes["user_id_bin"].must_be_kind_of Set
-          #   indexes["user_id_bin"].must_include "jimmy"
-
-          #   indexes["directory_bin"].must_include "documents"
-          # end
         end
       end
 
@@ -376,24 +465,33 @@ describe "App with Riak backend" do
     describe "DELETE" do
       before do
         header "Authorization", "Bearer 123"
-        delete "/jimmy/documents/foo"
       end
 
-      it "removes the key" do
-        last_response.status.must_equal 204
-        lambda {
-          data_bucket.get("jimmy:documents:foo")
-        }.must_raise Riak::HTTPFailedRequest
-      end
+      describe "basics" do
+        before do
+          delete "/jimmy/documents/foo"
+        end
 
-      it "logs the operation" do
-        objects = []
-        opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+        it "removes the key" do
+          last_response.status.must_equal 204
+          lambda {
+            data_bucket.get("jimmy:documents:foo")
+          }.must_raise Riak::HTTPFailedRequest
+        end
 
-        log_entry = objects.select{|o| o.data["count"] == -1}.first
-        log_entry.data["size"].must_equal(-22)
-        log_entry.data["category"].must_equal "documents"
-        log_entry.indexes["user_id_bin"].must_include "jimmy"
+        it "logs the operation" do
+          objects = []
+          opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+
+          log_entry = objects.select{|o| o.data["count"] == -1}.first
+          log_entry.data["size"].must_equal(-22)
+          log_entry.data["category"].must_equal "documents"
+          log_entry.indexes["user_id_bin"].must_include "jimmy"
+        end
+
+        it "sets the ETag header" do
+          last_response.headers["ETag"].wont_be_nil
+        end
       end
 
       context "non-existing object" do
@@ -401,10 +499,39 @@ describe "App with Riak backend" do
           delete "/jimmy/documents/foozius"
         end
 
+        it "responds with 404" do
+          last_response.status.must_equal 404
+        end
+
         it "doesn't log the operation" do
           objects = []
           opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
-          objects.select{|o| o.data["count"] == -1}.size.must_equal 1
+          objects.select{|o| o.data["count"] == -1}.size.must_equal 0
+        end
+      end
+
+      context "when an If-Match header is given" do
+        it "allows the request if it matches the current ETag" do
+          get "/jimmy/documents/foo"
+          old_etag = last_response.headers["ETag"]
+          header "If-Match", old_etag
+
+          delete "/jimmy/documents/foo"
+          last_response.status.must_equal 204
+
+          get "/jimmy/documents/foo"
+          last_response.status.must_equal 404
+        end
+
+        it "fails the request if it does not match the current ETag" do
+          header "If-Match", "WONTMATCH"
+
+          delete "/jimmy/documents/foo"
+          last_response.status.must_equal 412
+
+          get "/jimmy/documents/foo"
+          last_response.status.must_equal 200
+          last_response.body.must_equal "some private text data"
         end
       end
 

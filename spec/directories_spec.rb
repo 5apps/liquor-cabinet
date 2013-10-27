@@ -19,17 +19,18 @@ describe "Directories" do
       put "/jimmy/tasks/http%3A%2F%2F5apps.com", "prettify design"
     end
 
-    it "lists the objects with a timestamp of the last modification" do
+    it "lists the objects with their version" do
       get "/jimmy/tasks/"
 
       last_response.status.must_equal 200
       last_response.content_type.must_equal "application/json"
 
+      foo = data_bucket.get("jimmy:tasks:foo")
+
       content = JSON.parse(last_response.body)
       content.must_include "http://5apps.com"
       content.must_include "foo"
-      content["foo"].must_be_kind_of Integer
-      content["foo"].to_s.length.must_equal 13
+      content["foo"].must_equal foo.etag.gsub(/"/, "")
     end
 
     it "has a Last-Modifier header set" do
@@ -44,17 +45,57 @@ describe "Directories" do
       last_modified.day.must_equal now.day
     end
 
+    it "has an ETag header set" do
+      get "/jimmy/tasks/"
+
+      last_response.status.must_equal 200
+      last_response.headers["ETag"].wont_be_nil
+
+      # check that ETag stays the same
+      etag = last_response.headers["ETag"]
+      get "/jimmy/tasks/"
+      last_response.headers["ETag"].must_equal etag
+    end
+
     it "has CORS headers set" do
       get "/jimmy/tasks/"
 
       last_response.status.must_equal 200
       last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
       last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
-      last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin"
+      last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin, If-Match, If-None-Match"
+      last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag"
+    end
+
+    context "when If-None-Match header is set" do
+      before do
+        get "/jimmy/tasks/"
+
+        @etag = last_response.headers["ETag"]
+      end
+
+      it "responds with 'not modified' when it matches the current ETag" do
+        header "If-None-Match", @etag
+        get "/jimmy/tasks/"
+
+        last_response.status.must_equal 304
+        last_response.body.must_be_empty
+      end
+
+      it "responds normally when it does not match the current ETag" do
+        header "If-None-Match", "FOO"
+        get "/jimmy/tasks/"
+
+        last_response.status.must_equal 200
+        last_response.body.wont_be_empty
+      end
     end
 
     context "with sub-directories" do
       before do
+        get "/jimmy/tasks/"
+        @old_etag = last_response.headers["ETag"]
+
         put "/jimmy/tasks/home/laundry", "do the laundry"
       end
 
@@ -63,12 +104,20 @@ describe "Directories" do
 
         last_response.status.must_equal 200
 
+        home = directory_bucket.get("jimmy:tasks/home")
+
         content = JSON.parse(last_response.body)
         content.must_include "foo"
         content.must_include "http://5apps.com"
         content.must_include "home/"
-        content["home/"].must_be_kind_of Integer
-        content["home/"].to_s.length.must_equal 13
+        content["home/"].must_equal home.etag.gsub(/"/, "")
+      end
+
+      it "updates the ETag of the parent directory" do
+        get "/jimmy/tasks/"
+
+        last_response.headers["ETag"].wont_be_nil
+        last_response.headers["ETag"].wont_equal @old_etag
       end
 
       context "for a different user" do
@@ -102,10 +151,11 @@ describe "Directories" do
 
           last_response.status.must_equal 200
 
+          projects = directory_bucket.get("jimmy:tasks/private/projects")
+
           content = JSON.parse(last_response.body)
           content.must_include "projects/"
-          content["projects/"].must_be_kind_of Integer
-          content["projects/"].to_s.length.must_equal 13
+          content["projects/"].must_equal projects.etag.gsub(/"/, "")
         end
 
         it "updates the timestamps of the existing directory objects" do
@@ -137,10 +187,11 @@ describe "Directories" do
 
             last_response.status.must_equal 200
 
+            jaypeg = data_bucket.get("jimmy:tasks:jaypeg.jpg")
+
             content = JSON.parse(last_response.body)
             content.must_include "jaypeg.jpg"
-            content["jaypeg.jpg"].must_be_kind_of Integer
-            content["jaypeg.jpg"].to_s.length.must_equal 13
+            content["jaypeg.jpg"].must_equal jaypeg.etag.gsub(/"/, "")
           end
         end
 
@@ -157,10 +208,11 @@ describe "Directories" do
 
             last_response.status.must_equal 200
 
+            jaypeg = data_bucket.get("jimmy:tasks:jaypeg.jpg")
+
             content = JSON.parse(last_response.body)
             content.must_include "jaypeg.jpg"
-            content["jaypeg.jpg"].must_be_kind_of Integer
-            content["jaypeg.jpg"].to_s.length.must_equal 13
+            content["jaypeg.jpg"].must_equal jaypeg.etag.gsub(/"/, "")
           end
         end
       end
@@ -176,10 +228,11 @@ describe "Directories" do
 
         last_response.status.must_equal 200
 
+        laundry = data_bucket.get("jimmy:tasks/home:laundry")
+
         content = JSON.parse(last_response.body)
         content.must_include "laundry"
-        content["laundry"].must_be_kind_of Integer
-        content["laundry"].to_s.length.must_equal 13
+        content["laundry"].must_equal laundry.etag.gsub(/"/, "")
       end
     end
 
@@ -187,8 +240,7 @@ describe "Directories" do
       it "returns an empty listing" do
         get "/jimmy/documents/notfound/"
 
-        last_response.status.must_equal 200
-        last_response.body.must_equal "{}"
+        last_response.status.must_equal 404
       end
     end
 
@@ -254,12 +306,20 @@ describe "Directories" do
 
         last_response.status.must_equal 200
 
+        tasks = directory_bucket.get("jimmy:tasks")
+
         content = JSON.parse(last_response.body)
         content.must_include "root-1"
         content.must_include "root-2"
         content.must_include "tasks/"
-        content["tasks/"].must_be_kind_of Integer
-        content["tasks/"].to_s.length.must_equal 13
+        content["tasks/"].must_equal tasks.etag.gsub(/"/, "")
+      end
+
+      it "has an ETag header set" do
+        get "/jimmy/"
+
+        last_response.status.must_equal 200
+        last_response.headers["ETag"].wont_be_nil
       end
     end
 
@@ -280,6 +340,13 @@ describe "Directories" do
 
           content = JSON.parse(last_response.body)
           content.must_include "5apps"
+        end
+
+        it "has an ETag header set" do
+          get "/jimmy/public/bookmarks/"
+
+          last_response.status.must_equal 200
+          last_response.headers["ETag"].wont_be_nil
         end
       end
 
@@ -323,9 +390,11 @@ describe "Directories" do
   describe "directory object" do
     describe "PUT file" do
       context "no existing directory object" do
-        it "creates a new directory object" do
+        before do
           put "/jimmy/tasks/home/trash", "take out the trash"
+        end
 
+        it "creates a new directory object" do
           object = data_bucket.get("jimmy:tasks/home:trash")
           directory = directory_bucket.get("jimmy:tasks/home")
 
@@ -334,15 +403,11 @@ describe "Directories" do
         end
 
         it "sets the correct index for the directory object" do
-          put "/jimmy/tasks/home/trash", "take out the trash"
-
           object = directory_bucket.get("jimmy:tasks/home")
           object.indexes["directory_bin"].must_include "tasks"
         end
 
         it "creates directory objects for the parent directories" do
-          put "/jimmy/tasks/home/trash", "take out the trash"
-
           object = directory_bucket.get("jimmy:tasks")
           object.indexes["directory_bin"].must_include "/"
           object.data.wont_be_nil
@@ -355,10 +420,7 @@ describe "Directories" do
 
       context "existing directory object" do
         before do
-          directory = directory_bucket.new("jimmy:tasks/home")
-          directory.content_type = "text/plain"
-          directory.data = (2.seconds.ago.to_f * 1000).to_i
-          directory.store
+          put "/jimmy/tasks/home/trash", "collect some trash"
         end
 
         it "updates the timestamp of the directory" do
@@ -383,7 +445,8 @@ describe "Directories" do
 
       last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
       last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
-      last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin"
+      last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin, If-Match, If-None-Match"
+      last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag"
     end
 
     context "sub-directories" do
@@ -394,7 +457,8 @@ describe "Directories" do
 
         last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
         last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
-        last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin"
+        last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin, If-Match, If-None-Match"
+        last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag"
       end
     end
 
@@ -406,7 +470,8 @@ describe "Directories" do
 
         last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
         last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
-        last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin"
+        last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin, If-Match, If-None-Match"
+        last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag"
       end
     end
   end
@@ -448,6 +513,31 @@ describe "Directories" do
         directory_bucket.get("jimmy:tasks/home").wont_be_nil
         directory_bucket.get("jimmy:tasks").wont_be_nil
         directory_bucket.get("jimmy:").wont_be_nil
+      end
+
+      it "updates the ETag headers of all parent directories" do
+        get "/jimmy/tasks/home/"
+        home_etag = last_response.headers["ETag"]
+
+        get "/jimmy/tasks/"
+        tasks_etag = last_response.headers["ETag"]
+
+        get "/jimmy/"
+        root_etag = last_response.headers["ETag"]
+
+        delete "/jimmy/tasks/home/trash"
+
+        get "/jimmy/tasks/home/"
+        last_response.headers["ETag"].wont_be_nil
+        last_response.headers["ETag"].wont_equal home_etag
+
+        get "/jimmy/tasks/"
+        last_response.headers["ETag"].wont_be_nil
+        last_response.headers["ETag"].wont_equal tasks_etag
+
+        get "/jimmy/"
+        last_response.headers["ETag"].wont_be_nil
+        last_response.headers["ETag"].wont_equal root_etag
       end
 
       describe "timestamps" do

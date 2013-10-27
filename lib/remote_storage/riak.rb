@@ -40,8 +40,11 @@ module RemoteStorage
     def get_data(user, directory, key)
       object = data_bucket.get("#{user}:#{directory}:#{key}")
 
+      server.halt 304 if server.env["HTTP_IF_NONE_MATCH"] == object.etag
+
       server.headers["Content-Type"] = object.content_type
       server.headers["Last-Modified"] = last_modified_date_for(object)
+      server.headers["ETag"] = object.etag
 
       if binary_key = object.meta["binary_key"]
         object = cs_binary_bucket.files.get(binary_key[0])
@@ -66,24 +69,33 @@ module RemoteStorage
 
     def get_directory_listing(user, directory)
       directory_object = directory_bucket.get("#{user}:#{directory}")
+
+      server.halt 304 if server.env["HTTP_IF_NONE_MATCH"] == directory_object.etag
+
       timestamp = directory_object.data.to_i
       timestamp /= 1000 if timestamp.to_s.length == 13
       server.headers["Content-Type"] = "application/json"
       server.headers["Last-Modified"] = Time.at(timestamp).to_s(:rfc822)
+      server.headers["ETag"] = directory_object.etag
 
       listing = directory_listing(user, directory)
 
       return listing.to_json
     rescue ::Riak::HTTPFailedRequest
-      server.headers["Content-Type"] = "application/json"
-      return "{}"
+      server.halt 404
     end
 
     def put_data(user, directory, key, data, content_type=nil)
       object = build_data_object(user, directory, key, data, content_type)
 
+      if required_match = server.env["HTTP_IF_MATCH"]
+        server.halt 412 unless required_match == object.etag
+      end
+
       object_exists = !object.raw_data.nil?
       existing_object_size = object_size(object)
+
+      server.halt 412 if object_exists && server.env["HTTP_IF_NONE_MATCH"] == "*"
 
       timestamp = (Time.now.to_f * 1000).to_i
       object.meta["timestamp"] = timestamp
@@ -96,13 +108,14 @@ module RemoteStorage
         new_object_size = object.raw_data.size
       end
 
-      response = object.store
+      object.store
 
       log_count = object_exists ? 0 : 1
       log_operation(user, directory, log_count, new_object_size, existing_object_size)
 
       update_all_directory_objects(user, directory, timestamp)
 
+      server.headers["ETag"] = object.etag
       server.halt 200
     rescue ::Riak::HTTPFailedRequest
       server.halt 422
@@ -111,6 +124,11 @@ module RemoteStorage
     def delete_data(user, directory, key)
       object = data_bucket.get("#{user}:#{directory}:#{key}")
       existing_object_size = object_size(object)
+      etag = object.etag
+
+      if required_match = server.env["HTTP_IF_MATCH"]
+        server.halt 412 unless required_match == etag
+      end
 
       if binary_key = object.meta["binary_key"]
         object = cs_binary_bucket.files.get(binary_key[0])
@@ -126,6 +144,7 @@ module RemoteStorage
       timestamp = (Time.now.to_f * 1000).to_i
       delete_or_update_directory_objects(user, directory, timestamp)
 
+      server.headers["ETag"] = etag
       server.halt riak_response[:code]
     rescue ::Riak::HTTPFailedRequest
       server.halt 404
@@ -222,8 +241,9 @@ module RemoteStorage
       sub_directories(user, directory).each do |entry|
         directory_name = entry["name"].split("/").last
         timestamp = entry["timestamp"].to_i
+        etag = entry["etag"]
 
-        listing.merge!({ "#{directory_name}/" => timestamp })
+        listing.merge!({ "#{directory_name}/" => etag })
       end
 
       directory_entries(user, directory).each do |entry|
@@ -233,20 +253,16 @@ module RemoteStorage
                     else
                       DateTime.rfc2822(entry["last_modified"]).to_time.to_i
                     end
+        etag = entry["etag"]
 
-        listing.merge!({ entry_name => timestamp })
+        listing.merge!({ entry_name => etag })
       end
 
       listing
     end
 
     def directory_entries(user, directory)
-      directory = "/" if directory == ""
-
-      user_keys = data_bucket.get_index("user_id_bin", user)
-      directory_keys = data_bucket.get_index("directory_bin", directory)
-
-      all_keys = user_keys & directory_keys
+      all_keys = user_directory_keys(user, directory, data_bucket)
       return [] if all_keys.empty?
 
       map_query = <<-EOH
@@ -256,48 +272,53 @@ module RemoteStorage
           key_name = keys.join(':');
           last_modified_date = v.values[0]['metadata']['X-Riak-Last-Modified'];
           timestamp = v.values[0]['metadata']['X-Riak-Meta']['X-Riak-Meta-Timestamp'];
+          etag = v.values[0]['metadata']['X-Riak-VTag'];
           return [{
             name: key_name,
             last_modified: last_modified_date,
             timestamp: timestamp,
+            etag: etag
           }];
         }
       EOH
 
-      map_reduce = ::Riak::MapReduce.new(client)
-      all_keys.each do |key|
-        map_reduce.add(data_bucket.name, key)
-      end
-
-      map_reduce.
-        map(map_query, :keep => true).
-        run
+      run_map_reduce(data_bucket, all_keys, map_query)
     end
 
     def sub_directories(user, directory)
-      directory = "/" if directory == ""
-
-      user_keys = directory_bucket.get_index("user_id_bin", user)
-      directory_keys = directory_bucket.get_index("directory_bin", directory)
-
-      all_keys = user_keys & directory_keys
+      all_keys = user_directory_keys(user, directory, directory_bucket)
       return [] if all_keys.empty?
 
       map_query = <<-EOH
         function(v){
           keys = v.key.split(':');
           key_name = keys[keys.length-1];
-          timestamp = v.values[0]['data']
+          timestamp = v.values[0]['data'];
+          etag = v.values[0]['metadata']['X-Riak-VTag'];
           return [{
             name: key_name,
             timestamp: timestamp,
+            etag: etag
           }];
         }
       EOH
 
+      run_map_reduce(directory_bucket, all_keys, map_query)
+    end
+
+    def user_directory_keys(user, directory, bucket)
+      directory = "/" if directory == ""
+
+      user_keys = bucket.get_index("user_id_bin", user)
+      directory_keys = bucket.get_index("directory_bin", directory)
+
+      user_keys & directory_keys
+    end
+
+    def run_map_reduce(bucket, keys, map_query)
       map_reduce = ::Riak::MapReduce.new(client)
-      all_keys.each do |key|
-        map_reduce.add(directory_bucket.name, key)
+      keys.each do |key|
+        map_reduce.add(bucket.name, key)
       end
 
       map_reduce.
