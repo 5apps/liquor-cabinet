@@ -19,17 +19,18 @@ describe "Directories" do
       put "/jimmy/tasks/http%3A%2F%2F5apps.com", "prettify design"
     end
 
-    it "lists the objects with a timestamp of the last modification" do
+    it "lists the objects with their version" do
       get "/jimmy/tasks/"
 
       last_response.status.must_equal 200
       last_response.content_type.must_equal "application/json"
 
+      foo = data_bucket.get("jimmy:tasks:foo")
+
       content = JSON.parse(last_response.body)
       content.must_include "http://5apps.com"
       content.must_include "foo"
-      content["foo"].must_be_kind_of Integer
-      content["foo"].to_s.length.must_equal 13
+      content["foo"].must_equal foo.etag.gsub(/"/, "")
     end
 
     it "has a Last-Modifier header set" do
@@ -103,12 +104,13 @@ describe "Directories" do
 
         last_response.status.must_equal 200
 
+        home = directory_bucket.get("jimmy:tasks/home")
+
         content = JSON.parse(last_response.body)
         content.must_include "foo"
         content.must_include "http://5apps.com"
         content.must_include "home/"
-        content["home/"].must_be_kind_of Integer
-        content["home/"].to_s.length.must_equal 13
+        content["home/"].must_equal home.etag.gsub(/"/, "")
       end
 
       it "updates the ETag of the parent directory" do
@@ -149,10 +151,11 @@ describe "Directories" do
 
           last_response.status.must_equal 200
 
+          projects = directory_bucket.get("jimmy:tasks/private/projects")
+
           content = JSON.parse(last_response.body)
           content.must_include "projects/"
-          content["projects/"].must_be_kind_of Integer
-          content["projects/"].to_s.length.must_equal 13
+          content["projects/"].must_equal projects.etag.gsub(/"/, "")
         end
 
         it "updates the timestamps of the existing directory objects" do
@@ -184,10 +187,11 @@ describe "Directories" do
 
             last_response.status.must_equal 200
 
+            jaypeg = data_bucket.get("jimmy:tasks:jaypeg.jpg")
+
             content = JSON.parse(last_response.body)
             content.must_include "jaypeg.jpg"
-            content["jaypeg.jpg"].must_be_kind_of Integer
-            content["jaypeg.jpg"].to_s.length.must_equal 13
+            content["jaypeg.jpg"].must_equal jaypeg.etag.gsub(/"/, "")
           end
         end
 
@@ -204,10 +208,11 @@ describe "Directories" do
 
             last_response.status.must_equal 200
 
+            jaypeg = data_bucket.get("jimmy:tasks:jaypeg.jpg")
+
             content = JSON.parse(last_response.body)
             content.must_include "jaypeg.jpg"
-            content["jaypeg.jpg"].must_be_kind_of Integer
-            content["jaypeg.jpg"].to_s.length.must_equal 13
+            content["jaypeg.jpg"].must_equal jaypeg.etag.gsub(/"/, "")
           end
         end
       end
@@ -223,10 +228,11 @@ describe "Directories" do
 
         last_response.status.must_equal 200
 
+        laundry = data_bucket.get("jimmy:tasks/home:laundry")
+
         content = JSON.parse(last_response.body)
         content.must_include "laundry"
-        content["laundry"].must_be_kind_of Integer
-        content["laundry"].to_s.length.must_equal 13
+        content["laundry"].must_equal laundry.etag.gsub(/"/, "")
       end
     end
 
@@ -300,12 +306,13 @@ describe "Directories" do
 
         last_response.status.must_equal 200
 
+        tasks = directory_bucket.get("jimmy:tasks")
+
         content = JSON.parse(last_response.body)
         content.must_include "root-1"
         content.must_include "root-2"
         content.must_include "tasks/"
-        content["tasks/"].must_be_kind_of Integer
-        content["tasks/"].to_s.length.must_equal 13
+        content["tasks/"].must_equal tasks.etag.gsub(/"/, "")
       end
 
       it "has an ETag header set" do

@@ -241,8 +241,9 @@ module RemoteStorage
       sub_directories(user, directory).each do |entry|
         directory_name = entry["name"].split("/").last
         timestamp = entry["timestamp"].to_i
+        etag = entry["etag"]
 
-        listing.merge!({ "#{directory_name}/" => timestamp })
+        listing.merge!({ "#{directory_name}/" => etag })
       end
 
       directory_entries(user, directory).each do |entry|
@@ -252,8 +253,9 @@ module RemoteStorage
                     else
                       DateTime.rfc2822(entry["last_modified"]).to_time.to_i
                     end
+        etag = entry["etag"]
 
-        listing.merge!({ entry_name => timestamp })
+        listing.merge!({ entry_name => etag })
       end
 
       listing
@@ -270,10 +272,12 @@ module RemoteStorage
           key_name = keys.join(':');
           last_modified_date = v.values[0]['metadata']['X-Riak-Last-Modified'];
           timestamp = v.values[0]['metadata']['X-Riak-Meta']['X-Riak-Meta-Timestamp'];
+          etag = v.values[0]['metadata']['X-Riak-VTag'];
           return [{
             name: key_name,
             last_modified: last_modified_date,
             timestamp: timestamp,
+            etag: etag
           }];
         }
       EOH
@@ -289,10 +293,12 @@ module RemoteStorage
         function(v){
           keys = v.key.split(':');
           key_name = keys[keys.length-1];
-          timestamp = v.values[0]['data']
+          timestamp = v.values[0]['data'];
+          etag = v.values[0]['metadata']['X-Riak-VTag'];
           return [{
             name: key_name,
             timestamp: timestamp,
+            etag: etag
           }];
         }
       EOH
