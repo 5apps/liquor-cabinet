@@ -382,9 +382,11 @@ describe "Directories" do
   describe "directory object" do
     describe "PUT file" do
       context "no existing directory object" do
-        it "creates a new directory object" do
+        before do
           put "/jimmy/tasks/home/trash", "take out the trash"
+        end
 
+        it "creates a new directory object" do
           object = data_bucket.get("jimmy:tasks/home:trash")
           directory = directory_bucket.get("jimmy:tasks/home")
 
@@ -393,15 +395,11 @@ describe "Directories" do
         end
 
         it "sets the correct index for the directory object" do
-          put "/jimmy/tasks/home/trash", "take out the trash"
-
           object = directory_bucket.get("jimmy:tasks/home")
           object.indexes["directory_bin"].must_include "tasks"
         end
 
         it "creates directory objects for the parent directories" do
-          put "/jimmy/tasks/home/trash", "take out the trash"
-
           object = directory_bucket.get("jimmy:tasks")
           object.indexes["directory_bin"].must_include "/"
           object.data.wont_be_nil
@@ -414,10 +412,7 @@ describe "Directories" do
 
       context "existing directory object" do
         before do
-          directory = directory_bucket.new("jimmy:tasks/home")
-          directory.content_type = "text/plain"
-          directory.data = (2.seconds.ago.to_f * 1000).to_i
-          directory.store
+          put "/jimmy/tasks/home/trash", "collect some trash"
         end
 
         it "updates the timestamp of the directory" do
