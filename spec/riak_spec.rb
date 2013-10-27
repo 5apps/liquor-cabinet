@@ -369,13 +369,23 @@ describe "App with Riak backend" do
             last_response.body.must_equal @image
           end
 
-          # it "indexes the binary set" do
-          #   indexes = binary_bucket.get("jimmy:documents:jaypeg").indexes
-          #   indexes["user_id_bin"].must_be_kind_of Set
-          #   indexes["user_id_bin"].must_include "jimmy"
+          it "responds with an ETag header" do
+            last_response.headers["ETag"].wont_be_nil
+            etag = last_response.headers["ETag"]
 
-          #   indexes["directory_bin"].must_include "documents"
-          # end
+            get "/jimmy/documents/jaypeg"
+
+            last_response.headers["ETag"].wont_be_nil
+            last_response.headers["ETag"].must_equal etag
+          end
+
+          it "changes the ETag when updating the file" do
+            old_etag = last_response.headers["ETag"]
+            put "/jimmy/documents/jaypeg", @image
+
+            last_response.headers["ETag"].wont_be_nil
+            last_response.headers["ETag"].wont_equal old_etag
+          end
 
           it "logs the operation" do
             objects = []
@@ -409,14 +419,6 @@ describe "App with Riak backend" do
             last_response.status.must_equal 200
             last_response.body.must_equal @image
           end
-
-          # it "indexes the binary set" do
-          #   indexes = binary_bucket.get("jimmy:documents:jaypeg").indexes
-          #   indexes["user_id_bin"].must_be_kind_of Set
-          #   indexes["user_id_bin"].must_include "jimmy"
-
-          #   indexes["directory_bin"].must_include "documents"
-          # end
         end
       end
 

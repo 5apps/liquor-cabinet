@@ -108,7 +108,7 @@ module RemoteStorage
         new_object_size = object.raw_data.size
       end
 
-      response = object.store
+      object.store
 
       log_count = object_exists ? 0 : 1
       log_operation(user, directory, log_count, new_object_size, existing_object_size)
