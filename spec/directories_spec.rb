@@ -504,15 +504,29 @@ describe "Directories" do
         directory_bucket.get("jimmy:").wont_be_nil
       end
 
-      it "updates the ETag header of the parent directory" do
+      it "updates the ETag headers of all parent directories" do
+        get "/jimmy/tasks/home/"
+        home_etag = last_response.headers["ETag"]
+
         get "/jimmy/tasks/"
-        @old_etag = last_response.headers["ETag"]
+        tasks_etag = last_response.headers["ETag"]
+
+        get "/jimmy/"
+        root_etag = last_response.headers["ETag"]
 
         delete "/jimmy/tasks/home/trash"
 
+        get "/jimmy/tasks/home/"
+        last_response.headers["ETag"].wont_be_nil
+        last_response.headers["ETag"].wont_equal home_etag
+
         get "/jimmy/tasks/"
         last_response.headers["ETag"].wont_be_nil
-        last_response.headers["ETag"].wont_equal @old_etag
+        last_response.headers["ETag"].wont_equal tasks_etag
+
+        get "/jimmy/"
+        last_response.headers["ETag"].wont_be_nil
+        last_response.headers["ETag"].wont_equal root_etag
       end
 
       describe "timestamps" do
