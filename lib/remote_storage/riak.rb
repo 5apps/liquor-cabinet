@@ -260,12 +260,7 @@ module RemoteStorage
     end
 
     def directory_entries(user, directory)
-      directory = "/" if directory == ""
-
-      user_keys = data_bucket.get_index("user_id_bin", user)
-      directory_keys = data_bucket.get_index("directory_bin", directory)
-
-      all_keys = user_keys & directory_keys
+      all_keys = user_directory_keys(user, directory, data_bucket)
       return [] if all_keys.empty?
 
       map_query = <<-EOH
@@ -283,23 +278,11 @@ module RemoteStorage
         }
       EOH
 
-      map_reduce = ::Riak::MapReduce.new(client)
-      all_keys.each do |key|
-        map_reduce.add(data_bucket.name, key)
-      end
-
-      map_reduce.
-        map(map_query, :keep => true).
-        run
+      run_map_reduce(data_bucket, all_keys, map_query)
     end
 
     def sub_directories(user, directory)
-      directory = "/" if directory == ""
-
-      user_keys = directory_bucket.get_index("user_id_bin", user)
-      directory_keys = directory_bucket.get_index("directory_bin", directory)
-
-      all_keys = user_keys & directory_keys
+      all_keys = user_directory_keys(user, directory, directory_bucket)
       return [] if all_keys.empty?
 
       map_query = <<-EOH
@@ -314,9 +297,22 @@ module RemoteStorage
         }
       EOH
 
+      run_map_reduce(directory_bucket, all_keys, map_query)
+    end
+
+    def user_directory_keys(user, directory, bucket)
+      directory = "/" if directory == ""
+
+      user_keys = bucket.get_index("user_id_bin", user)
+      directory_keys = bucket.get_index("directory_bin", directory)
+
+      user_keys & directory_keys
+    end
+
+    def run_map_reduce(bucket, keys, map_query)
       map_reduce = ::Riak::MapReduce.new(client)
-      all_keys.each do |key|
-        map_reduce.add(directory_bucket.name, key)
+      keys.each do |key|
+        map_reduce.add(bucket.name, key)
       end
 
       map_reduce.
