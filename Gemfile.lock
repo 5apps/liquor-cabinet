@@ -84,4 +84,3 @@ DEPENDENCIES
   riak-client
   sinatra
   sinatra-contrib
-  unicorn
