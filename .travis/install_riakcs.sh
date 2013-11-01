@@ -21,7 +21,7 @@ sudo service riak start
 sudo service riak-cs start
 sudo service stanchion start
 
-sleep 4
+sleep 5
 
 curl -H 'Content-Type: application/json' -X POST http://localhost:8080/riak-cs/user --data '{"email":"admin@5apps.com", "name":"admin"}' -o cs_admin_credentials.json
 cat cs_admin_credentials.json
