@@ -6,6 +6,10 @@ before_install:
 before_script:
   - cp config.yml.example config.yml
 script: rake test
+branches:
+  only:
+    - master
+    - stable
 notifications:
   email: false
   webhooks:
