@@ -435,6 +435,19 @@ describe "App with Riak backend" do
         end
       end
 
+      context "escaped square brackets in key" do
+        before do
+          put "/jimmy/documents/gracehopper%5B1%5D.jpg", "super image"
+        end
+
+        it "delivers the data correctly" do
+          header "Authorization", "Bearer 123"
+          get "/jimmy/documents/gracehopper%5B1%5D.jpg"
+
+          last_response.body.must_equal "super image"
+        end
+      end
+
       context "invalid JSON" do
         context "empty body" do
           before do

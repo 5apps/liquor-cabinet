@@ -1,3 +1,15 @@
+GIT
+  remote: git://github.com/5apps/riak-ruby-client.git
+  revision: 5f21df86b14339aeb252374851d29ad813cca1dd
+  branch: invalid_uri_error
+  specs:
+    riak-client (1.4.0)
+      beefcake (~> 0.3.7)
+      builder (>= 2.1.2)
+      i18n (>= 0.4.0)
+      innertube (~> 1.0.2)
+      multi_json (~> 1.0)
+
 GEM
   remote: http://rubygems.org/
   specs:
@@ -47,12 +59,6 @@ GEM
       unicorn (~> 4.1)
     raindrops (0.10.0)
     rake (0.9.2.2)
-    riak-client (1.4.1)
-      beefcake (~> 0.3.7)
-      builder (>= 2.1.2)
-      i18n (>= 0.4.0)
-      innertube (~> 1.0.2)
-      multi_json (~> 1.0)
     ruby-hmac (0.4.0)
     sinatra (1.4.3)
       rack (~> 1.4)
@@ -81,6 +87,6 @@ DEPENDENCIES
   purdytest
   rainbows
   rake
-  riak-client
+  riak-client!
   sinatra
   sinatra-contrib
