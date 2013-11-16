@@ -80,6 +80,7 @@ describe "Directories" do
 
         last_response.status.must_equal 304
         last_response.body.must_be_empty
+        last_response.headers["ETag"].must_equal @etag
       end
 
       it "responds normally when it does not match the current ETag" do
