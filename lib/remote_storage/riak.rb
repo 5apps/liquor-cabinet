@@ -40,11 +40,11 @@ module RemoteStorage
     def get_data(user, directory, key)
       object = data_bucket.get("#{user}:#{directory}:#{key}")
 
-      server.halt 304 if server.env["HTTP_IF_NONE_MATCH"] == object.etag
-
       server.headers["Content-Type"] = object.content_type
       server.headers["Last-Modified"] = last_modified_date_for(object)
       server.headers["ETag"] = object.etag
+
+      server.halt 304 if server.env["HTTP_IF_NONE_MATCH"] == object.etag
 
       if binary_key = object.meta["binary_key"]
         object = cs_binary_bucket.files.get(binary_key[0])
@@ -70,13 +70,13 @@ module RemoteStorage
     def get_directory_listing(user, directory)
       directory_object = directory_bucket.get("#{user}:#{directory}")
 
-      server.halt 304 if server.env["HTTP_IF_NONE_MATCH"] == directory_object.etag
-
       timestamp = directory_object.data.to_i
       timestamp /= 1000 if timestamp.to_s.length == 13
       server.headers["Content-Type"] = "application/json"
       server.headers["Last-Modified"] = Time.at(timestamp).to_s(:rfc822)
       server.headers["ETag"] = directory_object.etag
+
+      server.halt 304 if server.env["HTTP_IF_NONE_MATCH"] == directory_object.etag
 
       listing = directory_listing(user, directory)
 
