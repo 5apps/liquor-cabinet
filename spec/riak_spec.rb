@@ -398,6 +398,22 @@ describe "App with Riak backend" do
             log_entry.indexes["user_id_bin"].must_include "jimmy"
           end
 
+          context "overwriting existing file with same file" do
+            before do
+              header "Content-Type", "image/jpeg; charset=binary"
+              filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+              @image = File.open(filename, "r").read
+              put "/jimmy/documents/jaypeg", @image
+            end
+
+            it "doesn't log the operation" do
+              objects = []
+              opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+
+              objects.size.must_equal 1
+            end
+          end
+
           context "overwriting existing file with different file" do
             before do
               header "Content-Type", "image/jpeg; charset=binary"

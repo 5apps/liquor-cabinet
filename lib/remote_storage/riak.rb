@@ -173,11 +173,14 @@ module RemoteStorage
     end
 
     def log_operation(user, directory, count, new_size=0, old_size=0)
+      size = (-old_size + new_size)
+      return if count == 0 && size == 0
+
       log_entry = opslog_bucket.new
       log_entry.content_type = "application/json"
       log_entry.data = {
         "count" => count,
-        "size" => (-old_size + new_size),
+        "size" => size,
         "category" => extract_category(directory)
       }
       log_entry.indexes.merge!({:user_id_bin => [user]})
