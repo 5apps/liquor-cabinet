@@ -397,6 +397,27 @@ describe "App with Riak backend" do
             log_entry.data["category"].must_equal "documents"
             log_entry.indexes["user_id_bin"].must_include "jimmy"
           end
+
+          context "overwriting existing file with different file" do
+            before do
+              header "Content-Type", "image/jpeg; charset=binary"
+              filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+              @image = File.open(filename, "r").read
+              put "/jimmy/documents/jaypeg", @image+"foo"
+            end
+
+            it "logs the operation changing only the size" do
+              objects = []
+              opslog_bucket.keys.each { |k| objects << opslog_bucket.get(k) rescue nil }
+
+              objects.size.must_equal 2
+
+              log_entry = objects.select{|o| o.data["count"] == 0}.first
+              log_entry.data["size"].must_equal 3
+              log_entry.data["category"].must_equal "documents"
+              log_entry.indexes["user_id_bin"].must_include "jimmy"
+            end
+          end
         end
 
         context "no binary charset in content-type header" do

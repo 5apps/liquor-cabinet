@@ -92,7 +92,7 @@ module RemoteStorage
         server.halt 412 unless required_match == object.etag
       end
 
-      object_exists = !object.raw_data.nil?
+      object_exists = !object.raw_data.nil? || !object.meta["binary_key"].nil?
       existing_object_size = object_size(object)
 
       server.halt 412 if object_exists && server.env["HTTP_IF_NONE_MATCH"] == "*"
