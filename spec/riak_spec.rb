@@ -524,7 +524,7 @@ describe "App with Riak backend" do
         end
 
         it "removes the key" do
-          last_response.status.must_equal 204
+          last_response.status.must_equal 200
           lambda {
             data_bucket.get("jimmy:documents:foo")
           }.must_raise Riak::HTTPFailedRequest
@@ -564,7 +564,7 @@ describe "App with Riak backend" do
           header "If-Match", old_etag
 
           delete "/jimmy/documents/foo"
-          last_response.status.must_equal 204
+          last_response.status.must_equal 200
 
           get "/jimmy/documents/foo"
           last_response.status.must_equal 404
@@ -593,14 +593,14 @@ describe "App with Riak backend" do
         end
 
         it "removes the main object" do
-          last_response.status.must_equal 204
+          last_response.status.must_equal 200
           lambda {
             data_bucket.get("jimmy:documents:jaypeg")
           }.must_raise Riak::HTTPFailedRequest
         end
 
         it "removes the binary object" do
-          last_response.status.must_equal 204
+          last_response.status.must_equal 200
 
           binary = cs_binary_bucket.files.get("jimmy:documents:jaypeg")
           binary.must_be_nil

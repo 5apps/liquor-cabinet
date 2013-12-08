@@ -486,7 +486,7 @@ describe "Directories" do
       it "deletes the directory objects for all empty parent directories" do
         delete "/jimmy/tasks/home/trash"
 
-        last_response.status.must_equal 204
+        last_response.status.must_equal 200
 
         lambda {
           directory_bucket.get("jimmy:tasks/home")

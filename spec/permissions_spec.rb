@@ -186,7 +186,7 @@ describe "Permissions" do
       it "removes the key from a top-level directory" do
         delete "/jimmy/tasks/1"
 
-        last_response.status.must_equal 204
+        last_response.status.must_equal 200
         lambda {
           data_bucket.get("jimmy:tasks:1")
         }.must_raise Riak::HTTPFailedRequest
@@ -195,7 +195,7 @@ describe "Permissions" do
       it "removes the key from a top-level directory" do
         delete "/jimmy/tasks/home/1"
 
-        last_response.status.must_equal 204
+        last_response.status.must_equal 200
         lambda {
           data_bucket.get("jimmy:tasks/home:1")
         }.must_raise Riak::HTTPFailedRequest
@@ -212,7 +212,7 @@ describe "Permissions" do
         it "removes the key" do
           delete "/jimmy/public/tasks/open"
 
-          last_response.status.must_equal 204
+          last_response.status.must_equal 200
           lambda {
             data_bucket.get("jimmy:public/tasks:open")
           }.must_raise Riak::HTTPFailedRequest
@@ -296,7 +296,7 @@ describe "Permissions" do
       it "allows DELETE requests" do
         delete "/jimmy/documents/very/interesting/text"
 
-        last_response.status.must_equal 204
+        last_response.status.must_equal 200
         lambda {
           data_bucket.get("jimmy:documents/very/interesting:text")
         }.must_raise Riak::HTTPFailedRequest
@@ -327,7 +327,7 @@ describe "Permissions" do
         it "allows DELETE requests" do
           delete "/jimmy/root"
 
-          last_response.status.must_equal 204
+          last_response.status.must_equal 200
           lambda {
             data_bucket.get("jimmy::root")
           }.must_raise Riak::HTTPFailedRequest
@@ -358,7 +358,7 @@ describe "Permissions" do
         it "allows DELETE requests" do
           delete "/jimmy/public/tasks/hello"
 
-          last_response.status.must_equal 204
+          last_response.status.must_equal 200
           lambda {
             data_bucket.get("jimmy:public/tasks:hello")
           }.must_raise Riak::HTTPFailedRequest
