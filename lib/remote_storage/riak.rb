@@ -116,7 +116,7 @@ module RemoteStorage
       update_all_directory_objects(user, directory, timestamp)
 
       server.headers["ETag"] = object.etag
-      server.halt 200
+      server.halt object_exists ? 200 : 201
     rescue ::Riak::HTTPFailedRequest
       server.halt 422
     end

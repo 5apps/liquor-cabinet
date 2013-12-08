@@ -127,7 +127,7 @@ describe "App with Riak backend" do
         end
 
         it "saves the value" do
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
           last_response.body.must_equal ""
           data_bucket.get("jimmy:documents:bar").data.must_equal "another text"
         end
@@ -166,7 +166,7 @@ describe "App with Riak backend" do
         end
 
         it "saves the value (as JSON)" do
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
           data_bucket.get("jimmy:documents:jason").data.must_be_kind_of Hash
           data_bucket.get("jimmy:documents:jason").data.must_equal({"foo" => "bar", "unhosted" => 1})
         end
@@ -191,7 +191,7 @@ describe "App with Riak backend" do
         end
 
         it "saves the value" do
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
           data_bucket.get("jimmy:documents:magic").raw_data.must_equal "pure magic"
         end
 
@@ -215,7 +215,7 @@ describe "App with Riak backend" do
         end
 
         it "saves the value (as JSON)" do
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
           data_bucket.get("jimmy:documents:jason").data.must_be_kind_of Hash
           data_bucket.get("jimmy:documents:jason").data.must_equal({"foo" => "bar", "unhosted" => 1})
         end
@@ -309,7 +309,7 @@ describe "App with Riak backend" do
           it "succeeds when the document does not exist" do
             put "/jimmy/documents/archive/bar", "my little content"
 
-            last_response.status.must_equal 200
+            last_response.status.must_equal 201
           end
         end
       end
@@ -337,7 +337,7 @@ describe "App with Riak backend" do
         end
 
         it "saves the value" do
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
           data_bucket.get("jimmy:public/documents/notes:foo").data.must_equal "note to self"
         end
 
@@ -499,7 +499,7 @@ describe "App with Riak backend" do
           end
 
           it "saves an empty JSON object" do
-            last_response.status.must_equal 200
+            last_response.status.must_equal 201
             data_bucket.get("jimmy:documents:jason").data.must_be_kind_of Hash
             data_bucket.get("jimmy:documents:jason").data.must_equal({})
           end

@@ -101,7 +101,7 @@ describe "Permissions" do
       it "saves the value when there are write permissions" do
         put "/jimmy/contacts/1", "John Doe"
 
-        last_response.status.must_equal 200
+        last_response.status.must_equal 201
         data_bucket.get("jimmy:contacts:1").data.must_equal "John Doe"
       end
 
@@ -116,14 +116,14 @@ describe "Permissions" do
       it "saves the value when there are direct write permissions" do
         put "/jimmy/tasks/home/1", "take out the trash"
 
-        last_response.status.must_equal 200
+        last_response.status.must_equal 201
         data_bucket.get("jimmy:tasks/home:1").data.must_equal "take out the trash"
       end
 
       it "saves the value when there are write permissions for a parent directory" do
         put "/jimmy/contacts/family/1", "Bobby Brother"
 
-        last_response.status.must_equal 200
+        last_response.status.must_equal 201
         data_bucket.get("jimmy:contacts/family:1").data.must_equal "Bobby Brother"
       end
 
@@ -139,14 +139,14 @@ describe "Permissions" do
         it "saves the value" do
           put "/jimmy/public/contacts/foo", "Foo Bar"
 
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
           data_bucket.get("jimmy:public/contacts:foo").data.must_equal "Foo Bar"
         end
 
         it "saves the value to a sub-directory" do
           put "/jimmy/public/contacts/family/foo", "Foo Bar"
 
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
           data_bucket.get("jimmy:public/contacts/family:foo").data.must_equal "Foo Bar"
         end
       end
@@ -289,7 +289,7 @@ describe "Permissions" do
       it "allows PUT requests" do
         put "/jimmy/contacts/1", "John Doe"
 
-        last_response.status.must_equal 200
+        last_response.status.must_equal 201
         data_bucket.get("jimmy:contacts:1").data.must_equal "John Doe"
       end
 
@@ -320,7 +320,7 @@ describe "Permissions" do
         it "allows PUT requests" do
           put "/jimmy/1", "Gonna kick it root down"
 
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
           data_bucket.get("jimmy::1").data.must_equal "Gonna kick it root down"
         end
 
@@ -351,7 +351,7 @@ describe "Permissions" do
         it "allows PUT requests" do
           put "/jimmy/public/1", "Hello World"
 
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
           data_bucket.get("jimmy:public:1").data.must_equal "Hello World"
         end
 
