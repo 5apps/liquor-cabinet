@@ -144,7 +144,6 @@ module RemoteStorage
       timestamp = (Time.now.to_f * 1000).to_i
       delete_or_update_directory_objects(user, directory, timestamp)
 
-      server.headers["ETag"] = etag
       server.halt riak_response[:code]
     rescue ::Riak::HTTPFailedRequest
       server.halt 404

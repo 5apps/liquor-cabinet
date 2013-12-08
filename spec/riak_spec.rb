@@ -539,10 +539,6 @@ describe "App with Riak backend" do
           log_entry.data["category"].must_equal "documents"
           log_entry.indexes["user_id_bin"].must_include "jimmy"
         end
-
-        it "sets the ETag header" do
-          last_response.headers["ETag"].wont_be_nil
-        end
       end
 
       context "non-existing object" do
