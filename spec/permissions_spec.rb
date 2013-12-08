@@ -79,10 +79,10 @@ describe "Permissions" do
       end
 
       context "when not authorized" do
-        it "returns a 403 for a key in a top-level directory" do
+        it "returns a 401 for a key in a top-level directory" do
           get "/jimmy/confidential/bar"
 
-          last_response.status.must_equal 403
+          last_response.status.must_equal 401
         end
       end
     end
@@ -105,10 +105,10 @@ describe "Permissions" do
         data_bucket.get("jimmy:contacts:1").data.must_equal "John Doe"
       end
 
-      it "returns a 403 when there are read permissions only" do
+      it "returns a 401 when there are read permissions only" do
         put "/jimmy/documents/foo", "some text"
 
-        last_response.status.must_equal 403
+        last_response.status.must_equal 401
       end
     end
 
@@ -127,10 +127,10 @@ describe "Permissions" do
         data_bucket.get("jimmy:contacts/family:1").data.must_equal "Bobby Brother"
       end
 
-      it "returns a 403 when there are read permissions only" do
+      it "returns a 401 when there are read permissions only" do
         put "/jimmy/documents/business/1", "some text"
 
-        last_response.status.must_equal 403
+        last_response.status.must_equal 401
       end
     end
 
@@ -152,10 +152,10 @@ describe "Permissions" do
       end
 
       context "when not authorized for the corresponding category" do
-        it "returns a 403" do
+        it "returns a 401" do
           put "/jimmy/public/documents/foo", "Foo Bar"
 
-          last_response.status.must_equal 403
+          last_response.status.must_equal 401
         end
       end
     end
@@ -233,16 +233,16 @@ describe "Permissions" do
         object.store
       end
 
-      it "returns a 403 for a key in a top-level directory" do
+      it "returns a 401 for a key in a top-level directory" do
         delete "/jimmy/documents/private"
 
-        last_response.status.must_equal 403
+        last_response.status.must_equal 401
       end
 
-      it "returns a 403 for a key in a sub-directory" do
+      it "returns a 401 for a key in a sub-directory" do
         delete "/jimmy/documents/business/foo"
 
-        last_response.status.must_equal 403
+        last_response.status.must_equal 401
       end
 
       context "public directory" do
@@ -253,10 +253,10 @@ describe "Permissions" do
           object.store
         end
 
-        it "returns a 403" do
+        it "returns a 401" do
           delete "/jimmy/public/documents/foo"
 
-          last_response.status.must_equal 403
+          last_response.status.must_equal 401
         end
       end
     end
@@ -385,13 +385,13 @@ describe "Permissions" do
       it "disallows PUT requests" do
         put "/jimmy/documents/foo", "some text"
 
-        last_response.status.must_equal 403
+        last_response.status.must_equal 401
       end
 
       it "disallows DELETE requests" do
         delete "/jimmy/documents/very/interesting/text"
 
-        last_response.status.must_equal 403
+        last_response.status.must_equal 401
       end
 
       context "public directory" do
@@ -411,13 +411,13 @@ describe "Permissions" do
         it "disallows PUT requests" do
           put "/jimmy/public/tasks/foo", "some text"
 
-          last_response.status.must_equal 403
+          last_response.status.must_equal 401
         end
 
         it "disallows DELETE requests" do
           delete "/jimmy/public/tasks/hello"
 
-          last_response.status.must_equal 403
+          last_response.status.must_equal 401
         end
       end
     end

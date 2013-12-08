@@ -376,13 +376,13 @@ describe "Directories" do
         it "does not allow a directory listing of the public root" do
           get "/jimmy/public/"
 
-          last_response.status.must_equal 403
+          last_response.status.must_equal 401
         end
 
         it "does not allow a directory listing of a sub-directory" do
           get "/jimmy/public/bookmarks/"
 
-          last_response.status.must_equal 403
+          last_response.status.must_equal 401
         end
       end
     end

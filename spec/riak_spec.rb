@@ -632,26 +632,26 @@ describe "App with Riak backend" do
     end
 
     describe "GET" do
-      it "returns a 403" do
+      it "returns a 401" do
         get "/jimmy/documents/foo"
 
-        last_response.status.must_equal 403
+        last_response.status.must_equal 401
       end
     end
 
     describe "PUT" do
-      it "returns a 403" do
+      it "returns a 401" do
         put "/jimmy/documents/foo", "some text"
 
-        last_response.status.must_equal 403
+        last_response.status.must_equal 401
       end
     end
 
     describe "DELETE" do
-      it "returns a 403" do
+      it "returns a 401" do
         delete "/jimmy/documents/foo"
 
-        last_response.status.must_equal 403
+        last_response.status.must_equal 401
       end
     end
   end

@@ -29,12 +29,12 @@ module RemoteStorage
       authorizations = auth_bucket.get("#{user}:#{token}").data
       permission = directory_permission(authorizations, directory)
 
-      server.halt 403 unless permission
+      server.halt 401 unless permission
       if ["PUT", "DELETE"].include? request_method
-        server.halt 403 unless permission == "rw"
+        server.halt 401 unless permission == "rw"
       end
     rescue ::Riak::HTTPFailedRequest
-      server.halt 403
+      server.halt 401
     end
 
     def get_data(user, directory, key)
