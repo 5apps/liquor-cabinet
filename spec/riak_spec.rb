@@ -37,6 +37,11 @@ describe "App with Riak backend" do
       last_response.status.must_equal 200
       last_response.headers["ETag"].wont_be_nil
     end
+
+    it "has caching headers set" do
+      last_response.status.must_equal 200
+      last_response.headers["Expires"].must_equal 0
+    end
   end
 
   describe "GET data with custom content type" do

@@ -67,6 +67,13 @@ describe "Directories" do
       last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag"
     end
 
+    it "has caching headers set" do
+      get "/jimmy/tasks/"
+
+      last_response.status.must_equal 200
+      last_response.headers["Expires"].must_equal 0
+    end
+
     context "when If-None-Match header is set" do
       before do
         get "/jimmy/tasks/"

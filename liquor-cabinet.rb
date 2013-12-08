@@ -46,6 +46,7 @@ class LiquorCabinet < Sinatra::Base
               'Access-Control-Expose-Headers' => 'ETag'
       headers['Access-Control-Allow-Origin'] = env["HTTP_ORIGIN"] if env["HTTP_ORIGIN"]
       headers['Cache-Control'] = 'no-cache'
+      headers['Expires'] = 0
 
       @user, @key = params[:user], params[:key]
       @directory = params[:splat] && params[:splat].first || ""
