@@ -40,7 +40,7 @@ describe "App with Riak backend" do
 
     it "has caching headers set" do
       last_response.status.must_equal 200
-      last_response.headers["Expires"].must_equal 0
+      last_response.headers["Expires"].must_equal "0"
     end
   end
 
