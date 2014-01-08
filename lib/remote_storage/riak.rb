@@ -43,6 +43,7 @@ module RemoteStorage
       server.headers["Content-Type"] = object.content_type
       server.headers["Last-Modified"] = last_modified_date_for(object)
       server.headers["ETag"] = object.etag
+      server.headers["Content-Length"] = object_size(object)
 
       server.halt 304 if server.env["HTTP_IF_NONE_MATCH"] == object.etag
 

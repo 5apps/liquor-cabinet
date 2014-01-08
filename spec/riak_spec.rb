@@ -38,6 +38,11 @@ describe "App with Riak backend" do
       last_response.headers["ETag"].wont_be_nil
     end
 
+    it "has a Content-Length header set" do
+      last_response.status.must_equal 200
+      last_response.headers["Content-Length"].must_equal "14"
+    end
+
     it "has caching headers set" do
       last_response.status.must_equal 200
       last_response.headers["Expires"].must_equal "0"
@@ -383,6 +388,12 @@ describe "App with Riak backend" do
 
             last_response.headers["ETag"].wont_be_nil
             last_response.headers["ETag"].must_equal etag
+          end
+
+          it "responds with a Content-Length header" do
+            get "/jimmy/documents/jaypeg"
+
+            last_response.headers["Content-Length"].must_equal "16044"
           end
 
           it "changes the ETag when updating the file" do
