@@ -238,26 +238,25 @@ module RemoteStorage
     end
 
     def directory_listing(user, directory)
-      listing = {}
+      listing = {
+        "@context" => "http://remotestorage.io/spec/folder-description",
+        "items"    => {}
+      }
 
       sub_directories(user, directory).each do |entry|
         directory_name = entry["name"].split("/").last
-        timestamp = entry["timestamp"].to_i
         etag = entry["etag"]
 
-        listing.merge!({ "#{directory_name}/" => etag })
+        listing["items"].merge!({ "#{directory_name}/" => { "ETag" => etag }})
       end
 
       directory_entries(user, directory).each do |entry|
         entry_name = entry["name"]
-        timestamp = if entry["timestamp"]
-                      entry["timestamp"].to_i
-                    else
-                      DateTime.rfc2822(entry["last_modified"]).to_time.to_i
-                    end
         etag = entry["etag"]
+        content_type = entry["contentType"]
+        content_length = entry["contentLength"].to_i
 
-        listing.merge!({ entry_name => etag })
+        listing["items"].merge!({ entry_name => { "ETag" => etag, "Content-Type" => content_type, "Content-Length" => content_length }})
       end
 
       listing
@@ -269,17 +268,20 @@ module RemoteStorage
 
       map_query = <<-EOH
         function(v){
-          keys = v.key.split(':');
+          var values = v.values[0];
+          var metadata = values['metadata'];
+          var keys = v.key.split(':');
           keys.splice(0, 2);
-          key_name = keys.join(':');
-          last_modified_date = v.values[0]['metadata']['X-Riak-Last-Modified'];
-          timestamp = v.values[0]['metadata']['X-Riak-Meta']['X-Riak-Meta-Timestamp'];
-          etag = v.values[0]['metadata']['X-Riak-VTag'];
+          var key_name = keys.join(':');
+          var etag = metadata['X-Riak-VTag'];
+          var contentType = metadata['content-type'];
+          var contentLength = metadata['X-Riak-Meta']['X-Riak-Meta-Content_length'] || 0;
+
           return [{
             name: key_name,
-            last_modified: last_modified_date,
-            timestamp: timestamp,
-            etag: etag
+            etag: etag,
+            contentType: contentType,
+            contentLength: contentLength
           }];
         }
       EOH
@@ -293,13 +295,12 @@ module RemoteStorage
 
       map_query = <<-EOH
         function(v){
-          keys = v.key.split(':');
-          key_name = keys[keys.length-1];
-          timestamp = v.values[0]['data'];
-          etag = v.values[0]['metadata']['X-Riak-VTag'];
+          var keys = v.key.split(':');
+          var key_name = keys[keys.length-1];
+          var etag = v.values[0]['metadata']['X-Riak-VTag'];
+
           return [{
             name: key_name,
-            timestamp: timestamp,
             etag: etag
           }];
         }
@@ -370,6 +371,8 @@ module RemoteStorage
         data = JSON.parse(data)
       end
 
+      object.meta["content_length"] = data.size
+
       if serializer_for(object.content_type)
         object.data = data
       else
@@ -387,6 +390,7 @@ module RemoteStorage
       )
 
       object.meta["binary_key"] = cs_binary_object.key
+      object.meta["content_length"] = cs_binary_object.content_length
       object.raw_data = ""
     end
 
