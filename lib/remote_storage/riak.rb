@@ -164,14 +164,14 @@ module RemoteStorage
     private
 
     def set_object_response_headers(object)
-      server.headers["Content-Type"] = object.content_type
-      server.headers["ETag"] = object.etag
+      server.headers["Content-Type"]   = object.content_type
+      server.headers["ETag"]           = object.etag
       server.headers["Content-Length"] = object_size(object)
     end
 
     def set_directory_response_headers(directory_object)
       server.headers["Content-Type"] = "application/json"
-      server.headers["ETag"] = directory_object.etag
+      server.headers["ETag"]         = directory_object.etag
     end
 
     def extract_category(directory)
@@ -188,7 +188,7 @@ module RemoteStorage
       object.content_type = content_type || "text/plain; charset=utf-8"
 
       directory_index = directory == "" ? "/" : directory
-      object.indexes.merge!({:user_id_bin => [user],
+      object.indexes.merge!({:user_id_bin   => [user],
                              :directory_bin => [directory_index]})
 
       object
@@ -201,8 +201,8 @@ module RemoteStorage
       log_entry = opslog_bucket.new
       log_entry.content_type = "application/json"
       log_entry.data = {
-        "count" => count,
-        "size" => size,
+        "count"    => count,
+        "size"     => size,
         "category" => extract_category(directory)
       }
       log_entry.indexes.merge!({:user_id_bin => [user]})
@@ -260,18 +260,24 @@ module RemoteStorage
 
       sub_directories(user, directory).each do |entry|
         directory_name = entry["name"].split("/").last
-        etag = entry["etag"]
+        etag           = entry["etag"]
 
         listing["items"].merge!({ "#{directory_name}/" => { "ETag" => etag }})
       end
 
       directory_entries(user, directory).each do |entry|
-        entry_name = entry["name"]
-        etag = entry["etag"]
-        content_type = entry["contentType"]
+        entry_name     = entry["name"]
+        etag           = entry["etag"]
+        content_type   = entry["contentType"]
         content_length = entry["contentLength"].to_i
 
-        listing["items"].merge!({ entry_name => { "ETag" => etag, "Content-Type" => content_type, "Content-Length" => content_length }})
+        listing["items"].merge!({
+          entry_name => {
+            "ETag"           => etag,
+            "Content-Type"   => content_type,
+            "Content-Length" => content_length
+          }
+        })
       end
 
       listing
@@ -293,9 +299,9 @@ module RemoteStorage
           var contentLength = metadata['X-Riak-Meta']['X-Riak-Meta-Content_length'] || 0;
 
           return [{
-            name: key_name,
-            etag: etag,
-            contentType: contentType,
+            name:          key_name,
+            etag:          etag,
+            contentType:   contentType,
             contentLength: contentLength
           }];
         }
@@ -404,7 +410,7 @@ module RemoteStorage
         :content_type => object.content_type
       )
 
-      object.meta["binary_key"] = cs_binary_object.key
+      object.meta["binary_key"]     = cs_binary_object.key
       object.meta["content_length"] = cs_binary_object.content_length
       object.raw_data = ""
     end
