@@ -73,14 +73,18 @@ module RemoteStorage
       server.halt 404
     end
 
+    def get_head_directory_listing(user, directory)
+      directory_object = directory_bucket.get("#{user}:#{directory}")
+      set_directory_response_headers(directory_object)
+      server.halt 200
+    rescue ::Riak::HTTPFailedRequest
+      server.halt 404
+    end
+
     def get_directory_listing(user, directory)
       directory_object = directory_bucket.get("#{user}:#{directory}")
 
-      timestamp = directory_object.data.to_i
-      timestamp /= 1000 if timestamp.to_s.length == 13
-      server.headers["Content-Type"] = "application/json"
-      server.headers["Last-Modified"] = Time.at(timestamp).to_s(:rfc822)
-      server.headers["ETag"] = directory_object.etag
+      set_directory_response_headers(directory_object)
 
       server.halt 304 if server.env["HTTP_IF_NONE_MATCH"] == directory_object.etag
 
@@ -162,6 +166,14 @@ module RemoteStorage
       server.headers["Last-Modified"] = last_modified_date_for(object)
       server.headers["ETag"] = object.etag
       server.headers["Content-Length"] = object_size(object)
+    end
+
+    def set_directory_response_headers(directory_object)
+      timestamp = directory_object.data.to_i
+      timestamp /= 1000 if timestamp.to_s.length == 13
+      server.headers["Content-Type"] = "application/json"
+      server.headers["Last-Modified"] = Time.at(timestamp).to_s(:rfc822)
+      server.headers["ETag"] = directory_object.etag
     end
 
     def extract_category(directory)

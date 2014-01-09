@@ -91,6 +91,10 @@ class LiquorCabinet < Sinatra::Base
     get path do
       storage.get_directory_listing(@user, @directory)
     end
+
+    head path do
+      storage.get_head_directory_listing(@user, @directory)
+    end
   end
 
   private

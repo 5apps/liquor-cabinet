@@ -13,6 +13,56 @@ describe "Directories" do
     header "Authorization", "Bearer 123"
   end
 
+  describe "HEAD listing" do
+    before do
+      put "/jimmy/tasks/foo", "do the laundry"
+      put "/jimmy/tasks/http%3A%2F%2F5apps.com", "prettify design"
+
+      head "/jimmy/tasks/"
+    end
+
+    it "has an empty body" do
+      last_response.status.must_equal 200
+      last_response.body.must_equal ""
+    end
+
+    it "has a Last-Modifier header set" do
+      last_response.status.must_equal 200
+      last_response.headers["Last-Modified"].wont_be_nil
+
+      now = Time.now
+      last_modified = DateTime.parse(last_response.headers["Last-Modified"])
+      last_modified.year.must_equal now.year
+      last_modified.day.must_equal now.day
+    end
+
+    it "has an ETag header set" do
+      last_response.status.must_equal 200
+      last_response.headers["ETag"].wont_be_nil
+
+      # check that ETag stays the same
+      etag = last_response.headers["ETag"]
+      get "/jimmy/tasks/"
+      last_response.headers["ETag"].must_equal etag
+    end
+
+    it "has CORS headers set" do
+      last_response.status.must_equal 200
+      last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
+      last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
+      last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin, If-Match, If-None-Match"
+      last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag"
+    end
+
+    context "for an empty or absent directory" do
+      it "responds with 404" do
+        head "/jimmy/documents/"
+
+        last_response.status.must_equal 404
+      end
+    end
+  end
+
   describe "GET listing" do
     before do
       put "/jimmy/tasks/foo", "do the laundry"
