@@ -7,6 +7,42 @@ describe "App with Riak backend" do
     purge_all_buckets
   end
 
+  describe "HEAD public data" do
+    before do
+      object = data_bucket.new("jimmy:public:foo")
+      object.content_type = "text/plain"
+      object.data = "some text data"
+      object.store
+
+      head "/jimmy/public/foo"
+    end
+
+    it "returns an empty body" do
+      last_response.status.must_equal 200
+      last_response.body.must_equal ""
+    end
+
+    it "has a Last-Modified header set" do
+      last_response.status.must_equal 200
+      last_response.headers["Last-Modified"].wont_be_nil
+
+      now = Time.now
+      last_modified = DateTime.parse(last_response.headers["Last-Modified"])
+      last_modified.year.must_equal now.year
+      last_modified.day.must_equal now.day
+    end
+
+    it "has an ETag header set" do
+      last_response.status.must_equal 200
+      last_response.headers["ETag"].wont_be_nil
+    end
+
+    it "has a Content-Length header set" do
+      last_response.status.must_equal 200
+      last_response.headers["Content-Length"].must_equal 14
+    end
+  end
+
   describe "GET public data" do
     before do
       object = data_bucket.new("jimmy:public:foo")
@@ -78,6 +114,37 @@ describe "App with Riak backend" do
       auth = auth_bucket.new("jimmy:123")
       auth.data = ["documents", "public"]
       auth.store
+    end
+
+    describe "HEAD" do
+      before do
+        header "Authorization", "Bearer 123"
+        head "/jimmy/documents/foo"
+      end
+
+      it "returns an empty body" do
+        last_response.status.must_equal 200
+        last_response.body.must_equal ""
+      end
+
+      it "has an ETag header set" do
+        last_response.status.must_equal 200
+        last_response.headers["ETag"].wont_be_nil
+      end
+
+      it "has a Content-Length header set" do
+        last_response.status.must_equal 200
+        last_response.headers["Content-Length"].must_equal 22
+      end
+    end
+
+    describe "HEAD nonexisting key" do
+      it "returns a 404" do
+        header "Authorization", "Bearer 123"
+        head "/jimmy/documents/somestupidkey"
+
+        last_response.status.must_equal 404
+      end
     end
 
     describe "GET" do

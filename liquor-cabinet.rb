@@ -66,6 +66,10 @@ class LiquorCabinet < Sinatra::Base
       storage.get_data(@user, @directory, @key)
     end
 
+    head path do
+      storage.get_head(@user, @directory, @key)
+    end
+
     put path do
       data = request.body.read
 

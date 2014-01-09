@@ -23,7 +23,7 @@ module RemoteStorage
       request_method = server.env["REQUEST_METHOD"]
 
       if directory.split("/").first == "public"
-        return true if request_method == "GET" && !listing
+        return true if ["GET", "HEAD"].include?(request_method) && !listing
       end
 
       authorizations = auth_bucket.get("#{user}:#{token}").data
@@ -37,13 +37,18 @@ module RemoteStorage
       server.halt 401
     end
 
+    def get_head(user, directory, key)
+      object = data_bucket.get("#{user}:#{directory}:#{key}")
+      set_object_response_headers(object)
+      server.halt 200
+    rescue ::Riak::HTTPFailedRequest
+      server.halt 404
+    end
+
     def get_data(user, directory, key)
       object = data_bucket.get("#{user}:#{directory}:#{key}")
 
-      server.headers["Content-Type"] = object.content_type
-      server.headers["Last-Modified"] = last_modified_date_for(object)
-      server.headers["ETag"] = object.etag
-      server.headers["Content-Length"] = object_size(object)
+      set_object_response_headers(object)
 
       server.halt 304 if server.env["HTTP_IF_NONE_MATCH"] == object.etag
 
@@ -151,6 +156,13 @@ module RemoteStorage
     end
 
     private
+
+    def set_object_response_headers(object)
+      server.headers["Content-Type"] = object.content_type
+      server.headers["Last-Modified"] = last_modified_date_for(object)
+      server.headers["ETag"] = object.etag
+      server.headers["Content-Length"] = object_size(object)
+    end
 
     def extract_category(directory)
       if directory.match(/^public\//)
