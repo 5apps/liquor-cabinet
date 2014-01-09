@@ -156,6 +156,25 @@ describe "App with Riak backend" do
           last_response.body.must_equal "some private text data"
         end
       end
+
+      describe "when If-None-Match header is set with multiple revisions" do
+        it "responds with 'not modified' when it contains the current ETag" do
+          header "If-None-Match", "DEADBEEF,#{@etag},F00BA4"
+          get "/jimmy/documents/foo"
+
+          last_response.status.must_equal 304
+          last_response.body.must_be_empty
+          last_response.headers["ETag"].must_equal @etag
+        end
+
+        it "responds normally when it does not contain the current ETag" do
+          header "If-None-Match", "FOO,BAR"
+          get "/jimmy/documents/foo"
+
+          last_response.status.must_equal 200
+          last_response.body.must_equal "some private text data"
+        end
+      end
     end
 
     describe "GET nonexisting key" do

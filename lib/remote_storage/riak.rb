@@ -50,7 +50,8 @@ module RemoteStorage
 
       set_object_response_headers(object)
 
-      server.halt 304 if server.env["HTTP_IF_NONE_MATCH"] == object.etag
+      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
+      server.halt 304 if none_match.include? object.etag
 
       if binary_key = object.meta["binary_key"]
         object = cs_binary_bucket.files.get(binary_key[0])
@@ -86,7 +87,8 @@ module RemoteStorage
 
       set_directory_response_headers(directory_object)
 
-      server.halt 304 if server.env["HTTP_IF_NONE_MATCH"] == directory_object.etag
+      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
+      server.halt 304 if none_match.include? directory_object.etag
 
       listing = directory_listing(user, directory)
 
