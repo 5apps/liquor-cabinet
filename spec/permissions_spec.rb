@@ -26,8 +26,6 @@ describe "Permissions" do
 
         last_response.status.must_equal 200
         last_response.body.must_equal "some text data"
-
-        last_response.headers["Last-Modified"].wont_be_nil
       end
 
       it "returns the value from a sub-directory" do

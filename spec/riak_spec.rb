@@ -22,16 +22,6 @@ describe "App with Riak backend" do
       last_response.body.must_equal ""
     end
 
-    it "has a Last-Modified header set" do
-      last_response.status.must_equal 200
-      last_response.headers["Last-Modified"].wont_be_nil
-
-      now = Time.now
-      last_modified = DateTime.parse(last_response.headers["Last-Modified"])
-      last_modified.year.must_equal now.year
-      last_modified.day.must_equal now.day
-    end
-
     it "has an ETag header set" do
       last_response.status.must_equal 200
       last_response.headers["ETag"].wont_be_nil
@@ -56,17 +46,6 @@ describe "App with Riak backend" do
     it "returns the value on all get requests" do
       last_response.status.must_equal 200
       last_response.body.must_equal "some text data"
-    end
-
-    # If this one fails, try restarting Riak
-    it "has a Last-Modified header set" do
-      last_response.status.must_equal 200
-      last_response.headers["Last-Modified"].wont_be_nil
-
-      now = Time.now
-      last_modified = DateTime.parse(last_response.headers["Last-Modified"])
-      last_modified.year.must_equal now.year
-      last_modified.day.must_equal now.day
     end
 
     it "has an ETag header set" do

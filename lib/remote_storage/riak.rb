@@ -163,16 +163,12 @@ module RemoteStorage
 
     def set_object_response_headers(object)
       server.headers["Content-Type"] = object.content_type
-      server.headers["Last-Modified"] = last_modified_date_for(object)
       server.headers["ETag"] = object.etag
       server.headers["Content-Length"] = object_size(object)
     end
 
     def set_directory_response_headers(directory_object)
-      timestamp = directory_object.data.to_i
-      timestamp /= 1000 if timestamp.to_s.length == 13
       server.headers["Content-Type"] = "application/json"
-      server.headers["Last-Modified"] = Time.at(timestamp).to_s(:rfc822)
       server.headers["ETag"] = directory_object.etag
     end
 
@@ -232,14 +228,6 @@ module RemoteStorage
 
     def serializer_for(content_type)
       ::Riak::Serializers[content_type[/^[^;\s]+/]]
-    end
-
-    def last_modified_date_for(object)
-      timestamp = object.meta["timestamp"]
-      timestamp = (timestamp[0].to_i / 1000) if timestamp
-      last_modified = timestamp ? Time.at(timestamp) : object.last_modified
-
-      last_modified.to_s(:rfc822)
     end
 
     def directory_permission(authorizations, directory)

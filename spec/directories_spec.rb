@@ -26,16 +26,6 @@ describe "Directories" do
       last_response.body.must_equal ""
     end
 
-    it "has a Last-Modifier header set" do
-      last_response.status.must_equal 200
-      last_response.headers["Last-Modified"].wont_be_nil
-
-      now = Time.now
-      last_modified = DateTime.parse(last_response.headers["Last-Modified"])
-      last_modified.year.must_equal now.year
-      last_modified.day.must_equal now.day
-    end
-
     it "has an ETag header set" do
       last_response.status.must_equal 200
       last_response.headers["ETag"].wont_be_nil
@@ -83,18 +73,6 @@ describe "Directories" do
       content["items"]["foo"]["ETag"].must_equal foo.etag.gsub(/"/, "")
       content["items"]["foo"]["Content-Type"].must_equal "text/plain"
       content["items"]["foo"]["Content-Length"].must_equal 14
-    end
-
-    it "has a Last-Modifier header set" do
-      get "/jimmy/tasks/"
-
-      last_response.status.must_equal 200
-      last_response.headers["Last-Modified"].wont_be_nil
-
-      now = Time.now
-      last_modified = DateTime.parse(last_response.headers["Last-Modified"])
-      last_modified.year.must_equal now.year
-      last_modified.day.must_equal now.day
     end
 
     it "has an ETag header set" do
