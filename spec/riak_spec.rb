@@ -462,12 +462,12 @@ describe "App with Riak backend" do
 
       context "with escaped key" do
         before do
-          put "/jimmy/documents/http%3A%2F%2F5apps.com", "super website"
+          put "/jimmy/documents/bar%3Abaz/http%3A%2F%2F5apps.com", "super website"
         end
 
         it "delivers the data correctly" do
           header "Authorization", "Bearer 123"
-          get "/jimmy/documents/http%3A%2F%2F5apps.com"
+          get "/jimmy/documents/bar%3Abaz/http%3A%2F%2F5apps.com"
 
           last_response.body.must_equal 'super website'
         end

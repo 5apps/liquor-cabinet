@@ -17,6 +17,7 @@ describe "Directories" do
     before do
       put "/jimmy/tasks/foo", "do the laundry"
       put "/jimmy/tasks/http%3A%2F%2F5apps.com", "prettify design"
+      put "/jimmy/tasks/%3A/foo%3Abar%40foo.org", "hello world"
     end
 
     it "lists the objects with their version" do
@@ -29,8 +30,19 @@ describe "Directories" do
 
       content = JSON.parse(last_response.body)
       content.must_include "http://5apps.com"
+      content.must_include ":/"
       content.must_include "foo"
       content["foo"].must_equal foo.etag.gsub(/"/, "")
+    end
+
+    it "doesn't choke on colons in the directory name" do
+      get "/jimmy/tasks/%3A/"
+
+      last_response.status.must_equal 200
+      last_response.content_type.must_equal "application/json"
+
+      content = JSON.parse(last_response.body)
+      content.must_include "foo:bar@foo.org"
     end
 
     it "has a Last-Modifier header set" do
