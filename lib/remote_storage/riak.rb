@@ -270,14 +270,19 @@ module RemoteStorage
 
       map_query = <<-EOH
         function(v){
-          keys = v.key.split(':');
-          keys.splice(0, 2);
-          key_name = keys.join(':');
-          last_modified_date = v.values[0]['metadata']['X-Riak-Last-Modified'];
-          timestamp = v.values[0]['metadata']['X-Riak-Meta']['X-Riak-Meta-Timestamp'];
-          etag = v.values[0]['metadata']['X-Riak-VTag'];
+          var metadata = v.values[0]['metadata'];
+          var dir_name = metadata['index']['directory_bin'];
+          if (dir_name === '/') {
+            dir_name = '';
+          }
+          var name = v.key.match(/^[^:]*:(.*)/)[1]; // strip username from key
+          name = name.replace(dir_name + ':', ''); // strip directory from key
+          var last_modified_date = metadata['X-Riak-Last-Modified'];
+          var timestamp = metadata['X-Riak-Meta']['X-Riak-Meta-Timestamp'];
+          var etag = metadata['X-Riak-VTag'];
+
           return [{
-            name: key_name,
+            name: name,
             last_modified: last_modified_date,
             timestamp: timestamp,
             etag: etag
@@ -294,12 +299,12 @@ module RemoteStorage
 
       map_query = <<-EOH
         function(v){
-          keys = v.key.split(':');
-          key_name = keys[keys.length-1];
-          timestamp = v.values[0]['data'];
-          etag = v.values[0]['metadata']['X-Riak-VTag'];
+          var name = v.key.match(/^[^:]*:(.*)/)[1]; // strip username from key
+          var timestamp = v.values[0]['data'];
+          var etag = v.values[0]['metadata']['X-Riak-VTag'];
+
           return [{
-            name: key_name,
+            name: name,
             timestamp: timestamp,
             etag: etag
           }];
