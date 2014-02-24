@@ -473,6 +473,25 @@ describe "App with Riak backend" do
         end
       end
 
+      context "with unescaped key" do
+        before do
+          put "/jimmy/documents/bar:baz/john@doe.com", "John Doe"
+        end
+
+        it "lists the document in the directory" do
+          get "/jimmy/documents/bar:baz/"
+
+          content = JSON.parse(last_response.body)
+          content.must_include "john@doe.com"
+        end
+
+        it "delivers the data correctly" do
+          get "/jimmy/documents/bar:baz/john@doe.com"
+
+          last_response.body.must_equal "John Doe"
+        end
+      end
+
       context "escaped square brackets in key" do
         before do
           put "/jimmy/documents/gracehopper%5B1%5D.jpg", "super image"
