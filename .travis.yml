@@ -5,7 +5,7 @@ before_install:
   - sh .travis/install_riakcs.sh
 before_script:
   - cp config.yml.example config.yml
-script: rake test
+script: bundle exec rake test
 branches:
   only:
     - master
