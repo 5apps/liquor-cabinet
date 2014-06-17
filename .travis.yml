@@ -1,6 +1,6 @@
 language: ruby
 rvm:
-  - 1.9.3
+  - 2.1.2
 before_install:
   - sh .travis/install_riakcs.sh
 before_script:
