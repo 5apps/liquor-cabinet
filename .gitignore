@@ -1,3 +1,5 @@
 config.yml
 cs_credentials.json
 pids
+.bundle
+vendor/bundle

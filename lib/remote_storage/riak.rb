@@ -289,17 +289,19 @@ module RemoteStorage
 
       map_query = <<-EOH
         function(v){
-          var values = v.values[0];
-          var metadata = values['metadata'];
-          var keys = v.key.split(':');
-          keys.splice(0, 2);
-          var key_name = keys.join(':');
+          var metadata = v.values[0]['metadata'];
+          var dir_name = metadata['index']['directory_bin'];
+          if (dir_name === '/') {
+            dir_name = '';
+          }
+          var name = v.key.match(/^[^:]*:(.*)/)[1]; // strip username from key
+          name = name.replace(dir_name + ':', ''); // strip directory from key
           var etag = metadata['X-Riak-VTag'];
           var contentType = metadata['content-type'];
           var contentLength = metadata['X-Riak-Meta']['X-Riak-Meta-Content_length'] || 0;
 
           return [{
-            name:          key_name,
+            name:          name,
             etag:          etag,
             contentType:   contentType,
             contentLength: contentLength
@@ -316,12 +318,11 @@ module RemoteStorage
 
       map_query = <<-EOH
         function(v){
-          var keys = v.key.split(':');
-          var key_name = keys[keys.length-1];
+          var name = v.key.match(/^[^:]*:(.*)/)[1]; // strip username from key
           var etag = v.values[0]['metadata']['X-Riak-VTag'];
 
           return [{
-            name: key_name,
+            name: name,
             etag: etag
           }];
         }

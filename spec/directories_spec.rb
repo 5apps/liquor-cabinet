@@ -57,6 +57,7 @@ describe "Directories" do
     before do
       put "/jimmy/tasks/foo", "do the laundry"
       put "/jimmy/tasks/http%3A%2F%2F5apps.com", "prettify design"
+      put "/jimmy/tasks/%3A/foo%3Abar%40foo.org", "hello world"
     end
 
     it "lists the objects with version, length and content-type" do
@@ -69,6 +70,7 @@ describe "Directories" do
 
       content = JSON.parse(last_response.body)
       content["items"]["http://5apps.com"].wont_be_nil
+      content["items"][":/"].wont_be_nil
       content["items"]["foo"].wont_be_nil
       content["items"]["foo"]["ETag"].must_equal foo.etag.gsub(/"/, "")
       content["items"]["foo"]["Content-Type"].must_equal "text/plain"
@@ -102,6 +104,16 @@ describe "Directories" do
 
       last_response.status.must_equal 200
       last_response.headers["Expires"].must_equal "0"
+    end
+
+    it "doesn't choke on colons in the directory name" do
+      get "/jimmy/tasks/%3A/"
+
+      last_response.status.must_equal 200
+      last_response.content_type.must_equal "application/json"
+
+      content = JSON.parse(last_response.body)
+      content["items"]["foo:bar@foo.org"].wont_be_nil
     end
 
     context "when If-None-Match header is set" do

@@ -543,14 +543,33 @@ describe "App with Riak backend" do
 
       context "with escaped key" do
         before do
-          put "/jimmy/documents/http%3A%2F%2F5apps.com", "super website"
+          put "/jimmy/documents/bar%3Abaz/http%3A%2F%2F5apps.com", "super website"
         end
 
         it "delivers the data correctly" do
           header "Authorization", "Bearer 123"
-          get "/jimmy/documents/http%3A%2F%2F5apps.com"
+          get "/jimmy/documents/bar%3Abaz/http%3A%2F%2F5apps.com"
 
           last_response.body.must_equal 'super website'
+        end
+      end
+
+      context "with unescaped key" do
+        before do
+          put "/jimmy/documents/bar:baz/john@doe.com", "John Doe"
+        end
+
+        it "lists the document in the directory" do
+          get "/jimmy/documents/bar:baz/"
+
+          content = JSON.parse(last_response.body)
+          content["items"]["john@doe.com"].wont_be_nil
+        end
+
+        it "delivers the data correctly" do
+          get "/jimmy/documents/bar:baz/john@doe.com"
+
+          last_response.body.must_equal "John Doe"
         end
       end
 

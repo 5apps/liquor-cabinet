@@ -1,8 +1,8 @@
-source "http://rubygems.org"
+source "https://rubygems.org"
 
 gem "sinatra"
 gem "sinatra-contrib"
-gem "activesupport"
+gem "activesupport", '~> 3.2'
 gem "riak-client", :github => "5apps/riak-ruby-client", :branch => "invalid_uri_error"
 gem "fog"
 
