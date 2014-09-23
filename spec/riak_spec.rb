@@ -302,6 +302,32 @@ describe "App with Riak backend" do
         end
       end
 
+      describe "naming collissions between documents and directories" do
+        before do
+          put "/jimmy/documents/archive/document", "lorem ipsum"
+        end
+
+        it "responds with 409 when directory with same name already exists" do
+          put "/jimmy/documents/archive", "some awesome content"
+
+          last_response.status.must_equal 409
+
+          lambda {
+            data_bucket.get("jimmy:documents/archive")
+          }.must_raise Riak::HTTPFailedRequest
+        end
+
+        it "responds with 409 when there is an existing document with same name as one of the directories" do
+          put "/jimmy/documents/archive/document/subdir/doc", "some awesome content"
+
+          last_response.status.must_equal 409
+
+          lambda {
+            data_bucket.get("jimmy:documents/archive/document/subdir/doc")
+          }.must_raise Riak::HTTPFailedRequest
+        end
+      end
+
       describe "with existing content" do
         before do
           put "/jimmy/documents/archive/foo", "lorem ipsum"

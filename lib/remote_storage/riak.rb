@@ -98,6 +98,8 @@ module RemoteStorage
     end
 
     def put_data(user, directory, key, data, content_type=nil)
+      server.halt 409 if has_name_collision?(user, directory, key)
+
       object = build_data_object(user, directory, key, data, content_type)
 
       if required_match = server.env["HTTP_IF_MATCH"]
@@ -437,6 +439,32 @@ module RemoteStorage
       end
 
       parent_directories << ""
+    end
+
+    def has_name_collision?(user, directory, key)
+      parent_directories = parent_directories_for(directory).reverse
+      parent_directories.shift # remove root dir entry
+
+      # check for existing documents with the same name as one of the parent directories
+      parent_directories.each do |dir|
+        begin
+          parts = dir.split("/")
+          document_key = parts.pop
+          directory_name = parts.join("/")
+          data_bucket.get("#{user}:#{directory_name}:#{document_key}")
+          return true
+        rescue ::Riak::HTTPFailedRequest
+        end
+      end
+
+      # check for an existing directory with same name as document
+      begin
+        directory_bucket.get("#{user}:#{directory}/#{key}")
+        return true
+      rescue ::Riak::HTTPFailedRequest
+      end
+
+      false
     end
 
     def client
