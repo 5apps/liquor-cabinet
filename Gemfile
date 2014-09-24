@@ -1,6 +1,6 @@
 source "https://rubygems.org"
 
-gem "sinatra"
+gem "sinatra", '~> 1.4'
 gem "sinatra-contrib"
 gem "activesupport", '~> 3.2'
 gem "riak-client", :github => "5apps/riak-ruby-client", :branch => "invalid_uri_error"
