@@ -15,6 +15,6 @@ notifications:
   email: false
   webhooks:
     urls:
-      - http://hook-juggler.heroku.com/hooks/travis
+      - http://hook-juggler.herokuapp.com/hooks/travis
     on_success: always
     on_failure: always
