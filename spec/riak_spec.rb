@@ -7,6 +7,32 @@ describe "App with Riak backend" do
     purge_all_buckets
   end
 
+  describe "HEAD public data" do
+    before do
+      object = data_bucket.new("jimmy:public:foo")
+      object.content_type = "text/plain"
+      object.data = "some text data"
+      object.store
+
+      head "/jimmy/public/foo"
+    end
+
+    it "returns an empty body" do
+      last_response.status.must_equal 200
+      last_response.body.must_equal ""
+    end
+
+    it "has an ETag header set" do
+      last_response.status.must_equal 200
+      last_response.headers["ETag"].wont_be_nil
+    end
+
+    it "has a Content-Length header set" do
+      last_response.status.must_equal 200
+      last_response.headers["Content-Length"].must_equal 14
+    end
+  end
+
   describe "GET public data" do
     before do
       object = data_bucket.new("jimmy:public:foo")
@@ -22,20 +48,19 @@ describe "App with Riak backend" do
       last_response.body.must_equal "some text data"
     end
 
-    # If this one fails, try restarting Riak
-    it "has a Last-Modified header set" do
-      last_response.status.must_equal 200
-      last_response.headers["Last-Modified"].wont_be_nil
-
-      now = Time.now
-      last_modified = DateTime.parse(last_response.headers["Last-Modified"])
-      last_modified.year.must_equal now.year
-      last_modified.day.must_equal now.day
-    end
-
     it "has an ETag header set" do
       last_response.status.must_equal 200
       last_response.headers["ETag"].wont_be_nil
+    end
+
+    it "has a Content-Length header set" do
+      last_response.status.must_equal 200
+      last_response.headers["Content-Length"].must_equal "14"
+    end
+
+    it "has caching headers set" do
+      last_response.status.must_equal 200
+      last_response.headers["Expires"].must_equal "0"
     end
   end
 
@@ -70,6 +95,37 @@ describe "App with Riak backend" do
       auth.store
     end
 
+    describe "HEAD" do
+      before do
+        header "Authorization", "Bearer 123"
+        head "/jimmy/documents/foo"
+      end
+
+      it "returns an empty body" do
+        last_response.status.must_equal 200
+        last_response.body.must_equal ""
+      end
+
+      it "has an ETag header set" do
+        last_response.status.must_equal 200
+        last_response.headers["ETag"].wont_be_nil
+      end
+
+      it "has a Content-Length header set" do
+        last_response.status.must_equal 200
+        last_response.headers["Content-Length"].must_equal 22
+      end
+    end
+
+    describe "HEAD nonexisting key" do
+      it "returns a 404" do
+        header "Authorization", "Bearer 123"
+        head "/jimmy/documents/somestupidkey"
+
+        last_response.status.must_equal 404
+      end
+    end
+
     describe "GET" do
       before do
         header "Authorization", "Bearer 123"
@@ -100,6 +156,25 @@ describe "App with Riak backend" do
           last_response.body.must_equal "some private text data"
         end
       end
+
+      describe "when If-None-Match header is set with multiple revisions" do
+        it "responds with 'not modified' when it contains the current ETag" do
+          header "If-None-Match", "DEADBEEF,#{@etag},F00BA4"
+          get "/jimmy/documents/foo"
+
+          last_response.status.must_equal 304
+          last_response.body.must_be_empty
+          last_response.headers["ETag"].must_equal @etag
+        end
+
+        it "responds normally when it does not contain the current ETag" do
+          header "If-None-Match", "FOO,BAR"
+          get "/jimmy/documents/foo"
+
+          last_response.status.must_equal 200
+          last_response.body.must_equal "some private text data"
+        end
+      end
     end
 
     describe "GET nonexisting key" do
@@ -122,7 +197,7 @@ describe "App with Riak backend" do
         end
 
         it "saves the value" do
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
           last_response.body.must_equal ""
           data_bucket.get("jimmy:documents:bar").data.must_equal "another text"
         end
@@ -161,7 +236,7 @@ describe "App with Riak backend" do
         end
 
         it "saves the value (as JSON)" do
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
           data_bucket.get("jimmy:documents:jason").data.must_be_kind_of Hash
           data_bucket.get("jimmy:documents:jason").data.must_equal({"foo" => "bar", "unhosted" => 1})
         end
@@ -186,7 +261,7 @@ describe "App with Riak backend" do
         end
 
         it "saves the value" do
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
           data_bucket.get("jimmy:documents:magic").raw_data.must_equal "pure magic"
         end
 
@@ -210,7 +285,7 @@ describe "App with Riak backend" do
         end
 
         it "saves the value (as JSON)" do
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
           data_bucket.get("jimmy:documents:jason").data.must_be_kind_of Hash
           data_bucket.get("jimmy:documents:jason").data.must_equal({"foo" => "bar", "unhosted" => 1})
         end
@@ -224,6 +299,32 @@ describe "App with Riak backend" do
 
           last_response.body.must_equal '{"foo":"bar","unhosted":1}'
           last_response.content_type.must_equal "application/json; charset=UTF-8"
+        end
+      end
+
+      describe "naming collissions between documents and directories" do
+        before do
+          put "/jimmy/documents/archive/document", "lorem ipsum"
+        end
+
+        it "responds with 409 when directory with same name already exists" do
+          put "/jimmy/documents/archive", "some awesome content"
+
+          last_response.status.must_equal 409
+
+          lambda {
+            data_bucket.get("jimmy:documents/archive")
+          }.must_raise Riak::HTTPFailedRequest
+        end
+
+        it "responds with 409 when there is an existing document with same name as one of the directories" do
+          put "/jimmy/documents/archive/document/subdir/doc", "some awesome content"
+
+          last_response.status.must_equal 409
+
+          lambda {
+            data_bucket.get("jimmy:documents/archive/document/subdir/doc")
+          }.must_raise Riak::HTTPFailedRequest
         end
       end
 
@@ -304,7 +405,7 @@ describe "App with Riak backend" do
           it "succeeds when the document does not exist" do
             put "/jimmy/documents/archive/bar", "my little content"
 
-            last_response.status.must_equal 200
+            last_response.status.must_equal 201
           end
         end
       end
@@ -332,7 +433,7 @@ describe "App with Riak backend" do
         end
 
         it "saves the value" do
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
           data_bucket.get("jimmy:public/documents/notes:foo").data.must_equal "note to self"
         end
 
@@ -378,6 +479,12 @@ describe "App with Riak backend" do
 
             last_response.headers["ETag"].wont_be_nil
             last_response.headers["ETag"].must_equal etag
+          end
+
+          it "responds with a Content-Length header" do
+            get "/jimmy/documents/jaypeg"
+
+            last_response.headers["Content-Length"].must_equal "16044"
           end
 
           it "changes the ETag when updating the file" do
@@ -482,7 +589,7 @@ describe "App with Riak backend" do
           get "/jimmy/documents/bar:baz/"
 
           content = JSON.parse(last_response.body)
-          content.must_include "john@doe.com"
+          content["items"]["john@doe.com"].wont_be_nil
         end
 
         it "delivers the data correctly" do
@@ -513,7 +620,7 @@ describe "App with Riak backend" do
           end
 
           it "saves an empty JSON object" do
-            last_response.status.must_equal 200
+            last_response.status.must_equal 201
             data_bucket.get("jimmy:documents:jason").data.must_be_kind_of Hash
             data_bucket.get("jimmy:documents:jason").data.must_equal({})
           end
@@ -543,7 +650,7 @@ describe "App with Riak backend" do
         end
 
         it "removes the key" do
-          last_response.status.must_equal 204
+          last_response.status.must_equal 200
           lambda {
             data_bucket.get("jimmy:documents:foo")
           }.must_raise Riak::HTTPFailedRequest
@@ -557,10 +664,6 @@ describe "App with Riak backend" do
           log_entry.data["size"].must_equal(-22)
           log_entry.data["category"].must_equal "documents"
           log_entry.indexes["user_id_bin"].must_include "jimmy"
-        end
-
-        it "sets the ETag header" do
-          last_response.headers["ETag"].wont_be_nil
         end
       end
 
@@ -587,7 +690,7 @@ describe "App with Riak backend" do
           header "If-Match", old_etag
 
           delete "/jimmy/documents/foo"
-          last_response.status.must_equal 204
+          last_response.status.must_equal 200
 
           get "/jimmy/documents/foo"
           last_response.status.must_equal 404
@@ -616,14 +719,14 @@ describe "App with Riak backend" do
         end
 
         it "removes the main object" do
-          last_response.status.must_equal 204
+          last_response.status.must_equal 200
           lambda {
             data_bucket.get("jimmy:documents:jaypeg")
           }.must_raise Riak::HTTPFailedRequest
         end
 
         it "removes the binary object" do
-          last_response.status.must_equal 204
+          last_response.status.must_equal 200
 
           binary = cs_binary_bucket.files.get("jimmy:documents:jaypeg")
           binary.must_be_nil
@@ -651,26 +754,26 @@ describe "App with Riak backend" do
     end
 
     describe "GET" do
-      it "returns a 403" do
+      it "returns a 401" do
         get "/jimmy/documents/foo"
 
-        last_response.status.must_equal 403
+        last_response.status.must_equal 401
       end
     end
 
     describe "PUT" do
-      it "returns a 403" do
+      it "returns a 401" do
         put "/jimmy/documents/foo", "some text"
 
-        last_response.status.must_equal 403
+        last_response.status.must_equal 401
       end
     end
 
     describe "DELETE" do
-      it "returns a 403" do
+      it "returns a 401" do
         delete "/jimmy/documents/foo"
 
-        last_response.status.must_equal 403
+        last_response.status.must_equal 401
       end
     end
   end

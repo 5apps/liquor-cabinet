@@ -23,28 +23,35 @@ module RemoteStorage
       request_method = server.env["REQUEST_METHOD"]
 
       if directory.split("/").first == "public"
-        return true if request_method == "GET" && !listing
+        return true if ["GET", "HEAD"].include?(request_method) && !listing
       end
 
       authorizations = auth_bucket.get("#{user}:#{token}").data
       permission = directory_permission(authorizations, directory)
 
-      server.halt 403 unless permission
+      server.halt 401 unless permission
       if ["PUT", "DELETE"].include? request_method
-        server.halt 403 unless permission == "rw"
+        server.halt 401 unless permission == "rw"
       end
     rescue ::Riak::HTTPFailedRequest
-      server.halt 403
+      server.halt 401
+    end
+
+    def get_head(user, directory, key)
+      object = data_bucket.get("#{user}:#{directory}:#{key}")
+      set_object_response_headers(object)
+      server.halt 200
+    rescue ::Riak::HTTPFailedRequest
+      server.halt 404
     end
 
     def get_data(user, directory, key)
       object = data_bucket.get("#{user}:#{directory}:#{key}")
 
-      server.headers["Content-Type"] = object.content_type
-      server.headers["Last-Modified"] = last_modified_date_for(object)
-      server.headers["ETag"] = object.etag
+      set_object_response_headers(object)
 
-      server.halt 304 if server.env["HTTP_IF_NONE_MATCH"] == object.etag
+      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
+      server.halt 304 if none_match.include? object.etag
 
       if binary_key = object.meta["binary_key"]
         object = cs_binary_bucket.files.get(binary_key[0])
@@ -67,16 +74,21 @@ module RemoteStorage
       server.halt 404
     end
 
+    def get_head_directory_listing(user, directory)
+      directory_object = directory_bucket.get("#{user}:#{directory}")
+      set_directory_response_headers(directory_object)
+      server.halt 200
+    rescue ::Riak::HTTPFailedRequest
+      server.halt 404
+    end
+
     def get_directory_listing(user, directory)
       directory_object = directory_bucket.get("#{user}:#{directory}")
 
-      timestamp = directory_object.data.to_i
-      timestamp /= 1000 if timestamp.to_s.length == 13
-      server.headers["Content-Type"] = "application/json"
-      server.headers["Last-Modified"] = Time.at(timestamp).to_s(:rfc822)
-      server.headers["ETag"] = directory_object.etag
+      set_directory_response_headers(directory_object)
 
-      server.halt 304 if server.env["HTTP_IF_NONE_MATCH"] == directory_object.etag
+      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
+      server.halt 304 if none_match.include? directory_object.etag
 
       listing = directory_listing(user, directory)
 
@@ -86,6 +98,8 @@ module RemoteStorage
     end
 
     def put_data(user, directory, key, data, content_type=nil)
+      server.halt 409 if has_name_collision?(user, directory, key)
+
       object = build_data_object(user, directory, key, data, content_type)
 
       if required_match = server.env["HTTP_IF_MATCH"]
@@ -116,7 +130,7 @@ module RemoteStorage
       update_all_directory_objects(user, directory, timestamp)
 
       server.headers["ETag"] = object.etag
-      server.halt 200
+      server.halt object_exists ? 200 : 201
     rescue ::Riak::HTTPFailedRequest
       server.halt 422
     end
@@ -144,13 +158,23 @@ module RemoteStorage
       timestamp = (Time.now.to_f * 1000).to_i
       delete_or_update_directory_objects(user, directory, timestamp)
 
-      server.headers["ETag"] = etag
-      server.halt riak_response[:code]
+      server.halt 200
     rescue ::Riak::HTTPFailedRequest
       server.halt 404
     end
 
     private
+
+    def set_object_response_headers(object)
+      server.headers["Content-Type"]   = object.content_type
+      server.headers["ETag"]           = object.etag
+      server.headers["Content-Length"] = object_size(object)
+    end
+
+    def set_directory_response_headers(directory_object)
+      server.headers["Content-Type"] = "application/json"
+      server.headers["ETag"]         = directory_object.etag
+    end
 
     def extract_category(directory)
       if directory.match(/^public\//)
@@ -166,7 +190,7 @@ module RemoteStorage
       object.content_type = content_type || "text/plain; charset=utf-8"
 
       directory_index = directory == "" ? "/" : directory
-      object.indexes.merge!({:user_id_bin => [user],
+      object.indexes.merge!({:user_id_bin   => [user],
                              :directory_bin => [directory_index]})
 
       object
@@ -179,8 +203,8 @@ module RemoteStorage
       log_entry = opslog_bucket.new
       log_entry.content_type = "application/json"
       log_entry.data = {
-        "count" => count,
-        "size" => size,
+        "count"    => count,
+        "size"     => size,
         "category" => extract_category(directory)
       }
       log_entry.indexes.merge!({:user_id_bin => [user]})
@@ -210,14 +234,6 @@ module RemoteStorage
       ::Riak::Serializers[content_type[/^[^;\s]+/]]
     end
 
-    def last_modified_date_for(object)
-      timestamp = object.meta["timestamp"]
-      timestamp = (timestamp[0].to_i / 1000) if timestamp
-      last_modified = timestamp ? Time.at(timestamp) : object.last_modified
-
-      last_modified.to_s(:rfc822)
-    end
-
     def directory_permission(authorizations, directory)
       authorizations = authorizations.map do |auth|
         auth.index(":") ? auth.split(":") : [auth, "rw"]
@@ -239,26 +255,31 @@ module RemoteStorage
     end
 
     def directory_listing(user, directory)
-      listing = {}
+      listing = {
+        "@context" => "http://remotestorage.io/spec/folder-description",
+        "items"    => {}
+      }
 
       sub_directories(user, directory).each do |entry|
         directory_name = entry["name"].split("/").last
-        timestamp = entry["timestamp"].to_i
-        etag = entry["etag"]
+        etag           = entry["etag"]
 
-        listing.merge!({ "#{directory_name}/" => etag })
+        listing["items"].merge!({ "#{directory_name}/" => { "ETag" => etag }})
       end
 
       directory_entries(user, directory).each do |entry|
-        entry_name = entry["name"]
-        timestamp = if entry["timestamp"]
-                      entry["timestamp"].to_i
-                    else
-                      DateTime.rfc2822(entry["last_modified"]).to_time.to_i
-                    end
-        etag = entry["etag"]
+        entry_name     = entry["name"]
+        etag           = entry["etag"]
+        content_type   = entry["contentType"]
+        content_length = entry["contentLength"].to_i
 
-        listing.merge!({ entry_name => etag })
+        listing["items"].merge!({
+          entry_name => {
+            "ETag"           => etag,
+            "Content-Type"   => content_type,
+            "Content-Length" => content_length
+          }
+        })
       end
 
       listing
@@ -277,15 +298,15 @@ module RemoteStorage
           }
           var name = v.key.match(/^[^:]*:(.*)/)[1]; // strip username from key
           name = name.replace(dir_name + ':', ''); // strip directory from key
-          var last_modified_date = metadata['X-Riak-Last-Modified'];
-          var timestamp = metadata['X-Riak-Meta']['X-Riak-Meta-Timestamp'];
           var etag = metadata['X-Riak-VTag'];
+          var contentType = metadata['content-type'];
+          var contentLength = metadata['X-Riak-Meta']['X-Riak-Meta-Content_length'] || 0;
 
           return [{
-            name: name,
-            last_modified: last_modified_date,
-            timestamp: timestamp,
-            etag: etag
+            name:          name,
+            etag:          etag,
+            contentType:   contentType,
+            contentLength: contentLength
           }];
         }
       EOH
@@ -300,12 +321,10 @@ module RemoteStorage
       map_query = <<-EOH
         function(v){
           var name = v.key.match(/^[^:]*:(.*)/)[1]; // strip username from key
-          var timestamp = v.values[0]['data'];
           var etag = v.values[0]['metadata']['X-Riak-VTag'];
 
           return [{
             name: name,
-            timestamp: timestamp,
             etag: etag
           }];
         }
@@ -376,6 +395,8 @@ module RemoteStorage
         data = JSON.parse(data)
       end
 
+      object.meta["content_length"] = data.size
+
       if serializer_for(object.content_type)
         object.data = data
       else
@@ -392,7 +413,8 @@ module RemoteStorage
         :content_type => object.content_type
       )
 
-      object.meta["binary_key"] = cs_binary_object.key
+      object.meta["binary_key"]     = cs_binary_object.key
+      object.meta["content_length"] = cs_binary_object.content_length
       object.raw_data = ""
     end
 
@@ -417,6 +439,32 @@ module RemoteStorage
       end
 
       parent_directories << ""
+    end
+
+    def has_name_collision?(user, directory, key)
+      parent_directories = parent_directories_for(directory).reverse
+      parent_directories.shift # remove root dir entry
+
+      # check for existing documents with the same name as one of the parent directories
+      parent_directories.each do |dir|
+        begin
+          parts = dir.split("/")
+          document_key = parts.pop
+          directory_name = parts.join("/")
+          data_bucket.get("#{user}:#{directory_name}:#{document_key}")
+          return true
+        rescue ::Riak::HTTPFailedRequest
+        end
+      end
+
+      # check for an existing directory with same name as document
+      begin
+        directory_bucket.get("#{user}:#{directory}/#{key}")
+        return true
+      rescue ::Riak::HTTPFailedRequest
+      end
+
+      false
     end
 
     def client

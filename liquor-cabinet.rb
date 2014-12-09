@@ -46,6 +46,7 @@ class LiquorCabinet < Sinatra::Base
               'Access-Control-Expose-Headers' => 'ETag'
       headers['Access-Control-Allow-Origin'] = env["HTTP_ORIGIN"] if env["HTTP_ORIGIN"]
       headers['Cache-Control'] = 'no-cache'
+      headers['Expires'] = '0'
 
       @user, @key = params[:user], params[:key]
       @directory = params[:splat] && params[:splat].first || ""
@@ -63,6 +64,10 @@ class LiquorCabinet < Sinatra::Base
   ["/:user/*/:key", "/:user/:key"].each do |path|
     get path do
       storage.get_data(@user, @directory, @key)
+    end
+
+    head path do
+      storage.get_head(@user, @directory, @key)
     end
 
     put path do
@@ -85,6 +90,10 @@ class LiquorCabinet < Sinatra::Base
   ["/:user/*/", "/:user/"].each do |path|
     get path do
       storage.get_directory_listing(@user, @directory)
+    end
+
+    head path do
+      storage.get_head_directory_listing(@user, @directory)
     end
   end
 

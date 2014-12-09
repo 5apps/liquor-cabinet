@@ -13,6 +13,46 @@ describe "Directories" do
     header "Authorization", "Bearer 123"
   end
 
+  describe "HEAD listing" do
+    before do
+      put "/jimmy/tasks/foo", "do the laundry"
+      put "/jimmy/tasks/http%3A%2F%2F5apps.com", "prettify design"
+
+      head "/jimmy/tasks/"
+    end
+
+    it "has an empty body" do
+      last_response.status.must_equal 200
+      last_response.body.must_equal ""
+    end
+
+    it "has an ETag header set" do
+      last_response.status.must_equal 200
+      last_response.headers["ETag"].wont_be_nil
+
+      # check that ETag stays the same
+      etag = last_response.headers["ETag"]
+      get "/jimmy/tasks/"
+      last_response.headers["ETag"].must_equal etag
+    end
+
+    it "has CORS headers set" do
+      last_response.status.must_equal 200
+      last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
+      last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
+      last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin, If-Match, If-None-Match"
+      last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag"
+    end
+
+    context "for an empty or absent directory" do
+      it "responds with 404" do
+        head "/jimmy/documents/"
+
+        last_response.status.must_equal 404
+      end
+    end
+  end
+
   describe "GET listing" do
     before do
       put "/jimmy/tasks/foo", "do the laundry"
@@ -20,7 +60,7 @@ describe "Directories" do
       put "/jimmy/tasks/%3A/foo%3Abar%40foo.org", "hello world"
     end
 
-    it "lists the objects with their version" do
+    it "lists the objects with version, length and content-type" do
       get "/jimmy/tasks/"
 
       last_response.status.must_equal 200
@@ -29,32 +69,12 @@ describe "Directories" do
       foo = data_bucket.get("jimmy:tasks:foo")
 
       content = JSON.parse(last_response.body)
-      content.must_include "http://5apps.com"
-      content.must_include ":/"
-      content.must_include "foo"
-      content["foo"].must_equal foo.etag.gsub(/"/, "")
-    end
-
-    it "doesn't choke on colons in the directory name" do
-      get "/jimmy/tasks/%3A/"
-
-      last_response.status.must_equal 200
-      last_response.content_type.must_equal "application/json"
-
-      content = JSON.parse(last_response.body)
-      content.must_include "foo:bar@foo.org"
-    end
-
-    it "has a Last-Modifier header set" do
-      get "/jimmy/tasks/"
-
-      last_response.status.must_equal 200
-      last_response.headers["Last-Modified"].wont_be_nil
-
-      now = Time.now
-      last_modified = DateTime.parse(last_response.headers["Last-Modified"])
-      last_modified.year.must_equal now.year
-      last_modified.day.must_equal now.day
+      content["items"]["http://5apps.com"].wont_be_nil
+      content["items"][":/"].wont_be_nil
+      content["items"]["foo"].wont_be_nil
+      content["items"]["foo"]["ETag"].must_equal foo.etag.gsub(/"/, "")
+      content["items"]["foo"]["Content-Type"].must_equal "text/plain"
+      content["items"]["foo"]["Content-Length"].must_equal 14
     end
 
     it "has an ETag header set" do
@@ -77,6 +97,23 @@ describe "Directories" do
       last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
       last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin, If-Match, If-None-Match"
       last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag"
+    end
+
+    it "has caching headers set" do
+      get "/jimmy/tasks/"
+
+      last_response.status.must_equal 200
+      last_response.headers["Expires"].must_equal "0"
+    end
+
+    it "doesn't choke on colons in the directory name" do
+      get "/jimmy/tasks/%3A/"
+
+      last_response.status.must_equal 200
+      last_response.content_type.must_equal "application/json"
+
+      content = JSON.parse(last_response.body)
+      content["items"]["foo:bar@foo.org"].wont_be_nil
     end
 
     context "when If-None-Match header is set" do
@@ -104,6 +141,31 @@ describe "Directories" do
       end
     end
 
+    describe "when If-None-Match header is set with multiple revisions" do
+      before do
+        get "/jimmy/tasks/"
+
+        @etag = last_response.headers["ETag"]
+      end
+
+      it "responds with 'not modified' when it contains the current ETag" do
+        header "If-None-Match", "DEADBEEF,#{@etag} ,F00BA4"
+        get "/jimmy/tasks/"
+
+        last_response.status.must_equal 304
+        last_response.body.must_be_empty
+        last_response.headers["ETag"].must_equal @etag
+      end
+
+      it "responds normally when it does not contain the current ETag" do
+        header "If-None-Match", "FOO,BAR"
+        get "/jimmy/tasks/"
+
+        last_response.status.must_equal 200
+        last_response.body.wont_be_empty
+      end
+    end
+
     context "with sub-directories" do
       before do
         get "/jimmy/tasks/"
@@ -120,10 +182,10 @@ describe "Directories" do
         home = directory_bucket.get("jimmy:tasks/home")
 
         content = JSON.parse(last_response.body)
-        content.must_include "foo"
-        content.must_include "http://5apps.com"
-        content.must_include "home/"
-        content["home/"].must_equal home.etag.gsub(/"/, "")
+        content["items"]["foo"].wont_be_nil
+        content["items"]["http://5apps.com"].wont_be_nil
+        content["items"]["home/"].wont_be_nil
+        content["items"]["home/"]["ETag"].must_equal home.etag.gsub(/"/, "")
       end
 
       it "updates the ETag of the parent directory" do
@@ -150,10 +212,10 @@ describe "Directories" do
           last_response.status.must_equal 200
 
           content = JSON.parse(last_response.body)
-          content.wont_include "/"
-          content.wont_include "tasks/"
-          content.wont_include "home/"
-          content.must_include "homework"
+          content["items"]["/"].must_be_nil
+          content["items"]["tasks/"].must_be_nil
+          content["items"]["home/"].must_be_nil
+          content["items"]["homework"].wont_be_nil
         end
       end
 
@@ -167,8 +229,7 @@ describe "Directories" do
           projects = directory_bucket.get("jimmy:tasks/private/projects")
 
           content = JSON.parse(last_response.body)
-          content.must_include "projects/"
-          content["projects/"].must_equal projects.etag.gsub(/"/, "")
+          content["items"]["projects/"]["ETag"].must_equal projects.etag.gsub(/"/, "")
         end
 
         it "updates the timestamps of the existing directory objects" do
@@ -203,8 +264,9 @@ describe "Directories" do
             jaypeg = data_bucket.get("jimmy:tasks:jaypeg.jpg")
 
             content = JSON.parse(last_response.body)
-            content.must_include "jaypeg.jpg"
-            content["jaypeg.jpg"].must_equal jaypeg.etag.gsub(/"/, "")
+            content["items"]["jaypeg.jpg"]["ETag"].must_equal jaypeg.etag.gsub(/"/, "")
+            content["items"]["jaypeg.jpg"]["Content-Type"].must_equal "image/jpeg"
+            content["items"]["jaypeg.jpg"]["Content-Length"].must_equal 16044
           end
         end
 
@@ -224,8 +286,9 @@ describe "Directories" do
             jaypeg = data_bucket.get("jimmy:tasks:jaypeg.jpg")
 
             content = JSON.parse(last_response.body)
-            content.must_include "jaypeg.jpg"
-            content["jaypeg.jpg"].must_equal jaypeg.etag.gsub(/"/, "")
+            content["items"]["jaypeg.jpg"]["ETag"].must_equal jaypeg.etag.gsub(/"/, "")
+            content["items"]["jaypeg.jpg"]["Content-Type"].must_equal "image/jpeg"
+            content["items"]["jaypeg.jpg"]["Content-Length"].must_equal 16044
           end
         end
       end
@@ -244,8 +307,7 @@ describe "Directories" do
         laundry = data_bucket.get("jimmy:tasks/home:laundry")
 
         content = JSON.parse(last_response.body)
-        content.must_include "laundry"
-        content["laundry"].must_equal laundry.etag.gsub(/"/, "")
+        content["items"]["laundry"]["ETag"].must_equal laundry.etag.gsub(/"/, "")
       end
     end
 
@@ -268,7 +330,7 @@ describe "Directories" do
         last_response.status.must_equal 200
 
         content = JSON.parse(last_response.body)
-        content.must_include "foo~bar/"
+        content["items"]["foo~bar/"].wont_be_nil
       end
 
       it "lists the containing objects" do
@@ -277,7 +339,7 @@ describe "Directories" do
         last_response.status.must_equal 200
 
         content = JSON.parse(last_response.body)
-        content.must_include "task1"
+        content["items"]["task1"].wont_be_nil
       end
 
       it "returns the requested object" do
@@ -300,7 +362,7 @@ describe "Directories" do
         last_response.status.must_equal 200
 
         content = JSON.parse(last_response.body)
-        content.must_include "bla~blub"
+        content["items"]["bla~blub"].wont_be_nil
       end
     end
 
@@ -322,10 +384,10 @@ describe "Directories" do
         tasks = directory_bucket.get("jimmy:tasks")
 
         content = JSON.parse(last_response.body)
-        content.must_include "root-1"
-        content.must_include "root-2"
-        content.must_include "tasks/"
-        content["tasks/"].must_equal tasks.etag.gsub(/"/, "")
+        content["items"]["root-1"].wont_be_nil
+        content["items"]["root-2"].wont_be_nil
+        content["items"]["tasks/"].wont_be_nil
+        content["items"]["tasks/"]["ETag"].must_equal tasks.etag.gsub(/"/, "")
       end
 
       it "has an ETag header set" do
@@ -352,7 +414,7 @@ describe "Directories" do
           last_response.status.must_equal 200
 
           content = JSON.parse(last_response.body)
-          content.must_include "5apps"
+          content["items"]["5apps"].wont_be_nil
         end
 
         it "has an ETag header set" do
@@ -376,7 +438,7 @@ describe "Directories" do
           last_response.status.must_equal 200
 
           content = JSON.parse(last_response.body)
-          content.must_include "5apps"
+          content["items"]["5apps"].wont_be_nil
         end
       end
 
@@ -388,13 +450,13 @@ describe "Directories" do
         it "does not allow a directory listing of the public root" do
           get "/jimmy/public/"
 
-          last_response.status.must_equal 403
+          last_response.status.must_equal 401
         end
 
         it "does not allow a directory listing of a sub-directory" do
           get "/jimmy/public/bookmarks/"
 
-          last_response.status.must_equal 403
+          last_response.status.must_equal 401
         end
       end
     end
@@ -498,7 +560,7 @@ describe "Directories" do
       it "deletes the directory objects for all empty parent directories" do
         delete "/jimmy/tasks/home/trash"
 
-        last_response.status.must_equal 204
+        last_response.status.must_equal 200
 
         lambda {
           directory_bucket.get("jimmy:tasks/home")
