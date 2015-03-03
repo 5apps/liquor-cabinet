@@ -62,6 +62,22 @@ describe "App with Riak backend" do
       last_response.status.must_equal 200
       last_response.headers["Expires"].must_equal "0"
     end
+
+    describe "empty file" do
+      before do
+        object = data_bucket.new("jimmy:public:empty")
+        object.content_type = "text/plain"
+        object.data = ""
+        object.store
+
+        get "/jimmy/public/empty"
+      end
+
+      it "returns an empty body" do
+        last_response.status.must_equal 200
+        last_response.body.must_equal ""
+      end
+    end
   end
 
   describe "GET data with custom content type" do
