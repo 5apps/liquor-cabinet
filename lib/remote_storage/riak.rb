@@ -68,7 +68,10 @@ module RemoteStorage
       when "application/json"
         return object.data.to_json
       else
-        return serializer_for(object.content_type) ? object.data : object.raw_data
+        data = serializer_for(object.content_type) ? object.data : object.raw_data
+
+        # Never return nil, always turn data into a string
+        return data.nil? ? '' : data
       end
     rescue ::Riak::HTTPFailedRequest
       server.halt 404

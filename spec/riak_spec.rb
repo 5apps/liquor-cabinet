@@ -76,6 +76,7 @@ describe "App with Riak backend" do
       it "returns an empty body" do
         last_response.status.must_equal 200
         last_response.body.must_equal ""
+        last_response.headers["Content-Length"].must_equal '0'
       end
     end
   end
