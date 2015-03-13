@@ -41,7 +41,7 @@ describe "Directories" do
       last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
       last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
       last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin, If-Match, If-None-Match"
-      last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag"
+      last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag, Content-Length"
     end
 
     context "for an empty or absent directory" do
@@ -96,7 +96,7 @@ describe "Directories" do
       last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
       last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
       last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin, If-Match, If-None-Match"
-      last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag"
+      last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag, Content-Length"
     end
 
     it "has caching headers set" do
@@ -521,7 +521,7 @@ describe "Directories" do
       last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
       last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
       last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin, If-Match, If-None-Match"
-      last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag"
+      last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag, Content-Length"
     end
 
     context "sub-directories" do
@@ -533,7 +533,7 @@ describe "Directories" do
         last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
         last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
         last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin, If-Match, If-None-Match"
-        last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag"
+        last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag, Content-Length"
       end
     end
 
@@ -546,7 +546,7 @@ describe "Directories" do
         last_response.headers["Access-Control-Allow-Origin"].must_equal "*"
         last_response.headers["Access-Control-Allow-Methods"].must_equal "GET, PUT, DELETE"
         last_response.headers["Access-Control-Allow-Headers"].must_equal "Authorization, Content-Type, Origin, If-Match, If-None-Match"
-        last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag"
+        last_response.headers["Access-Control-Expose-Headers"].must_equal "ETag, Content-Length"
       end
     end
   end
