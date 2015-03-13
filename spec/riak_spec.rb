@@ -34,33 +34,35 @@ describe "App with Riak backend" do
   end
 
   describe "GET public data" do
-    before do
-      object = data_bucket.new("jimmy:public:foo")
-      object.content_type = "text/plain"
-      object.data = "some text data"
-      object.store
+    describe "file with content" do
+      before do
+        object = data_bucket.new("jimmy:public:foo")
+        object.content_type = "text/plain"
+        object.data = "some text data"
+        object.store
 
-      get "/jimmy/public/foo"
-    end
+        get "/jimmy/public/foo"
+      end
 
-    it "returns the value on all get requests" do
-      last_response.status.must_equal 200
-      last_response.body.must_equal "some text data"
-    end
+      it "returns the value on all get requests" do
+        last_response.status.must_equal 200
+        last_response.body.must_equal "some text data"
+      end
 
-    it "has an ETag header set" do
-      last_response.status.must_equal 200
-      last_response.headers["ETag"].wont_be_nil
-    end
+      it "has an ETag header set" do
+        last_response.status.must_equal 200
+        last_response.headers["ETag"].wont_be_nil
+      end
 
-    it "has a Content-Length header set" do
-      last_response.status.must_equal 200
-      last_response.headers["Content-Length"].must_equal "14"
-    end
+      it "has a Content-Length header set" do
+        last_response.status.must_equal 200
+        last_response.headers["Content-Length"].must_equal "14"
+      end
 
-    it "has caching headers set" do
-      last_response.status.must_equal 200
-      last_response.headers["Expires"].must_equal "0"
+      it "has caching headers set" do
+        last_response.status.must_equal 200
+        last_response.headers["Expires"].must_equal "0"
+      end
     end
 
     describe "empty file" do
@@ -75,7 +77,11 @@ describe "App with Riak backend" do
 
       it "returns an empty body" do
         last_response.status.must_equal 200
-        last_response.body.must_equal ""
+        # Rack::MockRequest turns the body into a string. We can't use
+        # `last_response.body` to check for nil, because:
+        # >> [nil].join
+        # => ""
+        last_response.body.must_equal ''
         last_response.headers["Content-Length"].must_equal '0'
       end
     end
