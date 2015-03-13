@@ -168,7 +168,7 @@ module RemoteStorage
     def set_object_response_headers(object)
       server.headers["Content-Type"]   = object.content_type
       server.headers["ETag"]           = object.etag
-      server.headers["Content-Length"] = object_size(object)
+      server.headers["Content-Length"] = object_size(object).to_s
     end
 
     def set_directory_response_headers(directory_object)

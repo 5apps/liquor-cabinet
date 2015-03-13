@@ -29,7 +29,7 @@ describe "App with Riak backend" do
 
     it "has a Content-Length header set" do
       last_response.status.must_equal 200
-      last_response.headers["Content-Length"].must_equal 14
+      last_response.headers["Content-Length"].must_equal '14'
     end
   end
 
@@ -129,7 +129,7 @@ describe "App with Riak backend" do
 
       it "has a Content-Length header set" do
         last_response.status.must_equal 200
-        last_response.headers["Content-Length"].must_equal 22
+        last_response.headers["Content-Length"].must_equal '22'
       end
     end
 
