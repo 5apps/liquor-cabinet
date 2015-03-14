@@ -43,7 +43,7 @@ class LiquorCabinet < Sinatra::Base
       headers 'Access-Control-Allow-Origin' => '*',
               'Access-Control-Allow-Methods' => 'GET, PUT, DELETE',
               'Access-Control-Allow-Headers' => 'Authorization, Content-Type, Origin, If-Match, If-None-Match',
-              'Access-Control-Expose-Headers' => 'ETag'
+              'Access-Control-Expose-Headers' => 'ETag, Content-Length'
       headers['Access-Control-Allow-Origin'] = env["HTTP_ORIGIN"] if env["HTTP_ORIGIN"]
       headers['Cache-Control'] = 'no-cache'
       headers['Expires'] = '0'
