@@ -410,11 +410,15 @@ module RemoteStorage
     end
 
     def save_binary_data(object, data)
-      cs_binary_object = cs_binary_bucket.files.create(
-        :key          => object.key,
-        :body         => data,
-        :content_type => object.content_type
-      )
+      begin
+        cs_binary_object = cs_binary_bucket.files.create(
+          :key          => object.key,
+          :body         => data,
+          :content_type => object.content_type
+        )
+      rescue Excon::Errors::UnsupportedMediaType
+        return false
+      end
 
       object.meta["binary_key"]     = cs_binary_object.key
       object.meta["content_length"] = cs_binary_object.content_length

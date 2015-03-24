@@ -660,6 +660,32 @@ describe "App with Riak backend" do
           end
         end
       end
+
+      context "Unknown content-type" do
+        context "with a binary file" do
+          before do
+            header "Content-Type", "nonsense"
+            filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+            image = File.open(filename, "r").read
+            put "/jimmy/documents/nonsense", image
+          end
+
+          it "returns a 422" do
+            last_response.status.must_equal 422
+          end
+        end
+
+        context "with a text file" do
+          before do
+            header "Content-Type", "nonsense"
+            put "/jimmy/documents/nonsense", "nonsense"
+          end
+
+          it "returns a 422" do
+            last_response.status.must_equal 422
+          end
+        end
+      end
     end
 
     describe "DELETE" do
