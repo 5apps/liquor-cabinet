@@ -3,3 +3,5 @@ cs_credentials.json
 pids
 .bundle
 vendor/bundle
+log
+tmp
