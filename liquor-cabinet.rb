@@ -30,6 +30,16 @@ class LiquorCabinet < Sinatra::Base
 
   configure :production, :staging do
     require "rack/common_logger"
+    if ENV['SENTRY_DSN']
+      require "raven"
+
+      Raven.configure do |config|
+        config.dsn = ENV['SENTRY_DSN']
+        config.tags = { environment: settings.environment.to_s }
+      end
+
+      use Raven::Rack
+    end
   end
 
   #

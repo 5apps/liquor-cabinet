@@ -16,4 +16,5 @@ end
 
 group :staging, :production do
   gem "rainbows"
+  gem "sentry-raven"
 end

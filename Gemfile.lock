@@ -21,6 +21,8 @@ GEM
     builder (3.2.2)
     eventmachine (1.0.3)
     excon (0.16.10)
+    faraday (0.9.1)
+      multipart-post (>= 1.2, < 3)
     fog (1.7.0)
       builder
       excon (~> 0.14)
@@ -42,6 +44,7 @@ GEM
     mime-types (1.23)
     minitest (2.10.0)
     multi_json (1.10.0)
+    multipart-post (2.0.0)
     net-scp (1.0.4)
       net-ssh (>= 1.99.1)
     net-ssh (2.6.7)
@@ -63,6 +66,8 @@ GEM
     rest-client (1.6.7)
       mime-types (>= 1.16)
     ruby-hmac (0.4.0)
+    sentry-raven (0.13.1)
+      faraday (>= 0.7.6)
     sinatra (1.4.5)
       rack (~> 1.4)
       rack-protection (~> 1.4)
@@ -93,5 +98,6 @@ DEPENDENCIES
   redis
   rest-client
   riak-client!
+  sentry-raven
   sinatra (~> 1.4)
   sinatra-contrib

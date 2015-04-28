@@ -37,13 +37,8 @@ module RemoteStorage
       res = do_head_request(url)
 
       set_response_headers(res)
-    rescue => exception
-      if exception.is_a? RestClient::ResourceNotFound
-        server.halt 404
-      end
-
-      puts exception.inspect
-      server.halt 499
+    rescue RestClient::ResourceNotFound
+      server.halt 404
     end
 
     def get_data(user, directory, key)
@@ -57,13 +52,8 @@ module RemoteStorage
       server.halt 304 if none_match.include? %Q("#{res.headers[:etag]}")
 
       return res.body
-    rescue => exception
-      if exception.is_a? RestClient::ResourceNotFound
-        server.halt 404
-      end
-
-      puts exception.inspect
-      server.halt 499
+    rescue RestClient::ResourceNotFound
+      server.halt 404
     end
 
     def get_head_directory_listing(user, directory)
@@ -71,13 +61,8 @@ module RemoteStorage
 
       server.headers["Content-Type"] = "application/json"
       server.headers["ETag"]         = %Q("#{res.headers[:etag]}")
-    rescue => exception
-      if exception.is_a? RestClient::ResourceNotFound
-        server.halt 404
-      end
-
-      puts exception.inspect
-      server.halt 499
+    rescue RestClient::ResourceNotFound
+      server.halt 404
     end
 
     def get_directory_listing(user, directory)
@@ -102,9 +87,6 @@ module RemoteStorage
       end
 
       listing.to_json
-    rescue => exception
-      puts exception.inspect
-      server.halt 499
     end
 
     def put_data(user, directory, key, data, content_type)
@@ -129,11 +111,8 @@ module RemoteStorage
         server.headers["ETag"] = %Q("#{res.headers[:etag]}")
         server.halt 200
       else
-        server.halt 499 # TODO use sth more suitable
+        server.halt 500
       end
-    rescue => exception
-      puts exception.inspect
-      server.halt 499 # TODO use sth more suitable
     end
 
     def delete_data(user, directory, key)
@@ -149,13 +128,8 @@ module RemoteStorage
       delete_dir_objects(user, directory)
 
       server.halt 200
-    rescue => exception
-      if exception.is_a? RestClient::ResourceNotFound
-        server.halt 404
-      end
-
-      puts exception.inspect
-      server.halt 499
+    rescue RestClient::ResourceNotFound
+      server.halt 404
     end
 
     private
