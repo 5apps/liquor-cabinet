@@ -28,8 +28,7 @@ def write_last_response_to_file(filename = "last_response.html")
 end
 
 alias context describe
-
-if app.settings.riak
+if app.settings.respond_to? :riak
   ::Riak.disable_list_keys_warnings = true
 
   def client
