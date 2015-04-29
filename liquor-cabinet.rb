@@ -5,6 +5,7 @@ require "sinatra/base"
 require 'sinatra/config_file'
 require "sinatra/reloader"
 require "remote_storage/riak"
+require "remote_storage/swift"
 
 class LiquorCabinet < Sinatra::Base
 
@@ -23,11 +24,22 @@ class LiquorCabinet < Sinatra::Base
 
   configure :development do
     register Sinatra::Reloader
+    also_reload "lib/remote_storage/*.rb"
     enable :logging
   end
 
   configure :production, :staging do
     require "rack/common_logger"
+    if ENV['SENTRY_DSN']
+      require "raven"
+
+      Raven.configure do |config|
+        config.dsn = ENV['SENTRY_DSN']
+        config.tags = { environment: settings.environment.to_s }
+      end
+
+      use Raven::Rack
+    end
   end
 
   #
@@ -62,16 +74,18 @@ class LiquorCabinet < Sinatra::Base
   end
 
   ["/:user/*/:key", "/:user/:key"].each do |path|
-    get path do
-      storage.get_data(@user, @directory, @key)
-    end
-
     head path do
       storage.get_head(@user, @directory, @key)
     end
 
+    get path do
+      storage.get_data(@user, @directory, @key)
+    end
+
     put path do
       data = request.body.read
+
+      halt 422 unless env['CONTENT_TYPE']
 
       if env['CONTENT_TYPE'] == "application/x-www-form-urlencoded"
         content_type = "text/plain; charset=utf-8"
@@ -88,12 +102,12 @@ class LiquorCabinet < Sinatra::Base
   end
 
   ["/:user/*/", "/:user/"].each do |path|
-    get path do
-      storage.get_directory_listing(@user, @directory)
-    end
-
     head path do
       storage.get_head_directory_listing(@user, @directory)
+    end
+
+    get path do
+      storage.get_directory_listing(@user, @directory)
     end
   end
 
@@ -101,10 +115,16 @@ class LiquorCabinet < Sinatra::Base
 
   def storage
     @storage ||= begin
-      if settings.riak
-        RemoteStorage::Riak.new(settings.riak, self)
-      # elsif settings.redis
-      #  include RemoteStorage::Redis
+      if settings.respond_to? :riak
+        RemoteStorage::Riak.new(settings, self)
+      elsif settings.respond_to? :swift
+        settings.swift["token"] = File.read("tmp/swift_token.txt")
+        RemoteStorage::Swift.new(settings, self)
+      else
+        puts <<-EOF
+You need to set one storage backend in your config.yml file.
+Riak and Swift are currently supported. See config.yml.example.
+        EOF
       end
     end
   end

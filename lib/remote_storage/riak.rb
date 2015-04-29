@@ -15,7 +15,7 @@ module RemoteStorage
       self.settings = settings
       self.server = server
 
-      credentials = File.read(settings['riak_cs']['credentials_file'])
+      credentials = File.read(settings.riak['riak_cs']['credentials_file'])
       self.cs_credentials = JSON.parse(credentials)
     end
 
@@ -229,8 +229,7 @@ module RemoteStorage
 
     # A URI object that can be used with HTTP backend methods
     def riak_uri(bucket, key)
-      rc = settings.symbolize_keys
-      URI.parse "http://#{rc[:host]}:#{rc[:http_port]}/riak/#{bucket}/#{key}"
+      URI.parse "http://#{settings.riak["host"]}:#{settings.riak["http_port"]}/riak/#{bucket}/#{key}"
     end
 
     def serializer_for(content_type)
@@ -471,13 +470,13 @@ module RemoteStorage
     end
 
     def client
-      @client ||= ::Riak::Client.new(:host      => settings['host'],
-                                     :http_port => settings['http_port'])
+      @client ||= ::Riak::Client.new(:host      => settings.riak['host'],
+                                     :http_port => settings.riak['http_port'])
     end
 
     def data_bucket
       @data_bucket ||= begin
-                         bucket = client.bucket(settings['buckets']['data'])
+                         bucket = client.bucket(settings.riak['buckets']['data'])
                          bucket.allow_mult = false
                          bucket
                        end
@@ -485,7 +484,7 @@ module RemoteStorage
 
     def directory_bucket
       @directory_bucket ||= begin
-                              bucket = client.bucket(settings['buckets']['directories'])
+                              bucket = client.bucket(settings.riak['buckets']['directories'])
                               bucket.allow_mult = false
                               bucket
                             end
@@ -493,7 +492,7 @@ module RemoteStorage
 
     def auth_bucket
       @auth_bucket ||= begin
-                         bucket = client.bucket(settings['buckets']['authorizations'])
+                         bucket = client.bucket(settings.riak['buckets']['authorizations'])
                          bucket.allow_mult = false
                          bucket
                        end
@@ -501,7 +500,7 @@ module RemoteStorage
 
     def binary_bucket
       @binary_bucket ||= begin
-                           bucket = client.bucket(settings['buckets']['binaries'])
+                           bucket = client.bucket(settings.riak['buckets']['binaries'])
                            bucket.allow_mult = false
                            bucket
                          end
@@ -509,7 +508,7 @@ module RemoteStorage
 
     def opslog_bucket
       @opslog_bucket ||= begin
-                           bucket = client.bucket(settings['buckets']['opslog'])
+                           bucket = client.bucket(settings.riak['buckets']['opslog'])
                            bucket.allow_mult = false
                            bucket
                          end
@@ -520,12 +519,12 @@ module RemoteStorage
         :provider                 => 'AWS',
         :aws_access_key_id        => cs_credentials['key_id'],
         :aws_secret_access_key    => cs_credentials['key_secret'],
-        :endpoint                 => settings['riak_cs']['endpoint']
+        :endpoint                 => settings.riak['riak_cs']['endpoint']
       })
     end
 
     def cs_binary_bucket
-      @cs_binary_bucket ||= cs_client.directories.create(:key => settings['buckets']['cs_binaries'])
+      @cs_binary_bucket ||= cs_client.directories.create(:key => settings.riak['buckets']['cs_binaries'])
     end
 
   end

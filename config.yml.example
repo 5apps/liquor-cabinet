@@ -13,6 +13,13 @@ development: &defaults
       cs_binaries: rs.binaries
       authorizations: rs_authorizations
       opslog: rs_opslog
+  # # uncomment this section and comment the riak one
+  # swift: &swift_defaults
+  #   host: "https://swift.example.com"
+  # # Redis is needed for the swift backend
+  # redis:
+  #   host: localhost
+  #   port: 6379
 
 test:
   <<: *defaults
