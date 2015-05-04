@@ -32,7 +32,7 @@ module RemoteStorage
     end
 
     def get_head(user, directory, key)
-      url = url_for(user, directory, key)
+      url = url_for_key(user, directory, key)
 
       res = do_head_request(url)
 
@@ -42,7 +42,7 @@ module RemoteStorage
     end
 
     def get_data(user, directory, key)
-      url = url_for(user, directory, key)
+      url = url_for_key(user, directory, key)
 
       res = do_get_request(url)
 
@@ -57,7 +57,7 @@ module RemoteStorage
     end
 
     def get_head_directory_listing(user, directory)
-      res = do_head_request("#{container_url_for(user)}/#{directory}/")
+      res = do_head_request("#{url_for_directory(user, directory)}/")
 
       server.headers["Content-Type"] = "application/json"
       server.headers["ETag"]         = %Q("#{res.headers[:etag]}")
@@ -68,7 +68,7 @@ module RemoteStorage
     def get_directory_listing(user, directory)
       server.headers["Content-Type"] = "application/json"
 
-      do_head_request("#{container_url_for(user)}/#{directory}/") do |response|
+      do_head_request("#{url_for_directory(user, directory)}/") do |response|
         if response.code == 404
           return directory_listing([]).to_json
         else
@@ -78,7 +78,7 @@ module RemoteStorage
         end
       end
 
-      res = do_get_request("#{container_url_for(user)}/?format=json&path=#{directory}/")
+      res = do_get_request("#{container_url_for(user)}/?format=json&path=#{escape(directory)}/")
 
       if body = JSON.parse(res.body)
         listing = directory_listing(body)
@@ -92,7 +92,7 @@ module RemoteStorage
     def put_data(user, directory, key, data, content_type)
       server.halt 409 if has_name_collision?(user, directory, key)
 
-      url = url_for(user, directory, key)
+      url = url_for_key(user, directory, key)
 
       if required_match = server.env["HTTP_IF_MATCH"]
         do_head_request(url) do |response|
@@ -116,7 +116,7 @@ module RemoteStorage
     end
 
     def delete_data(user, directory, key)
-      url = url_for(user, directory, key)
+      url = url_for_key(user, directory, key)
 
       if required_match = server.env["HTTP_IF_MATCH"]
         do_head_request(url) do |response|
@@ -199,17 +199,18 @@ module RemoteStorage
 
     def has_name_collision?(user, directory, key)
       # check for existing directory with the same name as the document
-      do_head_request("#{container_url_for(user)}/#{directory}/#{key}/") do |res|
+      url = url_for_key(user, directory, key)
+      do_head_request("#{url}/") do |res|
         return true if res.code == 200
       end
 
       # check for existing documents with the same name as one of the parent directories
       parent_directories_for(directory).each do |dir|
-        do_head_request("#{container_url_for(user)}/#{dir}/") do |res_dir|
+        do_head_request("#{url_for_directory(user, dir)}/") do |res_dir|
           if res_dir.code == 200
             return false
           else
-            do_head_request("#{container_url_for(user)}/#{dir}") do |res_key|
+            do_head_request("#{url_for_directory(user, dir)}") do |res_key|
               if res_key.code == 200
                 return true
               else
@@ -239,13 +240,13 @@ module RemoteStorage
       timestamp = (Time.now.to_f * 1000).to_i
 
       parent_directories_for(directory).each do |dir|
-        do_put_request("#{container_url_for(user)}/#{dir}/", timestamp.to_s, "text/plain")
+        do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
       end
 
       true
     rescue
       parent_directories_for(directory).each do |dir|
-        do_delete_request("#{container_url_for(user)}/#{dir}/") rescue false
+        do_delete_request("#{url_for_directory(user, dir)}/") rescue false
       end
 
       false
@@ -254,16 +255,16 @@ module RemoteStorage
     def delete_dir_objects(user, directory)
       parent_directories_for(directory).each do |dir|
         if dir_empty?(user, dir)
-          do_delete_request("#{container_url_for(user)}/#{dir}/")
+          do_delete_request("#{url_for_directory(user, dir)}/")
         else
           timestamp = (Time.now.to_f * 1000).to_i
-          do_put_request("#{container_url_for(user)}/#{dir}/", timestamp.to_s, "text/plain")
+          do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
         end
       end
     end
 
     def dir_empty?(user, dir)
-      do_get_request("#{container_url_for(user)}/?format=plain&limit=1&path=#{dir}/") do |res|
+      do_get_request("#{container_url_for(user)}/?format=plain&limit=1&path=#{escape(dir)}/") do |res|
         return res.headers[:content_length] == "0"
       end
     end
@@ -272,8 +273,12 @@ module RemoteStorage
       "#{base_url}/#{container_for(user)}"
     end
 
-    def url_for(user, directory, key)
-      "#{container_url_for(user)}/#{directory}/#{key}"
+    def url_for_key(user, directory, key)
+      "#{container_url_for(user)}/#{escape(directory)}/#{escape(key)}"
+    end
+
+    def url_for_directory(user, directory)
+      "#{container_url_for(user)}/#{escape(directory)}"
     end
 
     def base_url
@@ -302,6 +307,11 @@ module RemoteStorage
 
     def do_delete_request(url)
       RestClient.delete(url, default_headers)
+    end
+
+    def escape(url)
+      # We want spaces to turn into %20 and slashes to stay slashes
+      CGI::escape(url).gsub('+', '%20').gsub('%2F', '/')
     end
 
     def redis
