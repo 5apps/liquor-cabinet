@@ -36,6 +36,7 @@ class LiquorCabinet < Sinatra::Base
       Raven.configure do |config|
         config.dsn = ENV['SENTRY_DSN']
         config.tags = { environment: settings.environment.to_s }
+        config.excluded_exceptions = ['Sinatra::NotFound']
       end
 
       use Raven::Rack
