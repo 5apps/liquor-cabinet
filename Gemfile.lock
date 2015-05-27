@@ -102,6 +102,7 @@ DEPENDENCIES
   activesupport (~> 3.2)
   fog
   m
+  mime-types (~> 2.6.1)
   purdytest
   rainbows
   rake

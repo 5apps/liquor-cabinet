@@ -7,6 +7,7 @@ gem "riak-client", :github => "5apps/riak-ruby-client", :branch => "invalid_uri_
 gem "fog"
 gem "rest-client"
 gem "redis"
+gem "mime-types", "~> 2.6.1", require: 'mime/types/columnar'
 
 group :test do
   gem 'rake'
