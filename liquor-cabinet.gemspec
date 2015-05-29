@@ -19,7 +19,6 @@ Gem::Specification.new do |s|
   s.add_dependency('sinatra')
   s.add_dependency('sinatra-contrib')
   s.add_dependency('riak-client')
-  s.add_dependency('airbrake')
 
   s.files        = Dir.glob("{bin,lib}/**/*") + Dir['*.rb']
   # s.executables  = ['config.ru']
