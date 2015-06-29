@@ -78,11 +78,7 @@ module RemoteStorage
         end
       end
 
-      res = if directory.empty?
-              do_get_request("#{container_url_for(user)}/?format=json")
-            else
-              do_get_request("#{container_url_for(user)}/?format=json&path=#{escape(directory)}/")
-            end
+      res = do_get_request("#{container_url_for(user)}/?format=json&path=#{escape(directory)}/")
 
       if body = JSON.parse(res.body)
         listing = directory_listing(body)
@@ -282,11 +278,7 @@ module RemoteStorage
     end
 
     def url_for_directory(user, directory)
-      if directory.empty?
-        container_url_for(user)
-      else
-        "#{container_url_for(user)}/#{escape(directory)}"
-      end
+      "#{container_url_for(user)}/#{escape(directory)}"
     end
 
     def base_url
