@@ -78,14 +78,16 @@ module RemoteStorage
         end
       end
 
-      res = if directory.empty?
+      is_root_listing = directory.empty?
+
+      res = if is_root_listing
               do_get_request("#{container_url_for(user)}/?format=json")
             else
               do_get_request("#{container_url_for(user)}/?format=json&path=#{escape(directory)}/")
             end
 
       if body = JSON.parse(res.body)
-        listing = directory_listing(body)
+        listing = directory_listing(body, is_root_listing)
       else
         puts "listing not JSON"
       end
@@ -173,14 +175,15 @@ module RemoteStorage
       permission
     end
 
-    def directory_listing(res_body)
+    def directory_listing(res_body, is_root_listing = false)
       listing = {
         "@context" => "http://remotestorage.io/spec/folder-description",
         "items"    => {}
       }
 
       res_body.each do |entry|
-        name = entry["name"].gsub("#{File.dirname(entry["name"])}/", '')
+        name = entry["name"]
+        name.sub!("#{File.dirname(entry["name"])}/", '') unless is_root_listing
         if name[-1] == "/"
           listing["items"].merge!({
             name => {
