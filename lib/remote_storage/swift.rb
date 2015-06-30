@@ -85,7 +85,7 @@ module RemoteStorage
         return directory_listing([]).to_json if response.code == 404
 
         if is_root_listing
-          get_response = do_get_request("#{container_url_for(user)}/?format=json")
+          get_response = do_get_request("#{container_url_for(user)}/?format=json&path=")
           etag = etag_for(get_response.body)
         else
           get_response = do_get_request("#{container_url_for(user)}/?format=json&path=#{escape(directory)}/")
@@ -99,7 +99,7 @@ module RemoteStorage
       server.headers["ETag"] = %Q("#{etag}")
 
       if body = JSON.parse(get_response.body)
-        listing = directory_listing(body, is_root_listing)
+        listing = directory_listing(body)
       else
         puts "listing not JSON"
       end
@@ -187,7 +187,7 @@ module RemoteStorage
       permission
     end
 
-    def directory_listing(res_body, is_root_listing = false)
+    def directory_listing(res_body)
       listing = {
         "@context" => "http://remotestorage.io/spec/folder-description",
         "items"    => {}
@@ -195,14 +195,14 @@ module RemoteStorage
 
       res_body.each do |entry|
         name = entry["name"]
-        name.sub!("#{File.dirname(entry["name"])}/", '') unless is_root_listing
-        if name[-1] == "/"
+        name.sub!("#{File.dirname(entry["name"])}/", '')
+        if name[-1] == "/" # It's a directory
           listing["items"].merge!({
             name => {
               "ETag"           => entry["hash"],
             }
           })
-        else
+        else # It's a file
           listing["items"].merge!({
             name => {
               "ETag"           => entry["hash"],
