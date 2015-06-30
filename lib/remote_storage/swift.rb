@@ -4,6 +4,7 @@ require "cgi"
 require "active_support/core_ext/time/conversions"
 require "active_support/core_ext/numeric/time"
 require "redis"
+require 'digest/md5'
 
 module RemoteStorage
   class Swift
@@ -57,37 +58,48 @@ module RemoteStorage
     end
 
     def get_head_directory_listing(user, directory)
-      res = do_head_request("#{url_for_directory(user, directory)}/")
+      is_root_listing = directory.empty?
+      if is_root_listing
+        # We need to calculate the etag ourselves
+        res = do_get_request("#{url_for_directory(user, directory)}/?format=json")
+        etag = etag_for(res.body)
+      else
+        res  = do_head_request("#{url_for_directory(user, directory)}/")
+        etag = res.headers[:etag]
+      end
 
       server.headers["Content-Type"] = "application/json"
-      server.headers["ETag"]         = %Q("#{res.headers[:etag]}")
+      server.headers["ETag"]         = %Q("#{etag}")
     rescue RestClient::ResourceNotFound
       server.halt 404
     end
 
     def get_directory_listing(user, directory)
-      server.headers["Content-Type"] = "application/json"
-
-      do_head_request("#{url_for_directory(user, directory)}/") do |response|
-        if response.code == 404
-          return directory_listing([]).to_json
-        else
-          server.headers["ETag"] = %Q("#{response.headers[:etag]}")
-          none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
-          server.halt 304 if none_match.include? %Q("#{response.headers[:etag]}")
-        end
-      end
-
       is_root_listing = directory.empty?
 
-      res = if is_root_listing
-              do_get_request("#{container_url_for(user)}/?format=json")
-            else
-              do_get_request("#{container_url_for(user)}/?format=json&path=#{escape(directory)}/")
-            end
+      server.headers["Content-Type"] = "application/json"
 
-      if body = JSON.parse(res.body)
-        listing = directory_listing(body, is_root_listing)
+      etag, get_response = nil
+
+      do_head_request("#{url_for_directory(user, directory)}/") do |response|
+        return directory_listing([]).to_json if response.code == 404
+
+        if is_root_listing
+          get_response = do_get_request("#{container_url_for(user)}/?format=json&path=")
+          etag = etag_for(get_response.body)
+        else
+          get_response = do_get_request("#{container_url_for(user)}/?format=json&path=#{escape(directory)}/")
+          etag = response.headers[:etag]
+        end
+
+        none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
+        server.halt 304 if none_match.include? %Q("#{etag}")
+      end
+
+      server.headers["ETag"] = %Q("#{etag}")
+
+      if body = JSON.parse(get_response.body)
+        listing = directory_listing(body)
       else
         puts "listing not JSON"
       end
@@ -175,7 +187,7 @@ module RemoteStorage
       permission
     end
 
-    def directory_listing(res_body, is_root_listing = false)
+    def directory_listing(res_body)
       listing = {
         "@context" => "http://remotestorage.io/spec/folder-description",
         "items"    => {}
@@ -183,14 +195,14 @@ module RemoteStorage
 
       res_body.each do |entry|
         name = entry["name"]
-        name.sub!("#{File.dirname(entry["name"])}/", '') unless is_root_listing
-        if name[-1] == "/"
+        name.sub!("#{File.dirname(entry["name"])}/", '')
+        if name[-1] == "/" # It's a directory
           listing["items"].merge!({
             name => {
               "ETag"           => entry["hash"],
             }
           })
-        else
+        else # It's a file
           listing["items"].merge!({
             name => {
               "ETag"           => entry["hash"],
@@ -327,6 +339,16 @@ module RemoteStorage
 
     def redis
       @redis ||= Redis.new(host: settings.redis["host"], port: settings.redis["port"])
+    end
+
+    def etag_for(body)
+      objects = JSON.parse(body)
+
+      if objects.empty?
+        Digest::MD5.hexdigest ''
+      else
+        Digest::MD5.hexdigest objects.map { |o| o["hash"] }.join
+      end
     end
   end
 end
