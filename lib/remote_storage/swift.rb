@@ -93,7 +93,7 @@ module RemoteStorage
         end
 
         none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
-        server.halt 304 if none_match.include? etag
+        server.halt 304 if none_match.include? %Q("#{etag}")
       end
 
       server.headers["ETag"] = %Q("#{etag}")
