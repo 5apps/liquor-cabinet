@@ -66,7 +66,8 @@ class LiquorCabinet < Sinatra::Base
 
       token = env["HTTP_AUTHORIZATION"] ? env["HTTP_AUTHORIZATION"].split(" ")[1] : ""
 
-      storage.authorize_request(@user, @directory, token, @key.blank?) unless request.options?
+      no_key = @key.nil? || @key.empty?
+      storage.authorize_request(@user, @directory, token, no_key) unless request.options?
     end
 
     options path do
