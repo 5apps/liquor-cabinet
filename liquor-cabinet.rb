@@ -120,7 +120,6 @@ class LiquorCabinet < Sinatra::Base
       if settings.respond_to? :riak
         RemoteStorage::Riak.new(settings, self)
       elsif settings.respond_to? :swift
-        settings.swift["token"] = File.read("tmp/swift_token.txt")
         RemoteStorage::Swift.new(settings, self)
       else
         puts <<-EOF
