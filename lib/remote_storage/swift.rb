@@ -11,10 +11,10 @@ module RemoteStorage
 
     attr_accessor :settings, :server
 
-    def initialize(settings, server)
+    def initialize(settings, server, swift_token)
       @settings              = settings
       @server                = server
-      @swift_token           = File.read(swift_token_path)
+      @swift_token           = swift_token
       @swift_token_loaded_at = Time.now
     end
 

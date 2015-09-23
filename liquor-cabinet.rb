@@ -120,7 +120,8 @@ class LiquorCabinet < Sinatra::Base
       if settings.respond_to? :riak
         RemoteStorage::Riak.new(settings, self)
       elsif settings.respond_to? :swift
-        RemoteStorage::Swift.new(settings, self)
+        swift_token = File.read("tmp/swift_token.txt")
+        RemoteStorage::Swift.new(settings, self, swift_token)
       else
         puts <<-EOF
 You need to set one storage backend in your config.yml file.
