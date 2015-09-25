@@ -20,6 +20,18 @@ class LiquorCabinet < Sinatra::Base
     register Sinatra::ConfigFile
     set :environments, %w{development test production staging}
     config_file 'config.yml'
+    storage = if settings.respond_to? :riak
+                RemoteStorage::Riak.new(settings, self)
+              elsif settings.respond_to? :swift
+                swift_token = File.read("tmp/swift_token.txt")
+                RemoteStorage::Swift.new(settings, self, swift_token)
+              else
+                puts <<-EOF
+You need to set one storage backend in your config.yml file.
+Riak and Swift are currently supported. See config.yml.example.
+                EOF
+              end
+    set :storage, storage
   end
 
   configure :development do
@@ -116,19 +128,7 @@ class LiquorCabinet < Sinatra::Base
   private
 
   def storage
-    @storage ||= begin
-      if settings.respond_to? :riak
-        RemoteStorage::Riak.new(settings, self)
-      elsif settings.respond_to? :swift
-        swift_token = File.read("tmp/swift_token.txt")
-        RemoteStorage::Swift.new(settings, self, swift_token)
-      else
-        puts <<-EOF
-You need to set one storage backend in your config.yml file.
-Riak and Swift are currently supported. See config.yml.example.
-        EOF
-      end
-    end
+    settings.storage
   end
 
 end
