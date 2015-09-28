@@ -11,11 +11,9 @@ module RemoteStorage
 
     attr_accessor :settings, :server
 
-    def initialize(settings, server, swift_token)
-      @settings              = settings
-      @server                = server
-      @swift_token           = swift_token
-      @swift_token_loaded_at = Time.now
+    def initialize(settings, server)
+      @settings = settings
+      @server   = server
     end
 
     def authorize_request(user, directory, token, listing=false)
@@ -353,18 +351,21 @@ module RemoteStorage
       end
     end
 
-    def load_swift_token
-      @swift_token           = File.read(swift_token_path)
-      @swift_token_loaded_at = Time.now
+    def reload_swift_token
+      server.logger.debug "Reloading swift token. Old token: #{settings.swift_token}"
+      settings.swift_token           = File.read(swift_token_path)
+      settings.swift_token_loaded_at = Time.now
+      server.logger.debug "Reloaded swift token. New token: #{settings.swift_token}"
     end
+
     def swift_token_path
       "tmp/swift_token.txt"
     end
 
     def swift_token
-      load_swift_token if Time.now - @swift_token_loaded_at > 3600
+      reload_swift_token if Time.now - settings.swift_token_loaded_at > 3600
 
-      @swift_token
+      settings.swift_token
     end
   end
 end

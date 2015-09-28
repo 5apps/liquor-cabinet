@@ -20,28 +20,22 @@ class LiquorCabinet < Sinatra::Base
     register Sinatra::ConfigFile
     set :environments, %w{development test production staging}
     config_file 'config.yml'
-    storage = if settings.respond_to? :riak
-                RemoteStorage::Riak.new(settings, self)
-              elsif settings.respond_to? :swift
-                swift_token = File.read("tmp/swift_token.txt")
-                RemoteStorage::Swift.new(settings, self, swift_token)
-              else
-                puts <<-EOF
-You need to set one storage backend in your config.yml file.
-Riak and Swift are currently supported. See config.yml.example.
-                EOF
-              end
-    set :storage, storage
+    set :swift_token, File.read("tmp/swift_token.txt")
+    set :swift_token_loaded_at, Time.now
   end
 
   configure :development do
     register Sinatra::Reloader
     also_reload "lib/remote_storage/*.rb"
-    enable :logging
+    set :logging, Logger::DEBUG
+  end
+
+  configure :production do
+    # Disable logging
+    require "rack/common_logger"
   end
 
   configure :production, :staging do
-    require "rack/common_logger"
     if ENV['SENTRY_DSN']
       require "raven"
 
@@ -53,6 +47,10 @@ Riak and Swift are currently supported. See config.yml.example.
 
       use Raven::Rack
     end
+  end
+
+  configure :staging do
+    set :logging, Logger::DEBUG
   end
 
   #
@@ -128,7 +126,18 @@ Riak and Swift are currently supported. See config.yml.example.
   private
 
   def storage
-    settings.storage
+    @storage ||= begin
+      if settings.respond_to? :riak
+        RemoteStorage::Riak.new(settings, self)
+      elsif settings.respond_to? :swift
+        RemoteStorage::Swift.new(settings, self)
+      else
+        puts <<-EOF
+You need to set one storage backend in your config.yml file.
+Riak and Swift are currently supported. See config.yml.example.
+        EOF
+      end
+    end
   end
 
 end
