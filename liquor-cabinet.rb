@@ -20,8 +20,10 @@ class LiquorCabinet < Sinatra::Base
     register Sinatra::ConfigFile
     set :environments, %w{development test production staging}
     config_file 'config.yml'
-    set :swift_token, File.read("tmp/swift_token.txt")
-    set :swift_token_loaded_at, Time.now
+    if settings.respond_to? :swift
+      set :swift_token, File.read("tmp/swift_token.txt")
+      set :swift_token_loaded_at, Time.now
+    end
   end
 
   configure :development do
