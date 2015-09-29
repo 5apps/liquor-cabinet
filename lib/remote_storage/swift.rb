@@ -317,19 +317,27 @@ module RemoteStorage
     end
 
     def do_put_request(url, data, content_type)
-      RestClient.put(url, data, default_headers.merge({content_type: content_type}))
+      deal_with_unauthorized_requests do
+        RestClient.put(url, data, default_headers.merge({content_type: content_type}))
+      end
     end
 
     def do_get_request(url, &block)
-      RestClient.get(url, default_headers, &block)
+      deal_with_unauthorized_requests do
+        RestClient.get(url, default_headers, &block)
+      end
     end
 
     def do_head_request(url, &block)
-      RestClient.head(url, default_headers, &block)
+      deal_with_unauthorized_requests do
+        RestClient.head(url, default_headers, &block)
+      end
     end
 
     def do_delete_request(url)
-      RestClient.delete(url, default_headers)
+      deal_with_unauthorized_requests do
+        RestClient.delete(url, default_headers)
+      end
     end
 
     def escape(url)
@@ -366,6 +374,19 @@ module RemoteStorage
       reload_swift_token if Time.now - settings.swift_token_loaded_at > 3600
 
       settings.swift_token
+    end
+
+    def deal_with_unauthorized_requests(&block)
+      begin
+        block.call
+      rescue RestClient::Unauthorized => ex
+        Raven.capture_exception(
+          ex,
+          tags: { swift_token:           settings.swift_token,
+                  swift_token_loaded_at: settings.swift_token_loaded_at }
+        )
+        server.halt 500
+      end
     end
   end
 end
