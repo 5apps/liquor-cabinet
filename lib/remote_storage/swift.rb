@@ -4,7 +4,7 @@ require "cgi"
 require "active_support/core_ext/time/conversions"
 require "active_support/core_ext/numeric/time"
 require "redis"
-require 'digest/md5'
+require "digest/md5"
 
 module RemoteStorage
   class Swift
@@ -12,8 +12,8 @@ module RemoteStorage
     attr_accessor :settings, :server
 
     def initialize(settings, server)
-      self.settings = settings
-      self.server = server
+      @settings = settings
+      @server   = server
     end
 
     def authorize_request(user, directory, token, listing=false)
@@ -313,7 +313,7 @@ module RemoteStorage
     end
 
     def default_headers
-      @default_headers ||= {"x-auth-token" => settings.swift["token"]}
+      {"x-auth-token" => swift_token}
     end
 
     def do_put_request(url, data, content_type)
@@ -349,6 +349,23 @@ module RemoteStorage
       else
         Digest::MD5.hexdigest objects.map { |o| o["hash"] }.join
       end
+    end
+
+    def reload_swift_token
+      server.logger.debug "Reloading swift token. Old token: #{settings.swift_token}"
+      settings.swift_token           = File.read(swift_token_path)
+      settings.swift_token_loaded_at = Time.now
+      server.logger.debug "Reloaded swift token. New token: #{settings.swift_token}"
+    end
+
+    def swift_token_path
+      "tmp/swift_token.txt"
+    end
+
+    def swift_token
+      reload_swift_token if Time.now - settings.swift_token_loaded_at > 3600
+
+      settings.swift_token
     end
   end
 end

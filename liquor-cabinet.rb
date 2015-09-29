@@ -20,16 +20,24 @@ class LiquorCabinet < Sinatra::Base
     register Sinatra::ConfigFile
     set :environments, %w{development test production staging}
     config_file 'config.yml'
+    if settings.respond_to? :swift
+      set :swift_token, File.read("tmp/swift_token.txt")
+      set :swift_token_loaded_at, Time.now
+    end
   end
 
   configure :development do
     register Sinatra::Reloader
     also_reload "lib/remote_storage/*.rb"
-    enable :logging
+    set :logging, Logger::DEBUG
+  end
+
+  configure :production do
+    # Disable logging
+    require "rack/common_logger"
   end
 
   configure :production, :staging do
-    require "rack/common_logger"
     if ENV['SENTRY_DSN']
       require "raven"
 
@@ -41,6 +49,10 @@ class LiquorCabinet < Sinatra::Base
 
       use Raven::Rack
     end
+  end
+
+  configure :staging do
+    set :logging, Logger::DEBUG
   end
 
   #
@@ -120,7 +132,6 @@ class LiquorCabinet < Sinatra::Base
       if settings.respond_to? :riak
         RemoteStorage::Riak.new(settings, self)
       elsif settings.respond_to? :swift
-        settings.swift["token"] = File.read("tmp/swift_token.txt")
         RemoteStorage::Swift.new(settings, self)
       else
         puts <<-EOF
