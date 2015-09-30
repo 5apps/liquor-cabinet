@@ -22,7 +22,6 @@ GEM
     backports (3.6.4)
     beefcake (0.3.7)
     builder (3.2.2)
-    certifi (2015.08.10)
     domain_name (0.5.24)
       unf (>= 0.0.5, < 1.0.0)
     excon (0.16.10)
@@ -77,8 +76,7 @@ GEM
       mime-types (>= 1.16, < 3.0)
       netrc (~> 0.7)
     ruby-hmac (0.4.0)
-    sentry-raven (0.14.0)
-      certifi
+    sentry-raven (0.15.2)
       faraday (>= 0.7.6)
     sinatra (1.4.6)
       rack (~> 1.4)
