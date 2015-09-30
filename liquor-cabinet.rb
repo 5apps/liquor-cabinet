@@ -39,7 +39,8 @@ class LiquorCabinet < Sinatra::Base
 
   configure :production, :staging do
     if ENV['SENTRY_DSN']
-      require "raven"
+      require "raven/base"
+      require "raven/integrations/rack"
 
       Raven.configure do |config|
         config.dsn = ENV['SENTRY_DSN']

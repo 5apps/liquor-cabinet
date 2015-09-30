@@ -17,5 +17,5 @@ end
 
 group :staging, :production do
   gem "rainbows"
-  gem "sentry-raven"
+  gem "sentry-raven", require: false
 end
