@@ -293,7 +293,7 @@ module RemoteStorage
     end
 
     def url_for_key(user, directory, key)
-      "#{container_url_for(user)}/#{escape(directory)}/#{escape(key)}"
+      File.join [container_url_for(user), escape(directory), escape(key)].compact
     end
 
     def url_for_directory(user, directory)
