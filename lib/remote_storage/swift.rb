@@ -265,7 +265,7 @@ module RemoteStorage
     end
 
     def update_metadata_object(user, directory, key, metadata)
-      key = "users:#{user}:data:#{directory}/#{key}"
+      key = "rs_meta:#{user}:#{directory}/#{key}"
       redis.hmset(key, *metadata)
     end
 
@@ -274,7 +274,10 @@ module RemoteStorage
       timestamp = (Time.now.to_f * 1000).to_i
 
       parent_directories_for(directory).each do |dir|
-        do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
+        res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
+        key = "rs_meta:#{user}:#{dir}/"
+        metadata = {etag: res.headers[:etag], modified: timestamp}
+        redis.hmset(key, *metadata)
       end
 
       true
