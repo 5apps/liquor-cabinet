@@ -2,8 +2,6 @@ language: ruby
 cache: bundler
 rvm:
   - 2.2.4
-sudo: required
-dist: trusty
 before_install:
   - sh .travis/install_riakcs.sh
   - gem install bundler
