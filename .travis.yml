@@ -19,5 +19,3 @@ notifications:
       - http://hook-juggler.herokuapp.com/hooks/travis
     on_success: always
     on_failure: always
-services:
-  - riak
