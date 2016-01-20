@@ -6,6 +6,7 @@ sudo: required
 dist: trusty
 before_install:
   - sh .travis/install_riakcs.sh
+  - gem install bundler
 before_script:
   - cp config.yml.example config.yml
 script: bundle exec rake test
