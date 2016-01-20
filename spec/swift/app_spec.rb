@@ -39,6 +39,7 @@ describe "App" do
         RemoteStorage::Swift.stub_any_instance :has_name_collision?, false do
           RestClient.stub :put, put_stub do
             put "/phil/food/aguacate", "si"
+            put "/phil/food/camaron", "yummi"
           end
         end
 
@@ -46,6 +47,12 @@ describe "App" do
         metadata["etag"].must_equal "bla"
         metadata["modified"].length.must_equal 13
         metadata = redis.hgetall "rs_meta:phil:food/"
+
+        food_items = redis.smembers "rs_meta:phil:food/:items"
+        food_items.must_equal ["camaron", "aguacate"]
+
+        root_items = redis.smembers "rs_meta:phil:/:items"
+        root_items.must_equal ["food/"]
       end
     end
   end

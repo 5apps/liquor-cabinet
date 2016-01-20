@@ -128,7 +128,7 @@ module RemoteStorage
       # TODO get last modified from response and add to metadata
       metadata = {
         etag: res.headers[:etag],
-        size: data.length,
+        size: data.size,
         type: content_type
       }
 
@@ -264,9 +264,18 @@ module RemoteStorage
       parent_directories
     end
 
+    def parent_directory_for(directory)
+      if directory.match(/\//)
+        return directory[0..directory.rindex("/")-1]
+      elsif directory != ""
+        return "/"
+      end
+    end
+
     def update_metadata_object(user, directory, key, metadata)
-      key = "rs_meta:#{user}:#{directory}/#{key}"
-      redis.hmset(key, *metadata)
+      redis_key = "rs_meta:#{user}:#{directory}/#{key}"
+      redis.hmset(redis_key, *metadata)
+      redis.sadd "rs_meta:#{user}:#{directory}/:items", key
     end
 
     def update_dir_objects(user, directory)
@@ -278,6 +287,7 @@ module RemoteStorage
         key = "rs_meta:#{user}:#{dir}/"
         metadata = {etag: res.headers[:etag], modified: timestamp}
         redis.hmset(key, *metadata)
+        redis.sadd "rs_meta:#{user}:#{parent_directory_for(dir)}:items", "#{dir}/"
       end
 
       true
