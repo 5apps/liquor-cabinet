@@ -11,4 +11,5 @@ describe "App" do
     get "/virginmargarita"
     last_response.status.must_equal 404
   end
+
 end
