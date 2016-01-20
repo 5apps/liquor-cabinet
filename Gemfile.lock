@@ -50,6 +50,7 @@ GEM
     method_source (0.8.2)
     mime-types (2.6.1)
     minitest (5.7.0)
+    minitest-stub_any_instance (1.0.1)
     multi_json (1.11.1)
     multipart-post (2.0.0)
     net-scp (1.0.4)
@@ -109,6 +110,7 @@ DEPENDENCIES
   fog
   m
   mime-types (~> 2.6.1)
+  minitest-stub_any_instance
   purdytest
   rainbows
   rake

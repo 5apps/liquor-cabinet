@@ -125,7 +125,16 @@ module RemoteStorage
 
       res = do_put_request(url, data, content_type)
 
-      if update_dir_objects(user, directory)
+      # TODO get last modified from response and add to metadata
+      metadata = {
+        etag: res.headers[:etag],
+        size: data.length,
+        type: content_type
+      }
+
+      if update_metadata_object(user, directory, key, metadata) &&
+         # TODO provide the last modified to use for the dir objects as well
+         update_dir_objects(user, directory)
         server.headers["ETag"] = %Q("#{res.headers[:etag]}")
         server.halt 200
       else
@@ -255,7 +264,13 @@ module RemoteStorage
       parent_directories
     end
 
+    def update_metadata_object(user, directory, key, metadata)
+      key = "users:#{user}:data:#{directory}/#{key}"
+      redis.hmset(key, *metadata)
+    end
+
     def update_dir_objects(user, directory)
+      # TODO use actual last modified time from the document put request
       timestamp = (Time.now.to_f * 1000).to_i
 
       parent_directories_for(directory).each do |dir|
