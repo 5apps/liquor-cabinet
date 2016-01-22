@@ -17,3 +17,6 @@ notifications:
       - http://hook-juggler.herokuapp.com/hooks/travis
     on_success: always
     on_failure: always
+# Force legacy Blue Box build for now
+- sudo: required
+  group: legacy
