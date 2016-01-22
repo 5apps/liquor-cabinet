@@ -1,4 +1,4 @@
-require_relative "spec_helper"
+require_relative "../spec_helper"
 
 describe "App with Riak backend" do
   include Rack::Test::Methods
