@@ -46,7 +46,6 @@ describe "App" do
         metadata = redis.hgetall "rs_meta:phil:food/"
         metadata["etag"].must_equal "bla"
         metadata["modified"].length.must_equal 13
-        metadata = redis.hgetall "rs_meta:phil:food/"
 
         food_items = redis.smembers "rs_meta:phil:food/:items"
         food_items.each do |food_item|
@@ -55,6 +54,87 @@ describe "App" do
 
         root_items = redis.smembers "rs_meta:phil:/:items"
         root_items.must_equal ["food/"]
+      end
+    end
+  end
+
+  describe "DELETE requests" do
+    context "authorized" do
+      before do
+        redis.sadd "authorizations:phil:amarillo", [":rw"]
+        header "Authorization", "Bearer amarillo"
+
+        put_stub = OpenStruct.new(headers: {etag: "bla"})
+        RemoteStorage::Swift.stub_any_instance :has_name_collision?, false do
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "si"
+            put "/phil/food/camaron", "yummi"
+          end
+        end
+      end
+
+      it "deletes the metadata object in redis" do
+        put_stub = OpenStruct.new(headers: {etag: "bla"})
+        RemoteStorage::Swift.stub_any_instance :dir_empty?, false do
+          RestClient.stub :put, put_stub do
+            RestClient.stub :delete, "" do
+              delete "/phil/food/aguacate"
+            end
+          end
+        end
+
+        metadata = redis.hgetall "rs_meta:phil:food/aguacate"
+        metadata.must_be_empty
+      end
+
+      it "deletes the directory objects metadata in redis" do
+        old_metadata = redis.hgetall "rs_meta:phil:food/"
+
+        put_stub = OpenStruct.new(headers: {etag: "newetag"})
+        RemoteStorage::Swift.stub_any_instance :dir_empty?, false do
+          RestClient.stub :put, put_stub do
+            RestClient.stub :delete, "" do
+              delete "/phil/food/aguacate"
+            end
+          end
+        end
+
+        metadata = redis.hgetall "rs_meta:phil:food/"
+        metadata["etag"].must_equal "newetag"
+        metadata["modified"].length.must_equal 13
+        metadata["modified"].wont_equal old_metadata["modified"]
+
+        food_items = redis.smembers "rs_meta:phil:food/:items"
+        food_items.must_equal ["camaron"]
+
+        root_items = redis.smembers "rs_meta:phil:/:items"
+        root_items.must_equal ["food/"]
+      end
+
+      it "deletes the parent directory objects metadata when deleting all items" do
+        put_stub = OpenStruct.new(headers: {etag: "bla"})
+        RemoteStorage::Swift.stub_any_instance :dir_empty?, false do
+          RestClient.stub :put, put_stub do
+            RestClient.stub :delete, "" do
+              delete "/phil/food/aguacate"
+            end
+          end
+        end
+
+        RemoteStorage::Swift.stub_any_instance :dir_empty?, true do
+          RestClient.stub :delete, "" do
+            delete "/phil/food/camaron"
+          end
+        end
+
+        metadata = redis.hgetall "rs_meta:phil:food/"
+        metadata.must_be_empty
+
+        food_items = redis.smembers "rs_meta:phil:food/:items"
+        food_items.must_be_empty
+
+        root_items = redis.smembers "rs_meta:phil:/:items"
+        root_items.must_be_empty
       end
     end
   end

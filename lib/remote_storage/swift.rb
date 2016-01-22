@@ -152,6 +152,7 @@ module RemoteStorage
       end
 
       do_delete_request(url)
+      delete_metadata_objects(user, directory, key)
       delete_dir_objects(user, directory)
 
       server.halt 200
@@ -299,13 +300,23 @@ module RemoteStorage
       false
     end
 
+    def delete_metadata_objects(user, directory, key)
+      redis_key = "rs_meta:#{user}:#{directory}/#{key}"
+      redis.del(redis_key)
+      redis.srem "rs_meta:#{user}:#{directory}/:items", key
+    end
+
     def delete_dir_objects(user, directory)
       parent_directories_for(directory).each do |dir|
         if dir_empty?(user, dir)
           do_delete_request("#{url_for_directory(user, dir)}/")
+          redis.del "rs_meta:#{user}:#{directory}/"
+          redis.srem "rs_meta:#{user}:#{parent_directory_for(dir)}:items", "#{dir}/"
         else
           timestamp = (Time.now.to_f * 1000).to_i
-          do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
+          res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
+          metadata = {etag: res.headers[:etag], modified: timestamp}
+          redis.hmset("rs_meta:#{user}:#{dir}/", *metadata)
         end
       end
     end
