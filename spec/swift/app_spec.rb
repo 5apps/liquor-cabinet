@@ -49,7 +49,9 @@ describe "App" do
         metadata = redis.hgetall "rs_meta:phil:food/"
 
         food_items = redis.smembers "rs_meta:phil:food/:items"
-        food_items.must_equal ["camaron", "aguacate"]
+        food_items.each do |food_item|
+          ["camaron", "aguacate"].must_include food_item
+        end
 
         root_items = redis.smembers "rs_meta:phil:/:items"
         root_items.must_equal ["food/"]
