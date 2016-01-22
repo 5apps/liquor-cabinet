@@ -18,5 +18,5 @@ notifications:
     on_success: always
     on_failure: always
 # Force legacy Blue Box build for now
-- sudo: required
-  group: legacy
+sudo: required
+group: legacy
