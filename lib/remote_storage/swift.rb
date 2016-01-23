@@ -75,9 +75,10 @@ module RemoteStorage
     end
 
     def get_directory_listing(user, directory)
-      # TODO check IF_NONE_MATCH header
       etag = redis.hget "rs_meta:#{user}:#{directory}/", "etag"
 
+      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
+      server.halt 304 if none_match.include? etag
 
       server.headers["Content-Type"] = "application/json"
       server.headers["ETag"] = %Q("#{etag}")

@@ -183,6 +183,13 @@ describe "App" do
           last_response.headers["ETag"].must_equal "\"bla\""
         end
 
+        it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
+          header "If-None-Match", "bla"
+          get "/phil/food/"
+
+          last_response.status.must_equal 304
+        end
+
         it "contains all items in the directory" do
           get "/phil/food/"
 
