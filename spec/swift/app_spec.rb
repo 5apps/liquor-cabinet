@@ -13,6 +13,11 @@ describe "App" do
   end
 
   describe "PUT requests" do
+
+    before do
+      purge_redis
+    end
+
     context "authorized" do
       before do
         redis.sadd "authorizations:phil:amarillo", [":rw"]
@@ -59,6 +64,11 @@ describe "App" do
   end
 
   describe "DELETE requests" do
+
+    before do
+      purge_redis
+    end
+
     context "authorized" do
       before do
         redis.sadd "authorizations:phil:amarillo", [":rw"]

@@ -37,6 +37,12 @@ def redis
   @redis ||= Redis.new(host: app.settings.redis["host"], port: app.settings.redis["port"])
 end
 
+def purge_redis
+  redis.keys("*").each do |key|
+    redis.del key
+  end
+end
+
 if app.settings.respond_to? :riak
   ::Riak.disable_list_keys_warnings = true
 
