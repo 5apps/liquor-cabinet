@@ -304,6 +304,8 @@ module RemoteStorage
         directories.pop
       end
 
+      parent_directories << "" # add empty string for the root directory
+
       parent_directories
     end
 
@@ -336,6 +338,7 @@ module RemoteStorage
       timestamp = (Time.now.to_f * 1000).to_i
 
       parent_directories_for(directory).each do |dir|
+        # TODO check if we can actually do a put request to the root dir
         res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
         key = "rs_meta:#{user}:#{dir}/"
         metadata = {etag: res.headers[:etag], modified: timestamp}
@@ -346,6 +349,7 @@ module RemoteStorage
       true
     rescue
       parent_directories_for(directory).each do |dir|
+        # TODO check if we can actually do a delete request to the root dir
         do_delete_request("#{url_for_directory(user, dir)}/") rescue false
       end
 
@@ -361,11 +365,13 @@ module RemoteStorage
     def delete_dir_objects(user, directory)
       parent_directories_for(directory).each do |dir|
         if dir_empty?(user, dir)
+          # TODO check if we can actually do a delete request to the root dir
           do_delete_request("#{url_for_directory(user, dir)}/")
           redis.del "rs_meta:#{user}:#{directory}/"
           redis.srem "rs_meta:#{user}:#{parent_directory_for(dir)}:items", "#{dir}/"
         else
           timestamp = (Time.now.to_f * 1000).to_i
+        # TODO check if we can actually do a put request to the root dir
           res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
           metadata = {etag: res.headers[:etag], modified: timestamp}
           redis.hmset("rs_meta:#{user}:#{dir}/", *metadata)

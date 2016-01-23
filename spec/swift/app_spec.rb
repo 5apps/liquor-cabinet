@@ -48,6 +48,10 @@ describe "App" do
           end
         end
 
+        metadata = redis.hgetall "rs_meta:phil:/"
+        metadata["etag"].must_equal "bla"
+        metadata["modified"].length.must_equal 13
+
         metadata = redis.hgetall "rs_meta:phil:food/"
         metadata["etag"].must_equal "bla"
         metadata["modified"].length.must_equal 13
