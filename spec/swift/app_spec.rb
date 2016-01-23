@@ -176,6 +176,13 @@ describe "App" do
 
       describe "directory listings" do
 
+        it "has an ETag in the header" do
+          get "/phil/food/"
+
+          last_response.status.must_equal 200
+          last_response.headers["ETag"].must_equal "\"bla\""
+        end
+
         it "contains all items in the directory" do
           get "/phil/food/"
 

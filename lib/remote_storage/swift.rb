@@ -75,10 +75,12 @@ module RemoteStorage
     end
 
     def get_directory_listing(user, directory)
-      # TODO add ETag header
       # TODO check IF_NONE_MATCH header
+      etag = redis.hget "rs_meta:#{user}:#{directory}/", "etag"
+
 
       server.headers["Content-Type"] = "application/json"
+      server.headers["ETag"] = %Q("#{etag}")
 
       listing = {
         "@context" => "http://remotestorage.io/spec/folder-description",
