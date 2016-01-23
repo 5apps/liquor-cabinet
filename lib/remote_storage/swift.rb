@@ -265,9 +265,17 @@ module RemoteStorage
       parent_directories
     end
 
+    def top_directory(directory)
+      if directory.match(/\//)
+        directory.split("/").last
+      elsif directory != ""
+        return directory
+      end
+    end
+
     def parent_directory_for(directory)
       if directory.match(/\//)
-        return directory[0..directory.rindex("/")-1]
+        return directory[0..directory.rindex("/")]
       elsif directory != ""
         return "/"
       end
@@ -277,6 +285,8 @@ module RemoteStorage
       redis_key = "rs_meta:#{user}:#{directory}/#{key}"
       redis.hmset(redis_key, *metadata)
       redis.sadd "rs_meta:#{user}:#{directory}/:items", key
+
+      true
     end
 
     def update_dir_objects(user, directory)
@@ -288,7 +298,7 @@ module RemoteStorage
         key = "rs_meta:#{user}:#{dir}/"
         metadata = {etag: res.headers[:etag], modified: timestamp}
         redis.hmset(key, *metadata)
-        redis.sadd "rs_meta:#{user}:#{parent_directory_for(dir)}:items", "#{dir}/"
+        redis.sadd "rs_meta:#{user}:#{parent_directory_for(dir)}:items", "#{top_directory(dir)}/"
       end
 
       true
