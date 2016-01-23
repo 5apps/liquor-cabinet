@@ -148,5 +148,63 @@ describe "App" do
       end
     end
   end
+
+  describe "GET requests" do
+
+    before do
+      purge_redis
+    end
+
+    context "authorized" do
+      before do
+        redis.sadd "authorizations:phil:amarillo", [":rw"]
+        header "Authorization", "Bearer amarillo"
+
+        put_stub = OpenStruct.new(headers: {etag: "bla"})
+        RemoteStorage::Swift.stub_any_instance :has_name_collision?, false do
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "si"
+            put "/phil/food/camaron", "yummi"
+            put "/phil/food/desunyos/bolon", "wow"
+          end
+        end
+      end
+
+      describe "directory listings" do
+
+        it "contains all items in the directory" do
+          get "/phil/food/"
+
+          last_response.status.must_equal 200
+          last_response.content_type.must_equal "application/json"
+
+          content = JSON.parse(last_response.body)
+          content["@context"].must_equal "http://remotestorage.io/spec/folder-description"
+          content["items"]["aguacate"].wont_be_nil
+          content["items"]["aguacate"]["Content-Type"].must_equal "text/plain; charset=utf-8"
+          content["items"]["aguacate"]["Content-Length"].must_equal 2
+          content["items"]["aguacate"]["ETag"].must_equal "bla"
+          content["items"]["camaron"].wont_be_nil
+          content["items"]["camaron"]["Content-Type"].must_equal "text/plain; charset=utf-8"
+          content["items"]["camaron"]["Content-Length"].must_equal 5
+          content["items"]["camaron"]["ETag"].must_equal "bla"
+          content["items"]["desunyos/"].wont_be_nil
+          content["items"]["desunyos/"]["ETag"].must_equal "bla"
+        end
+
+        it "contains all items in the root directory" do
+          get "phil/"
+
+          last_response.status.must_equal 200
+          last_response.content_type.must_equal "application/json"
+
+          content = JSON.parse(last_response.body)
+          content["items"]["food/"].wont_be_nil
+          content["items"]["food/"]["ETag"].must_equal "bla"
+        end
+
+      end
+    end
+  end
 end
 

@@ -75,6 +75,48 @@ module RemoteStorage
     end
 
     def get_directory_listing(user, directory)
+      # TODO add ETag header
+      # TODO check IF_NONE_MATCH header
+
+      server.headers["Content-Type"] = "application/json"
+
+      listing = {
+        "@context" => "http://remotestorage.io/spec/folder-description",
+        "items"    => {}
+      }
+
+      items = redis.smembers "rs_meta:#{user}:#{directory}/:items"
+
+      items.sort.each do |name|
+        redis_key = if directory.empty?
+                      "rs_meta:phil:#{name}"
+                    else
+                      "rs_meta:phil:#{directory}/#{name}"
+                    end
+        metadata = redis.hgetall redis_key
+
+        if name[-1] == "/" # It's a directory
+          listing["items"].merge!({
+            name => {
+              "ETag" => metadata["etag"]
+            }
+          })
+        else # It's a file
+          listing["items"].merge!({
+            name => {
+              "ETag"           => metadata["etag"],
+              "Content-Type"   => metadata["type"],
+              "Content-Length" => metadata["size"].to_i
+            }
+          });
+        end
+
+      end
+
+      listing.to_json
+    end
+
+    def get_directory_listing_from_swift(user, directory)
       is_root_listing = directory.empty?
 
       server.headers["Content-Type"] = "application/json"
