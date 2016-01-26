@@ -82,6 +82,46 @@ module RemoteStorage
       end
     end
 
+    def get_directory_listing_from_redis_via_lua(user, directory)
+      lua_script = <<-EOF
+        local user = ARGV[1]
+        local directory = ARGV[2]
+        local items = redis.call("smembers", "rs_meta:"..user..":"..directory.."/:items")
+        local listing = {}
+
+        for index, name in pairs(items) do
+          local redis_key = "rs_meta:"..user..":"
+          if directory == "" then
+            redis_key = redis_key..name
+          else
+            redis_key = redis_key..directory.."/"..name
+          end
+
+          local metadata_values = redis.call("hgetall", redis_key)
+          local metadata = {}
+
+          -- redis returns hashes as a single list of alternating keys and values
+          -- this collates it into a table
+          for idx = 1, #metadata_values, 2 do
+            metadata[metadata_values[idx]] = metadata_values[idx + 1]
+          end
+
+          listing[name] = {}
+          if string.sub(name, -1) == "/" then
+            listing[name]["ETag"] = metadata["etag"]
+          else
+            listing[name]["ETag"]           = metadata["etag"]
+            listing[name]["Content-Type"]   = metadata["type"]
+            listing[name]["Content-Length"] = tonumber(metadata["size"])
+          end
+        end
+
+        return cjson.encode(listing)
+      EOF
+
+      JSON.parse(redis.eval(lua_script, nil, [user, directory]))
+    end
+
     def get_directory_listing_from_redis(user, directory)
       etag = redis.hget "rs_meta:#{user}:#{directory}/", "etag"
 
@@ -93,36 +133,8 @@ module RemoteStorage
 
       listing = {
         "@context" => "http://remotestorage.io/spec/folder-description",
-        "items"    => {}
+        "items"    => get_directory_listing_from_redis_via_lua(user, directory)
       }
-
-      items = redis.smembers "rs_meta:#{user}:#{directory}/:items"
-
-      items.sort.each do |name|
-        redis_key = if directory.empty?
-                      "rs_meta:phil:#{name}"
-                    else
-                      "rs_meta:phil:#{directory}/#{name}"
-                    end
-        metadata = redis.hgetall redis_key
-
-        if name[-1] == "/" # It's a directory
-          listing["items"].merge!({
-            name => {
-              "ETag" => metadata["etag"]
-            }
-          })
-        else # It's a file
-          listing["items"].merge!({
-            name => {
-              "ETag"           => metadata["etag"],
-              "Content-Type"   => metadata["type"],
-              "Content-Length" => metadata["size"].to_i
-            }
-          });
-        end
-
-      end
 
       listing.to_json
     end
