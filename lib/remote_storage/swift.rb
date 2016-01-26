@@ -106,11 +106,8 @@ module RemoteStorage
             metadata[metadata_values[idx]] = metadata_values[idx + 1]
           end
 
-          listing[name] = {}
-          if string.sub(name, -1) == "/" then
-            listing[name]["ETag"] = metadata["etag"]
-          else
-            listing[name]["ETag"]           = metadata["etag"]
+          listing[name] = {["ETag"] = metadata["etag"]}
+          if string.sub(name, -1) ~= "/" then
             listing[name]["Content-Type"]   = metadata["type"]
             listing[name]["Content-Length"] = tonumber(metadata["size"])
           end
