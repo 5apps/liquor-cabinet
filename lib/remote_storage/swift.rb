@@ -75,6 +75,14 @@ module RemoteStorage
     end
 
     def get_directory_listing(user, directory)
+      if settings.use_redis_dir_listing
+        get_directory_listing_from_redis(user, directory)
+      else
+        get_directory_listing_from_swift
+      end
+    end
+
+    def get_directory_listing_from_redis(user, directory)
       etag = redis.hget "rs_meta:#{user}:#{directory}/", "etag"
 
       none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
