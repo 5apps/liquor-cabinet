@@ -78,7 +78,7 @@ module RemoteStorage
       if settings.use_redis_dir_listing
         get_directory_listing_from_redis(user, directory)
       else
-        get_directory_listing_from_swift
+        get_directory_listing_from_swift(user, directory)
       end
     end
 
