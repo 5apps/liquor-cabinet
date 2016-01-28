@@ -64,6 +64,46 @@ describe "App" do
         root_items = redis.smembers "rs_meta:phil:/:items"
         root_items.must_equal ["food/"]
       end
+
+      describe "name collision checks" do
+        it "is successful when there is no name collision" do
+          put_stub = OpenStruct.new(headers: {etag: "bla"})
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "si"
+          end
+
+          last_response.status.must_equal 200
+
+          metadata = redis.hgetall "rs_meta:phil:food/aguacate"
+          metadata["size"].must_equal "2"
+        end
+
+        it "conflicts when there is a directory with same name as document" do
+          put_stub = OpenStruct.new(headers: {etag: "bla"})
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "si"
+            put "/phil/food", "wontwork"
+          end
+
+          last_response.status.must_equal 409
+
+          metadata = redis.hgetall "rs_meta:phil:food"
+          metadata.must_be_empty
+        end
+
+        it "conflicts when there is a document with same name as directory" do
+          put_stub = OpenStruct.new(headers: {etag: "bla"})
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "si"
+            put "/phil/food/aguacate/empanado", "wontwork"
+          end
+
+          last_response.status.must_equal 409
+
+          metadata = redis.hgetall "rs_meta:phil:food/aguacate/empanado"
+          metadata.must_be_empty
+        end
+      end
     end
   end
 

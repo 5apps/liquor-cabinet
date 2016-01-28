@@ -289,6 +289,58 @@ module RemoteStorage
     end
 
     def has_name_collision?(user, directory, key)
+      if settings.use_redis_dir_listing
+        has_name_collision_via_redis?(user, directory, key)
+      else
+        has_name_collision_via_swift?(user, directory, key)
+      end
+    end
+
+    def has_name_collision_via_redis?(user, directory, key)
+      lua_script = <<-EOF
+        local user = ARGV[1]
+        local directory = ARGV[2]
+        local key = ARGV[3]
+
+        -- build table with parent directories from remaining arguments
+        local parent_dir_count = #ARGV - 3
+        local parent_directories = {}
+        for i = 4, 4 + parent_dir_count do
+          table.insert(parent_directories, ARGV[i])
+        end
+
+        -- check for existing directory with the same name as the document
+        local redis_key = "rs_meta:"..user..":"
+        if directory == "" then
+          redis_key = redis_key..key.."/"
+        else
+          redis_key = redis_key..directory.."/"..key.."/"
+        end
+        if redis.call("hget", redis_key, "etag") then
+          return true
+        end
+
+        for index, dir in pairs(parent_directories) do
+          if redis.call("hget", "rs_meta:"..user..":"..dir.."/", "etag") then
+            -- the directory already exists, no need to do further checks
+            return false
+          else
+            -- check for existing document with same name as directory
+            if redis.call("hget", "rs_meta:"..user..":"..dir, "etag") then
+              return true
+            end
+          end
+        end
+
+        return false
+      EOF
+
+      parent_directories = parent_directories_for(directory)
+
+      redis.eval(lua_script, nil, [user, directory, key, *parent_directories])
+    end
+
+    def has_name_collision_via_swift?(user, directory, key)
       # check for existing directory with the same name as the document
       url = url_for_key(user, directory, key)
       do_head_request("#{url}/") do |res|
