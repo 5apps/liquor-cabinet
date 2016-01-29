@@ -26,10 +26,8 @@ describe "App" do
 
       it "creates the metadata object in redis" do
         put_stub = OpenStruct.new(headers: {etag: "bla"})
-        RemoteStorage::Swift.stub_any_instance :has_name_collision?, false do
-          RestClient.stub :put, put_stub do
-            put "/phil/food/aguacate", "si"
-          end
+        RestClient.stub :put, put_stub do
+          put "/phil/food/aguacate", "si"
         end
 
         metadata = redis.hgetall "rs_meta:phil:food/aguacate"
@@ -41,11 +39,9 @@ describe "App" do
 
       it "creates the directory objects metadata in redis" do
         put_stub = OpenStruct.new(headers: {etag: "bla"})
-        RemoteStorage::Swift.stub_any_instance :has_name_collision?, false do
-          RestClient.stub :put, put_stub do
-            put "/phil/food/aguacate", "si"
-            put "/phil/food/camaron", "yummi"
-          end
+        RestClient.stub :put, put_stub do
+          put "/phil/food/aguacate", "si"
+          put "/phil/food/camaron", "yummi"
         end
 
         metadata = redis.hgetall "rs_meta:phil:/"
@@ -119,11 +115,9 @@ describe "App" do
         header "Authorization", "Bearer amarillo"
 
         put_stub = OpenStruct.new(headers: {etag: "bla"})
-        RemoteStorage::Swift.stub_any_instance :has_name_collision?, false do
-          RestClient.stub :put, put_stub do
-            put "/phil/food/aguacate", "si"
-            put "/phil/food/camaron", "yummi"
-          end
+        RestClient.stub :put, put_stub do
+          put "/phil/food/aguacate", "si"
+          put "/phil/food/camaron", "yummi"
         end
       end
 
@@ -205,12 +199,10 @@ describe "App" do
         header "Authorization", "Bearer amarillo"
 
         put_stub = OpenStruct.new(headers: {etag: "bla"})
-        RemoteStorage::Swift.stub_any_instance :has_name_collision?, false do
-          RestClient.stub :put, put_stub do
-            put "/phil/food/aguacate", "si"
-            put "/phil/food/camaron", "yummi"
-            put "/phil/food/desunyos/bolon", "wow"
-          end
+        RestClient.stub :put, put_stub do
+          put "/phil/food/aguacate", "si"
+          put "/phil/food/camaron", "yummi"
+          put "/phil/food/desunyos/bolon", "wow"
         end
       end
 
