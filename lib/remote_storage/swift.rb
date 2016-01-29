@@ -453,8 +453,12 @@ module RemoteStorage
     end
 
     def dir_empty?(user, dir)
-      do_get_request("#{container_url_for(user)}/?format=plain&limit=1&path=#{escape(dir)}/") do |res|
-        return res.headers[:content_length] == "0"
+      if directory_backend(user).match /new/
+        redis.smembers("rs_meta:#{user}:#{dir}/:items").empty?
+      else
+        do_get_request("#{container_url_for(user)}/?format=plain&limit=1&path=#{escape(dir)}/") do |res|
+          return res.headers[:content_length] == "0"
+        end
       end
     end
 
