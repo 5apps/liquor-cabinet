@@ -101,6 +101,38 @@ describe "App" do
           metadata.must_be_empty
         end
       end
+
+      describe "directory backend configuration" do
+        context "locked new backed" do
+          before do
+            redis.set "rs_config:dir_backend:phil", "new-locked"
+          end
+
+          it "responds with 503" do
+            put "/phil/food/aguacate", "si"
+
+            last_response.status.must_equal 503
+
+            metadata = redis.hgetall "rs_meta:phil:food/aguacate"
+            metadata.must_be_empty
+          end
+        end
+
+        context "locked legacy backend" do
+          before do
+            redis.set "rs_config:dir_backend:phil", "legacy-locked"
+          end
+
+          it "responds with 503" do
+            put "/phil/food/aguacate", "si"
+
+            last_response.status.must_equal 503
+
+            metadata = redis.hgetall "rs_meta:phil:food/aguacate"
+            metadata.must_be_empty
+          end
+        end
+      end
     end
   end
 

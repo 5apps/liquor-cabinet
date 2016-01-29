@@ -28,6 +28,7 @@ module RemoteStorage
 
       server.halt 401 unless permission
       if ["PUT", "DELETE"].include? request_method
+        server.halt 503 if directory_backend(user).match /locked/
         server.halt 401 unless permission == "rw"
       end
     end
