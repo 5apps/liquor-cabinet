@@ -20,7 +20,6 @@ development: &defaults
   # redis:
   #   host: localhost
   #   port: 6379
-  # use_redis_dir_listing: true
 
 test:
   <<: *defaults

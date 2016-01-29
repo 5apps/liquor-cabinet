@@ -75,7 +75,7 @@ module RemoteStorage
     end
 
     def get_directory_listing(user, directory)
-      if settings.use_redis_dir_listing
+      if directory_backend(user).match /new/
         get_directory_listing_from_redis(user, directory)
       else
         get_directory_listing_from_swift(user, directory)
@@ -289,7 +289,7 @@ module RemoteStorage
     end
 
     def has_name_collision?(user, directory, key)
-      if settings.use_redis_dir_listing
+      if directory_backend(user).match /new/
         has_name_collision_via_redis?(user, directory, key)
       else
         has_name_collision_via_swift?(user, directory, key)
@@ -516,6 +516,10 @@ module RemoteStorage
 
     def redis
       @redis ||= Redis.new(host: settings.redis["host"], port: settings.redis["port"])
+    end
+
+    def directory_backend(user)
+      @directory_backend ||= redis.get("rs_config:dir_backend:#{user}") || "legacy"
     end
 
     def etag_for(body)

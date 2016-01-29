@@ -16,6 +16,7 @@ describe "App" do
 
     before do
       purge_redis
+      redis.set "rs_config:dir_backend:phil", "new"
     end
 
     context "authorized" do
@@ -107,6 +108,7 @@ describe "App" do
 
     before do
       purge_redis
+      redis.set "rs_config:dir_backend:phil", "new"
     end
 
     context "authorized" do
@@ -191,9 +193,11 @@ describe "App" do
 
     before do
       purge_redis
+      redis.set "rs_config:dir_backend:phil", "new"
     end
 
     context "authorized" do
+
       before do
         redis.sadd "authorizations:phil:amarillo", [":rw"]
         header "Authorization", "Bearer amarillo"
@@ -255,6 +259,33 @@ describe "App" do
 
       end
     end
+
+    context "with legacy directory backend" do
+
+      before do
+        redis.sadd "authorizations:phil:amarillo", [":rw"]
+        header "Authorization", "Bearer amarillo"
+
+        put_stub = OpenStruct.new(headers: {etag: "bla"})
+        RestClient.stub :put, put_stub do
+          put "/phil/food/aguacate", "si"
+          put "/phil/food/camaron", "yummi"
+        end
+
+        redis.set "rs_config:dir_backend:phil", "legacy"
+      end
+
+      it "serves directory listing from Swift backend" do
+        RemoteStorage::Swift.stub_any_instance :get_directory_listing_from_swift, "directory listing" do
+          get "/phil/food/"
+        end
+
+        last_response.status.must_equal 200
+        last_response.body.must_equal "directory listing"
+      end
+
+    end
+
   end
 end
 

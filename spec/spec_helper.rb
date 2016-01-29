@@ -38,7 +38,7 @@ def redis
 end
 
 def purge_redis
-  redis.keys("*").each do |key|
+  redis.keys("rs_*").each do |key|
     redis.del key
   end
 end
