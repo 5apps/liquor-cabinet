@@ -10,7 +10,7 @@ before_install:
 before_script:
   - cp config.yml.example config.yml
   - mkdir -p tmp && echo "swifttoken" > tmp/swift_token.txt
-script: bundle exec rake test
+script: ruby spec/swift/*
 branches:
   only:
     - master

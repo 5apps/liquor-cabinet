@@ -23,15 +23,15 @@ development: &defaults
 
 test:
   <<: *defaults
-  riak:
-    <<: *riak_defaults
-    buckets:
-      data: rs_data_test
-      directories: rs_directories_test
-      binaries: rs_binaries_test
-      cs_binaries: rs.binaries.test
-      authorizations: rs_authorizations_test
-      opslog: rs_opslog_test
+  # riak:
+  #   <<: *riak_defaults
+  #   buckets:
+  #     data: rs_data_test
+  #     directories: rs_directories_test
+  #     binaries: rs_binaries_test
+  #     cs_binaries: rs.binaries.test
+  #     authorizations: rs_authorizations_test
+  #     opslog: rs_opslog_test
   swift:
     host: "https://swift.example.com"
   redis:
