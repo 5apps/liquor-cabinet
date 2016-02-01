@@ -32,6 +32,11 @@ test:
       cs_binaries: rs.binaries.test
       authorizations: rs_authorizations_test
       opslog: rs_opslog_test
+  swift:
+    host: "https://swift.example.com"
+  redis:
+    host: localhost
+    port: 6379
 
 staging:
   <<: *defaults

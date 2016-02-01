@@ -33,13 +33,15 @@ end
 
 alias context describe
 
-def redis
-  @redis ||= Redis.new(host: app.settings.redis["host"], port: app.settings.redis["port"])
-end
+if app.settings.respond_to? :redis
+  def redis
+    @redis ||= Redis.new(host: app.settings.redis["host"], port: app.settings.redis["port"])
+  end
 
-def purge_redis
-  redis.keys("rs_*").each do |key|
-    redis.del key
+  def purge_redis
+    redis.keys("rs_*").each do |key|
+      redis.del key
+    end
   end
 end
 
