@@ -28,7 +28,7 @@ module RemoteStorage
 
       server.halt 401 unless permission
       if ["PUT", "DELETE"].include? request_method
-        server.halt 503 if directory_backend(user).match /locked/
+        server.halt 503 if directory_backend(user).match(/locked/)
         server.halt 401 unless permission == "rw"
       end
     end
@@ -76,7 +76,7 @@ module RemoteStorage
     end
 
     def get_directory_listing(user, directory)
-      if directory_backend(user).match /new/
+      if directory_backend(user).match(/new/)
         get_directory_listing_from_redis(user, directory)
       else
         get_directory_listing_from_swift(user, directory)
@@ -290,7 +290,7 @@ module RemoteStorage
     end
 
     def has_name_collision?(user, directory, key)
-      if directory_backend(user).match /new/
+      if directory_backend(user).match(/new/)
         has_name_collision_via_redis?(user, directory, key)
       else
         has_name_collision_via_swift?(user, directory, key)
@@ -453,7 +453,7 @@ module RemoteStorage
     end
 
     def dir_empty?(user, dir)
-      if directory_backend(user).match /new/
+      if directory_backend(user).match(/new/)
         redis.smembers("rs_meta:#{user}:#{dir}/:items").empty?
       else
         do_get_request("#{container_url_for(user)}/?format=plain&limit=1&path=#{escape(dir)}/") do |res|
