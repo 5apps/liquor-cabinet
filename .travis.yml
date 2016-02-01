@@ -1,6 +1,8 @@
 language: ruby
 rvm:
   - 2.2.4
+services:
+  - redis-server
 sudo: required
 dist: trusty
 before_install:
