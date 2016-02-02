@@ -411,10 +411,16 @@ module RemoteStorage
       timestamp = (Time.now.to_f * 1000).to_i
 
       parent_directories_for(directory).each do |dir|
-        # TODO check if we can actually do a put request to the root dir
-        res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
+        unless dir == ""
+          res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
+          etag = res.headers[:etag]
+        else
+          get_response = do_get_request("#{container_url_for(user)}/?format=json&path=")
+          etag = etag_for(get_response.body)
+        end
+
         key = "rs_meta:#{user}:#{dir}/"
-        metadata = {etag: res.headers[:etag], modified: timestamp}
+        metadata = {etag: etag, modified: timestamp}
         redis.hmset(key, *metadata)
         redis.sadd "rs_meta:#{user}:#{parent_directory_for(dir)}:items", "#{top_directory(dir)}/"
       end
@@ -422,8 +428,9 @@ module RemoteStorage
       true
     rescue
       parent_directories_for(directory).each do |dir|
-        # TODO check if we can actually do a delete request to the root dir
-        do_delete_request("#{url_for_directory(user, dir)}/") rescue false
+        unless dir == ""
+          do_delete_request("#{url_for_directory(user, dir)}/") rescue false
+        end
       end
 
       false
@@ -438,15 +445,21 @@ module RemoteStorage
     def delete_dir_objects(user, directory)
       parent_directories_for(directory).each do |dir|
         if dir_empty?(user, dir)
-          # TODO check if we can actually do a delete request to the root dir
-          do_delete_request("#{url_for_directory(user, dir)}/")
+          unless dir == ""
+            do_delete_request("#{url_for_directory(user, dir)}/")
+          end
           redis.del "rs_meta:#{user}:#{directory}/"
           redis.srem "rs_meta:#{user}:#{parent_directory_for(dir)}:items", "#{dir}/"
         else
           timestamp = (Time.now.to_f * 1000).to_i
-        # TODO check if we can actually do a put request to the root dir
-          res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
-          metadata = {etag: res.headers[:etag], modified: timestamp}
+          unless dir == ""
+            res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
+            etag = res.headers[:etag]
+          else
+            get_response = do_get_request("#{container_url_for(user)}/?format=json&path=")
+            etag = etag_for(get_response.body)
+          end
+          metadata = {etag: etag, modified: timestamp}
           redis.hmset("rs_meta:#{user}:#{dir}/", *metadata)
         end
       end

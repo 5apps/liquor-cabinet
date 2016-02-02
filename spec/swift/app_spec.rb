@@ -40,13 +40,18 @@ describe "App" do
 
       it "creates the directory objects metadata in redis" do
         put_stub = OpenStruct.new(headers: {etag: "bla"})
+        get_stub = OpenStruct.new(body: "rootbody")
         RestClient.stub :put, put_stub do
-          put "/phil/food/aguacate", "si"
-          put "/phil/food/camaron", "yummi"
+          RestClient.stub :get, get_stub do
+            RemoteStorage::Swift.stub_any_instance :etag_for, "rootetag" do
+              put "/phil/food/aguacate", "si"
+              put "/phil/food/camaron", "yummi"
+            end
+          end
         end
 
         metadata = redis.hgetall "rs_meta:phil:/"
-        metadata["etag"].must_equal "bla"
+        metadata["etag"].must_equal "rootetag"
         metadata["modified"].length.must_equal 13
 
         metadata = redis.hgetall "rs_meta:phil:food/"
@@ -65,8 +70,13 @@ describe "App" do
       describe "name collision checks" do
         it "is successful when there is no name collision" do
           put_stub = OpenStruct.new(headers: {etag: "bla"})
+          get_stub = OpenStruct.new(body: "rootbody")
           RestClient.stub :put, put_stub do
-            put "/phil/food/aguacate", "si"
+            RestClient.stub :get, get_stub do
+              RemoteStorage::Swift.stub_any_instance :etag_for, "rootetag" do
+                put "/phil/food/aguacate", "si"
+              end
+            end
           end
 
           last_response.status.must_equal 200
@@ -157,9 +167,14 @@ describe "App" do
 
       it "deletes the metadata object in redis" do
         put_stub = OpenStruct.new(headers: {etag: "bla"})
+        get_stub = OpenStruct.new(body: "rootbody")
         RestClient.stub :put, put_stub do
           RestClient.stub :delete, "" do
-            delete "/phil/food/aguacate"
+            RestClient.stub :get, get_stub do
+              RemoteStorage::Swift.stub_any_instance :etag_for, "rootetag" do
+                delete "/phil/food/aguacate"
+              end
+            end
           end
         end
 
@@ -171,9 +186,14 @@ describe "App" do
         old_metadata = redis.hgetall "rs_meta:phil:food/"
 
         put_stub = OpenStruct.new(headers: {etag: "newetag"})
+        get_stub = OpenStruct.new(body: "rootbody")
         RestClient.stub :put, put_stub do
           RestClient.stub :delete, "" do
-            delete "/phil/food/aguacate"
+            RestClient.stub :get, get_stub do
+              RemoteStorage::Swift.stub_any_instance :etag_for, "rootetag" do
+                delete "/phil/food/aguacate"
+              end
+            end
           end
         end
 
@@ -191,10 +211,15 @@ describe "App" do
 
       it "deletes the parent directory objects metadata when deleting all items" do
         put_stub = OpenStruct.new(headers: {etag: "bla"})
+        get_stub = OpenStruct.new(body: "rootbody")
         RestClient.stub :put, put_stub do
           RestClient.stub :delete, "" do
-            delete "/phil/food/aguacate"
-            delete "/phil/food/camaron"
+            RestClient.stub :get, get_stub do
+              RemoteStorage::Swift.stub_any_instance :etag_for, "rootetag" do
+                delete "/phil/food/aguacate"
+                delete "/phil/food/camaron"
+              end
+            end
           end
         end
 
