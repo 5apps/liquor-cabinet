@@ -28,6 +28,7 @@ module RemoteStorage
 
       server.halt 401 unless permission
       if ["PUT", "DELETE"].include? request_method
+        server.halt 503 if directory_backend(user).match(/locked/)
         server.halt 401 unless permission == "rw"
       end
     end
@@ -75,6 +76,68 @@ module RemoteStorage
     end
 
     def get_directory_listing(user, directory)
+      if directory_backend(user).match(/new/)
+        get_directory_listing_from_redis(user, directory)
+      else
+        get_directory_listing_from_swift(user, directory)
+      end
+    end
+
+    def get_directory_listing_from_redis_via_lua(user, directory)
+      lua_script = <<-EOF
+        local user = ARGV[1]
+        local directory = ARGV[2]
+        local items = redis.call("smembers", "rs_meta:"..user..":"..directory.."/:items")
+        local listing = {}
+
+        for index, name in pairs(items) do
+          local redis_key = "rs_meta:"..user..":"
+          if directory == "" then
+            redis_key = redis_key..name
+          else
+            redis_key = redis_key..directory.."/"..name
+          end
+
+          local metadata_values = redis.call("hgetall", redis_key)
+          local metadata = {}
+
+          -- redis returns hashes as a single list of alternating keys and values
+          -- this collates it into a table
+          for idx = 1, #metadata_values, 2 do
+            metadata[metadata_values[idx]] = metadata_values[idx + 1]
+          end
+
+          listing[name] = {["ETag"] = metadata["etag"]}
+          if string.sub(name, -1) ~= "/" then
+            listing[name]["Content-Type"]   = metadata["type"]
+            listing[name]["Content-Length"] = tonumber(metadata["size"])
+          end
+        end
+
+        return cjson.encode(listing)
+      EOF
+
+      JSON.parse(redis.eval(lua_script, nil, [user, directory]))
+    end
+
+    def get_directory_listing_from_redis(user, directory)
+      etag = redis.hget "rs_meta:#{user}:#{directory}/", "etag"
+
+      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
+      server.halt 304 if none_match.include? etag
+
+      server.headers["Content-Type"] = "application/json"
+      server.headers["ETag"] = %Q("#{etag}")
+
+      listing = {
+        "@context" => "http://remotestorage.io/spec/folder-description",
+        "items"    => get_directory_listing_from_redis_via_lua(user, directory)
+      }
+
+      listing.to_json
+    end
+
+    def get_directory_listing_from_swift(user, directory)
       is_root_listing = directory.empty?
 
       server.headers["Content-Type"] = "application/json"
@@ -125,7 +188,16 @@ module RemoteStorage
 
       res = do_put_request(url, data, content_type)
 
-      if update_dir_objects(user, directory)
+      # TODO get last modified from response and add to metadata
+      metadata = {
+        etag: res.headers[:etag],
+        size: data.size,
+        type: content_type
+      }
+
+      if update_metadata_object(user, directory, key, metadata) &&
+         # TODO provide the last modified to use for the dir objects as well
+         update_dir_objects(user, directory)
         server.headers["ETag"] = %Q("#{res.headers[:etag]}")
         server.halt 200
       else
@@ -143,6 +215,7 @@ module RemoteStorage
       end
 
       do_delete_request(url)
+      delete_metadata_objects(user, directory, key)
       delete_dir_objects(user, directory)
 
       server.halt 200
@@ -217,6 +290,58 @@ module RemoteStorage
     end
 
     def has_name_collision?(user, directory, key)
+      if directory_backend(user).match(/new/)
+        has_name_collision_via_redis?(user, directory, key)
+      else
+        has_name_collision_via_swift?(user, directory, key)
+      end
+    end
+
+    def has_name_collision_via_redis?(user, directory, key)
+      lua_script = <<-EOF
+        local user = ARGV[1]
+        local directory = ARGV[2]
+        local key = ARGV[3]
+
+        -- build table with parent directories from remaining arguments
+        local parent_dir_count = #ARGV - 3
+        local parent_directories = {}
+        for i = 4, 4 + parent_dir_count do
+          table.insert(parent_directories, ARGV[i])
+        end
+
+        -- check for existing directory with the same name as the document
+        local redis_key = "rs_meta:"..user..":"
+        if directory == "" then
+          redis_key = redis_key..key.."/"
+        else
+          redis_key = redis_key..directory.."/"..key.."/"
+        end
+        if redis.call("hget", redis_key, "etag") then
+          return true
+        end
+
+        for index, dir in pairs(parent_directories) do
+          if redis.call("hget", "rs_meta:"..user..":"..dir.."/", "etag") then
+            -- the directory already exists, no need to do further checks
+            return false
+          else
+            -- check for existing document with same name as directory
+            if redis.call("hget", "rs_meta:"..user..":"..dir, "etag") then
+              return true
+            end
+          end
+        end
+
+        return false
+      EOF
+
+      parent_directories = parent_directories_for(directory)
+
+      redis.eval(lua_script, nil, [user, directory, key, *parent_directories])
+    end
+
+    def has_name_collision_via_swift?(user, directory, key)
       # check for existing directory with the same name as the document
       url = url_for_key(user, directory, key)
       do_head_request("#{url}/") do |res|
@@ -252,39 +377,88 @@ module RemoteStorage
         directories.pop
       end
 
+      parent_directories << "" # add empty string for the root directory
+
       parent_directories
     end
 
+    def top_directory(directory)
+      if directory.match(/\//)
+        directory.split("/").last
+      elsif directory != ""
+        return directory
+      end
+    end
+
+    def parent_directory_for(directory)
+      if directory.match(/\//)
+        return directory[0..directory.rindex("/")]
+      elsif directory != ""
+        return "/"
+      end
+    end
+
+    def update_metadata_object(user, directory, key, metadata)
+      redis_key = "rs_meta:#{user}:#{directory}/#{key}"
+      redis.hmset(redis_key, *metadata)
+      redis.sadd "rs_meta:#{user}:#{directory}/:items", key
+
+      true
+    end
+
     def update_dir_objects(user, directory)
+      # TODO use actual last modified time from the document put request
       timestamp = (Time.now.to_f * 1000).to_i
 
       parent_directories_for(directory).each do |dir|
-        do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
+        # TODO check if we can actually do a put request to the root dir
+        res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
+        key = "rs_meta:#{user}:#{dir}/"
+        metadata = {etag: res.headers[:etag], modified: timestamp}
+        redis.hmset(key, *metadata)
+        redis.sadd "rs_meta:#{user}:#{parent_directory_for(dir)}:items", "#{top_directory(dir)}/"
       end
 
       true
     rescue
       parent_directories_for(directory).each do |dir|
+        # TODO check if we can actually do a delete request to the root dir
         do_delete_request("#{url_for_directory(user, dir)}/") rescue false
       end
 
       false
     end
 
+    def delete_metadata_objects(user, directory, key)
+      redis_key = "rs_meta:#{user}:#{directory}/#{key}"
+      redis.del(redis_key)
+      redis.srem "rs_meta:#{user}:#{directory}/:items", key
+    end
+
     def delete_dir_objects(user, directory)
       parent_directories_for(directory).each do |dir|
         if dir_empty?(user, dir)
+          # TODO check if we can actually do a delete request to the root dir
           do_delete_request("#{url_for_directory(user, dir)}/")
+          redis.del "rs_meta:#{user}:#{directory}/"
+          redis.srem "rs_meta:#{user}:#{parent_directory_for(dir)}:items", "#{dir}/"
         else
           timestamp = (Time.now.to_f * 1000).to_i
-          do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
+        # TODO check if we can actually do a put request to the root dir
+          res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
+          metadata = {etag: res.headers[:etag], modified: timestamp}
+          redis.hmset("rs_meta:#{user}:#{dir}/", *metadata)
         end
       end
     end
 
     def dir_empty?(user, dir)
-      do_get_request("#{container_url_for(user)}/?format=plain&limit=1&path=#{escape(dir)}/") do |res|
-        return res.headers[:content_length] == "0"
+      if directory_backend(user).match(/new/)
+        redis.smembers("rs_meta:#{user}:#{dir}/:items").empty?
+      else
+        do_get_request("#{container_url_for(user)}/?format=plain&limit=1&path=#{escape(dir)}/") do |res|
+          return res.headers[:content_length] == "0"
+        end
       end
     end
 
@@ -347,6 +521,10 @@ module RemoteStorage
 
     def redis
       @redis ||= Redis.new(host: settings.redis["host"], port: settings.redis["port"])
+    end
+
+    def directory_backend(user)
+      @directory_backend ||= redis.get("rs_config:dir_backend:#{user}") || "legacy"
     end
 
     def etag_for(body)

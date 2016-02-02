@@ -2,12 +2,15 @@ language: ruby
 cache: bundler
 rvm:
   - 2.2.4
+services:
+  - redis-server
 before_install:
   - sh .travis/install_riakcs.sh
   - gem install bundler
 before_script:
   - cp config.yml.example config.yml
-script: bundle exec rake test
+  - mkdir -p tmp && echo "swifttoken" > tmp/swift_token.txt
+script: ruby spec/swift/*
 branches:
   only:
     - master

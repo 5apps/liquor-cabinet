@@ -1,4 +1,4 @@
-require_relative "spec_helper"
+require_relative "../spec_helper"
 
 describe "App with Riak backend" do
   include Rack::Test::Methods
@@ -446,7 +446,7 @@ describe "App with Riak backend" do
           context "binary charset in content-type header" do
             before do
               header "Content-Type", "image/jpeg; charset=binary"
-              filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+              filename = File.join(File.expand_path(File.dirname(__FILE__)), "..", "fixtures", "rockrule.jpeg")
               @image = File.open(filename, "r").read
               put "/jimmy/documents/jaypeg", @image
             end
@@ -502,7 +502,7 @@ describe "App with Riak backend" do
             context "overwriting existing file with same file" do
               before do
                 header "Content-Type", "image/jpeg; charset=binary"
-                filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+                filename = File.join(File.expand_path(File.dirname(__FILE__)), "..", "fixtures", "rockrule.jpeg")
                 @image = File.open(filename, "r").read
                 put "/jimmy/documents/jaypeg", @image
               end
@@ -518,7 +518,7 @@ describe "App with Riak backend" do
             context "overwriting existing file with different file" do
               before do
                 header "Content-Type", "image/jpeg; charset=binary"
-                filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+                filename = File.join(File.expand_path(File.dirname(__FILE__)), "..", "fixtures", "rockrule.jpeg")
                 @image = File.open(filename, "r").read
                 put "/jimmy/documents/jaypeg", @image+"foo"
               end
@@ -540,7 +540,7 @@ describe "App with Riak backend" do
           context "no binary charset in content-type header" do
             before do
               header "Content-Type", "image/jpeg"
-              filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+              filename = File.join(File.expand_path(File.dirname(__FILE__)), "..", "fixtures", "rockrule.jpeg")
               @image = File.open(filename, "r").read
               put "/jimmy/documents/jaypeg", @image
             end
@@ -705,7 +705,7 @@ describe "App with Riak backend" do
         context "binary data" do
           before do
             header "Content-Type", "image/jpeg; charset=binary"
-            filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+            filename = File.join(File.expand_path(File.dirname(__FILE__)), "..", "fixtures", "rockrule.jpeg")
             @image = File.open(filename, "r").read
             put "/jimmy/documents/jaypeg", @image
 

@@ -1,4 +1,4 @@
-require_relative "spec_helper"
+require_relative "../spec_helper"
 
 describe "App" do
   include Rack::Test::Methods
@@ -11,4 +11,5 @@ describe "App" do
     get "/virginmargarita"
     last_response.status.must_equal 404
   end
+
 end
