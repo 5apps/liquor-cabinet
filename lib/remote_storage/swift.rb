@@ -533,7 +533,7 @@ module RemoteStorage
     end
 
     def redis
-      @redis ||= Redis.new(host: settings.redis["host"], port: settings.redis["port"])
+      @redis ||= Redis.new(settings.redis)
     end
 
     def directory_backend(user)
