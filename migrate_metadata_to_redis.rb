@@ -19,7 +19,7 @@ class Migrator
     @swift_host = @settings["swift"]["host"]
     @swift_token = File.read("tmp/swift_token.txt")
 
-    @dry_run = false # disables writing anything to Redis when true
+    @dry_run = ENV["DRYRUN"] || false # disables writing anything to Redis when true
 
     @logger = Logger.new("log/migrate_metadata_to_redis.log")
     log_level = ENV["LOGLEVEL"] || "INFO"
