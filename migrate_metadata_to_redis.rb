@@ -3,22 +3,28 @@
 require "rest_client"
 require "redis"
 require "yaml"
+require "logger"
 
 class Migrator
 
   attr_accessor :username, :base_url, :swift_host, :swift_token,
-                :environment, :dry_run, :logging, :settings
+                :environment, :dry_run, :settings, :logger
 
   def initialize(username)
     @username = username
 
     @environment = ENV["ENVIRONMENT"] || "staging"
     @settings = YAML.load(File.read('config.yml'))[@environment]
+
     @swift_host = @settings["swift"]["host"]
     @swift_token = File.read("tmp/swift_token.txt")
 
     @dry_run = false # disables writing anything to Redis when true
-    @logging = true
+
+    @logger = Logger.new("log/migrate_metadata_to_redis.log")
+    log_level = ENV["LOGLEVEL"] || "INFO"
+    logger.level = Kernel.const_get "Logger::#{log_level}"
+    logger.progname = username
   end
 
   def root_url
@@ -34,16 +40,18 @@ class Migrator
   end
 
   def migrate
+    logger.info "Starting migration for '#{username}'"
     set_directory_backend("legacy_locked")
     begin
       work_on_dir("", "")
     rescue Exception => ex
-      puts "Error migrating metadata for '#{username}': #{ex}" if logging
+      logger.error "Error migrating metadata for '#{username}': #{ex}"
       set_directory_backend("legacy")
       # TODO write username to file for later reference
       exit 1
     end
     set_directory_backend("new")
+    logger.info "Finished migration for '#{username}'"
   end
 
   def set_directory_backend(backend)
@@ -51,7 +59,7 @@ class Migrator
   end
 
   def work_on_dir(directory, parent_directory)
-    puts "retrieving listing for '#{parent_directory}#{directory}'" if logging
+    logger.debug "Retrieving listing for '#{parent_directory}#{directory}'"
 
     listing = get_directory_listing_from_swift("#{parent_directory}#{directory}")
 
@@ -76,7 +84,7 @@ class Migrator
 
   def add_item_to_parent_dir(dir, item)
     key = "rs_meta:#{username}:#{parent_directory_for(dir)}:items"
-    puts "adding item #{item} to #{key}" if logging
+    logger.debug "Adding item #{item} to #{key}"
     redis.sadd(key, item) unless dry_run
   end
 
@@ -84,7 +92,7 @@ class Migrator
     key = "rs_meta:#{username}:#{dir.gsub(/^\//, "")}#{item}"
     metadata = {etag: data["ETag"], modified: timestamp}
 
-    puts "metadata for dir #{key}: #{metadata}" if logging
+    logger.debug "Metadata for dir #{key}: #{metadata}"
     redis.hmset(key, *metadata) unless dry_run
   end
 
@@ -96,7 +104,7 @@ class Migrator
       type: data["Content-Type"],
       modified: timestamp
     }
-    puts "metadata for document #{key}: #{metadata}" if logging
+    logger.debug "Metadata for document #{key}: #{metadata}"
     redis.hmset(key, *metadata) unless dry_run
   end
 
