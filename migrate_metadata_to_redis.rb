@@ -34,7 +34,20 @@ class Migrator
   end
 
   def migrate
-    work_on_dir("", "")
+    set_directory_backend("legacy_locked")
+    begin
+      work_on_dir("", "")
+    rescue Exception => ex
+      puts "Error migrating metadata for '#{username}': #{ex}" if logging
+      set_directory_backend("legacy")
+      # TODO write username to file for later reference
+      exit 1
+    end
+    set_directory_backend("new")
+  end
+
+  def set_directory_backend(backend)
+    redis.set("rs_config:dir_backend:#{username}", backend) unless dry_run
   end
 
   def work_on_dir(directory, parent_directory)
