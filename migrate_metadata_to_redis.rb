@@ -47,7 +47,8 @@ class Migrator
     rescue Exception => ex
       logger.error "Error migrating metadata for '#{username}': #{ex}"
       set_directory_backend("legacy")
-      # TODO write username to file for later reference
+      # write username to file for later reference
+      File.open('log/failed_migration.log', 'a') { |f| f.puts username }
       exit 1
     end
     set_directory_backend("new")
