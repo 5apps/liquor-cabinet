@@ -4,6 +4,7 @@ require "rest_client"
 require "redis"
 require "yaml"
 require "logger"
+require "active_support/core_ext/hash"
 
 class Migrator
 
@@ -118,7 +119,7 @@ class Migrator
   end
 
   def redis
-    @redis ||= Redis.new(@settings["redis"])
+    @redis ||= Redis.new(@settings["redis"].symbolize_keys)
   end
 
   def get_directory_listing_from_swift(directory)
