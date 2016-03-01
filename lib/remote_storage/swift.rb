@@ -3,6 +3,7 @@ require "json"
 require "cgi"
 require "active_support/core_ext/time/conversions"
 require "active_support/core_ext/numeric/time"
+require "active_support/core_ext/hash"
 require "redis"
 require "digest/md5"
 
@@ -533,7 +534,7 @@ module RemoteStorage
     end
 
     def redis
-      @redis ||= Redis.new(settings.redis)
+      @redis ||= Redis.new(settings.redis.symbolize_keys)
     end
 
     def directory_backend(user)
