@@ -133,7 +133,7 @@ class Migrator
       if is_root_listing
         get_response = do_get_request("#{container_url_for(@username)}/?format=json&path=")
       else
-        get_response = do_get_request("#{container_url_for(@username)}/?format=json&path=#{escape(directory)}/")
+        get_response = do_get_request("#{container_url_for(@username)}/?format=json&path=#{escape(directory)}")
       end
     end
 
