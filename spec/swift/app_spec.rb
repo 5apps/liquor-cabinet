@@ -32,10 +32,10 @@ describe "App" do
         end
 
         metadata = redis.hgetall "rsm:phil:food/aguacate"
-        metadata["size"].must_equal "2"
-        metadata["type"].must_equal "text/plain; charset=utf-8"
-        metadata["etag"].must_equal "bla"
-        metadata["modified"].length.must_equal 13
+        metadata["s"].must_equal "2"
+        metadata["t"].must_equal "text/plain; charset=utf-8"
+        metadata["e"].must_equal "bla"
+        metadata["m"].length.must_equal 13
       end
 
       it "creates the directory objects metadata in redis" do
@@ -51,12 +51,12 @@ describe "App" do
         end
 
         metadata = redis.hgetall "rsm:phil:/"
-        metadata["etag"].must_equal "rootetag"
-        metadata["modified"].length.must_equal 13
+        metadata["e"].must_equal "rootetag"
+        metadata["m"].length.must_equal 13
 
         metadata = redis.hgetall "rsm:phil:food/"
-        metadata["etag"].must_equal "bla"
-        metadata["modified"].length.must_equal 13
+        metadata["e"].must_equal "bla"
+        metadata["m"].length.must_equal 13
 
         food_items = redis.smembers "rsm:phil:food/:i"
         food_items.each do |food_item|
@@ -82,7 +82,7 @@ describe "App" do
           last_response.status.must_equal 200
 
           metadata = redis.hgetall "rsm:phil:food/aguacate"
-          metadata["size"].must_equal "2"
+          metadata["s"].must_equal "2"
         end
 
         it "conflicts when there is a directory with same name as document" do
@@ -198,9 +198,9 @@ describe "App" do
         end
 
         metadata = redis.hgetall "rsm:phil:food/"
-        metadata["etag"].must_equal "newetag"
-        metadata["modified"].length.must_equal 13
-        metadata["modified"].wont_equal old_metadata["modified"]
+        metadata["e"].must_equal "newetag"
+        metadata["m"].length.must_equal 13
+        metadata["m"].wont_equal old_metadata["m"]
 
         food_items = redis.smembers "rsm:phil:food/:i"
         food_items.must_equal ["camaron"]

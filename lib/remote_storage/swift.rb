@@ -107,10 +107,10 @@ module RemoteStorage
             metadata[metadata_values[idx]] = metadata_values[idx + 1]
           end
 
-          listing[name] = {["ETag"] = metadata["etag"]}
+          listing[name] = {["ETag"] = metadata["e"]}
           if string.sub(name, -1) ~= "/" then
-            listing[name]["Content-Type"]   = metadata["type"]
-            listing[name]["Content-Length"] = tonumber(metadata["size"])
+            listing[name]["Content-Type"]   = metadata["t"]
+            listing[name]["Content-Length"] = tonumber(metadata["s"])
           end
         end
 
@@ -121,7 +121,7 @@ module RemoteStorage
     end
 
     def get_directory_listing_from_redis(user, directory)
-      etag = redis.hget "rsm:#{user}:#{directory}/", "etag"
+      etag = redis.hget "rsm:#{user}:#{directory}/", "e"
 
       none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
       server.halt 304 if none_match.include? etag
@@ -192,10 +192,10 @@ module RemoteStorage
       timestamp = (Time.now.to_f * 1000).to_i
 
       metadata = {
-        etag: res.headers[:etag],
-        size: data.size,
-        type: content_type,
-        modified: timestamp
+        e: res.headers[:etag],
+        s: data.size,
+        t: content_type,
+        m: timestamp
       }
 
       if update_metadata_object(user, directory, key, metadata) &&
@@ -319,17 +319,17 @@ module RemoteStorage
         else
           redis_key = redis_key..directory.."/"..key.."/"
         end
-        if redis.call("hget", redis_key, "etag") then
+        if redis.call("hget", redis_key, "e") then
           return true
         end
 
         for index, dir in pairs(parent_directories) do
-          if redis.call("hget", "rsm:"..user..":"..dir.."/", "etag") then
+          if redis.call("hget", "rsm:"..user..":"..dir.."/", "e") then
             -- the directory already exists, no need to do further checks
             return false
           else
             -- check for existing document with same name as directory
-            if redis.call("hget", "rsm:"..user..":"..dir, "etag") then
+            if redis.call("hget", "rsm:"..user..":"..dir, "e") then
               return true
             end
           end
@@ -419,7 +419,7 @@ module RemoteStorage
         end
 
         key = "rsm:#{user}:#{dir}/"
-        metadata = {etag: etag, modified: timestamp}
+        metadata = {e: etag, m: timestamp}
         redis.hmset(key, *metadata)
         redis.sadd "rsm:#{user}:#{parent_directory_for(dir)}:i", "#{top_directory(dir)}/"
       end
@@ -459,7 +459,7 @@ module RemoteStorage
             get_response = do_get_request("#{container_url_for(user)}/?format=json&path=")
             etag = etag_for(get_response.body)
           end
-          metadata = {etag: etag, modified: timestamp}
+          metadata = {e: etag, m: timestamp}
           redis.hmset("rsm:#{user}:#{dir}/", *metadata)
         end
       end

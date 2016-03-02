@@ -93,8 +93,8 @@ class Migrator
   def save_directory_data(dir, item, data, timestamp)
     key = "rsm:#{username}:#{dir.gsub(/^\//, "")}#{item}"
     metadata = {
-      etag: data["ETag"],
-      modified: timestamp_for(data["Last-Modified"])
+      e: data["ETag"],
+      m: timestamp_for(data["Last-Modified"])
     }
 
     logger.debug "Metadata for dir #{key}: #{metadata}"
@@ -104,10 +104,10 @@ class Migrator
   def save_document_data(dir, item, data)
     key = "rsm:#{username}:#{dir.gsub(/^\//, "")}#{item}"
     metadata = {
-      etag: data["ETag"],
-      size: data["Content-Length"],
-      type: data["Content-Type"],
-      modified: timestamp_for(data["Last-Modified"])
+      e: data["ETag"],
+      s: data["Content-Length"],
+      t: data["Content-Type"],
+      m: timestamp_for(data["Last-Modified"])
     }
     logger.debug "Metadata for document #{key}: #{metadata}"
     redis.hmset(key, *metadata) unless dry_run
