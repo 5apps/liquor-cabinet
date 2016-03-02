@@ -85,7 +85,7 @@ class Migrator
   end
 
   def add_item_to_parent_dir(dir, item)
-    key = "rs:m:#{username}:#{parent_directory_for(dir)}:i"
+    key = "rs:m:#{username}:#{parent_directory_for(dir)}:items"
     logger.debug "Adding item #{item} to #{key}"
     redis.sadd(key, item) unless dry_run
   end

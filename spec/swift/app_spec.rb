@@ -58,12 +58,12 @@ describe "App" do
         metadata["e"].must_equal "bla"
         metadata["m"].length.must_equal 13
 
-        food_items = redis.smembers "rs:m:phil:food/:i"
+        food_items = redis.smembers "rs:m:phil:food/:items"
         food_items.each do |food_item|
           ["camaron", "aguacate"].must_include food_item
         end
 
-        root_items = redis.smembers "rs:m:phil:/:i"
+        root_items = redis.smembers "rs:m:phil:/:items"
         root_items.must_equal ["food/"]
       end
 
@@ -202,10 +202,10 @@ describe "App" do
         metadata["m"].length.must_equal 13
         metadata["m"].wont_equal old_metadata["m"]
 
-        food_items = redis.smembers "rs:m:phil:food/:i"
+        food_items = redis.smembers "rs:m:phil:food/:items"
         food_items.must_equal ["camaron"]
 
-        root_items = redis.smembers "rs:m:phil:/:i"
+        root_items = redis.smembers "rs:m:phil:/:items"
         root_items.must_equal ["food/"]
       end
 
@@ -226,10 +226,10 @@ describe "App" do
         metadata = redis.hgetall "rs:m:phil:food/"
         metadata.must_be_empty
 
-        food_items = redis.smembers "rs:m:phil:food/:i"
+        food_items = redis.smembers "rs:m:phil:food/:items"
         food_items.must_be_empty
 
-        root_items = redis.smembers "rs:m:phil:/:i"
+        root_items = redis.smembers "rs:m:phil:/:items"
         root_items.must_be_empty
       end
     end

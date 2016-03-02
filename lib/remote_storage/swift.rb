@@ -87,7 +87,7 @@ module RemoteStorage
       lua_script = <<-EOF
         local user = ARGV[1]
         local directory = ARGV[2]
-        local items = redis.call("smembers", "rs:m:"..user..":"..directory.."/:i")
+        local items = redis.call("smembers", "rs:m:"..user..":"..directory.."/:items")
         local listing = {}
 
         for index, name in pairs(items) do
@@ -403,7 +403,7 @@ module RemoteStorage
     def update_metadata_object(user, directory, key, metadata)
       redis_key = "rs:m:#{user}:#{directory}/#{key}"
       redis.hmset(redis_key, *metadata)
-      redis.sadd "rs:m:#{user}:#{directory}/:i", key
+      redis.sadd "rs:m:#{user}:#{directory}/:items", key
 
       true
     end
@@ -421,7 +421,7 @@ module RemoteStorage
         key = "rs:m:#{user}:#{dir}/"
         metadata = {e: etag, m: timestamp}
         redis.hmset(key, *metadata)
-        redis.sadd "rs:m:#{user}:#{parent_directory_for(dir)}:i", "#{top_directory(dir)}/"
+        redis.sadd "rs:m:#{user}:#{parent_directory_for(dir)}:items", "#{top_directory(dir)}/"
       end
 
       true
@@ -438,7 +438,7 @@ module RemoteStorage
     def delete_metadata_objects(user, directory, key)
       redis_key = "rs:m:#{user}:#{directory}/#{key}"
       redis.del(redis_key)
-      redis.srem "rs:m:#{user}:#{directory}/:i", key
+      redis.srem "rs:m:#{user}:#{directory}/:items", key
     end
 
     def delete_dir_objects(user, directory)
@@ -450,7 +450,7 @@ module RemoteStorage
             do_delete_request("#{url_for_directory(user, dir)}/")
           end
           redis.del "rs:m:#{user}:#{directory}/"
-          redis.srem "rs:m:#{user}:#{parent_directory_for(dir)}:i", "#{dir}/"
+          redis.srem "rs:m:#{user}:#{parent_directory_for(dir)}:items", "#{dir}/"
         else
           unless dir == ""
             res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
@@ -467,7 +467,7 @@ module RemoteStorage
 
     def dir_empty?(user, dir)
       if directory_backend(user).match(/new/)
-        redis.smembers("rs:m:#{user}:#{dir}/:i").empty?
+        redis.smembers("rs:m:#{user}:#{dir}/:items").empty?
       else
         do_get_request("#{container_url_for(user)}/?format=plain&limit=1&path=#{escape(dir)}/") do |res|
           return res.headers[:content_length] == "0"
