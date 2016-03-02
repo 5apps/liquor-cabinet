@@ -16,7 +16,7 @@ describe "App" do
 
     before do
       purge_redis
-      redis.set "rs_config:dir_backend:phil", "new"
+      redis.set "rsc:db:phil", "new"
     end
 
     context "authorized" do
@@ -115,7 +115,7 @@ describe "App" do
       describe "directory backend configuration" do
         context "locked new backed" do
           before do
-            redis.set "rs_config:dir_backend:phil", "new-locked"
+            redis.set "rsc:db:phil", "new-locked"
           end
 
           it "responds with 503" do
@@ -130,7 +130,7 @@ describe "App" do
 
         context "locked legacy backend" do
           before do
-            redis.set "rs_config:dir_backend:phil", "legacy-locked"
+            redis.set "rsc:db:phil", "legacy-locked"
           end
 
           it "responds with 503" do
@@ -150,7 +150,7 @@ describe "App" do
 
     before do
       purge_redis
-      redis.set "rs_config:dir_backend:phil", "new"
+      redis.set "rsc:db:phil", "new"
     end
 
     context "authorized" do
@@ -239,7 +239,7 @@ describe "App" do
 
     before do
       purge_redis
-      redis.set "rs_config:dir_backend:phil", "new"
+      redis.set "rsc:db:phil", "new"
     end
 
     context "authorized" do
@@ -318,7 +318,7 @@ describe "App" do
           put "/phil/food/camaron", "yummi"
         end
 
-        redis.set "rs_config:dir_backend:phil", "legacy"
+        redis.set "rsc:db:phil", "legacy"
       end
 
       it "serves directory listing from Swift backend" do

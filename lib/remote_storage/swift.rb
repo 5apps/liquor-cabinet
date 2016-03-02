@@ -537,7 +537,7 @@ module RemoteStorage
     end
 
     def directory_backend(user)
-      @directory_backend ||= redis.get("rs_config:dir_backend:#{user}") || "legacy"
+      @directory_backend ||= redis.get("rsc:db:#{user}") || "legacy"
     end
 
     def etag_for(body)

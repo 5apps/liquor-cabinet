@@ -57,7 +57,7 @@ class Migrator
   end
 
   def set_directory_backend(backend)
-    redis.set("rs_config:dir_backend:#{username}", backend) unless dry_run
+    redis.set("rsc:db:#{username}", backend) unless dry_run
   end
 
   def work_on_dir(directory, parent_directory)
