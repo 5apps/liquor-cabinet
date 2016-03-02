@@ -188,16 +188,18 @@ module RemoteStorage
 
       res = do_put_request(url, data, content_type)
 
-      # TODO get last modified from response and add to metadata
+      # TODO use actual last modified time from the document put request
+      timestamp = (Time.now.to_f * 1000).to_i
+
       metadata = {
         etag: res.headers[:etag],
         size: data.size,
-        type: content_type
+        type: content_type,
+        modified: timestamp
       }
 
       if update_metadata_object(user, directory, key, metadata) &&
-         # TODO provide the last modified to use for the dir objects as well
-         update_dir_objects(user, directory)
+         update_dir_objects(user, directory, timestamp)
         server.headers["ETag"] = %Q("#{res.headers[:etag]}")
         server.halt 200
       else
@@ -406,10 +408,7 @@ module RemoteStorage
       true
     end
 
-    def update_dir_objects(user, directory)
-      # TODO use actual last modified time from the document put request
-      timestamp = (Time.now.to_f * 1000).to_i
-
+    def update_dir_objects(user, directory, timestamp)
       parent_directories_for(directory).each do |dir|
         unless dir == ""
           res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
@@ -443,6 +442,8 @@ module RemoteStorage
     end
 
     def delete_dir_objects(user, directory)
+      timestamp = (Time.now.to_f * 1000).to_i
+
       parent_directories_for(directory).each do |dir|
         if dir_empty?(user, dir)
           unless dir == ""
@@ -451,7 +452,6 @@ module RemoteStorage
           redis.del "rs_meta:#{user}:#{directory}/"
           redis.srem "rs_meta:#{user}:#{parent_directory_for(dir)}:items", "#{dir}/"
         else
-          timestamp = (Time.now.to_f * 1000).to_i
           unless dir == ""
             res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
             etag = res.headers[:etag]

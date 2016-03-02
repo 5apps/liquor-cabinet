@@ -35,7 +35,7 @@ describe "App" do
         metadata["size"].must_equal "2"
         metadata["type"].must_equal "text/plain; charset=utf-8"
         metadata["etag"].must_equal "bla"
-        metadata["modified"].must_equal nil
+        metadata["modified"].length.must_equal 13
       end
 
       it "creates the directory objects metadata in redis" do
