@@ -88,11 +88,11 @@ module RemoteStorage
       lua_script = <<-EOF
         local user = ARGV[1]
         local directory = ARGV[2]
-        local items = redis.call("smembers", "rs_meta:"..user..":"..directory.."/:items")
+        local items = redis.call("smembers", "rs:m:"..user..":"..directory.."/:items")
         local listing = {}
 
         for index, name in pairs(items) do
-          local redis_key = "rs_meta:"..user..":"
+          local redis_key = "rs:m:"..user..":"
           if directory == "" then
             redis_key = redis_key..name
           else
@@ -108,10 +108,10 @@ module RemoteStorage
             metadata[metadata_values[idx]] = metadata_values[idx + 1]
           end
 
-          listing[name] = {["ETag"] = metadata["etag"]}
+          listing[name] = {["ETag"] = metadata["e"]}
           if string.sub(name, -1) ~= "/" then
-            listing[name]["Content-Type"]   = metadata["type"]
-            listing[name]["Content-Length"] = tonumber(metadata["size"])
+            listing[name]["Content-Type"]   = metadata["t"]
+            listing[name]["Content-Length"] = tonumber(metadata["s"])
           end
         end
 
@@ -122,7 +122,7 @@ module RemoteStorage
     end
 
     def get_directory_listing_from_redis(user, directory)
-      etag = redis.hget "rs_meta:#{user}:#{directory}/", "etag"
+      etag = redis.hget "rs:m:#{user}:#{directory}/", "e"
 
       none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
       server.halt 304 if none_match.include? etag
@@ -189,16 +189,18 @@ module RemoteStorage
 
       res = do_put_request(url, data, content_type)
 
-      # TODO get last modified from response and add to metadata
+      # TODO use actual last modified time from the document put request
+      timestamp = (Time.now.to_f * 1000).to_i
+
       metadata = {
-        etag: res.headers[:etag],
-        size: data.size,
-        type: content_type
+        e: res.headers[:etag],
+        s: data.size,
+        t: content_type,
+        m: timestamp
       }
 
       if update_metadata_object(user, directory, key, metadata) &&
-         # TODO provide the last modified to use for the dir objects as well
-         update_dir_objects(user, directory)
+         update_dir_objects(user, directory, timestamp)
         server.headers["ETag"] = %Q("#{res.headers[:etag]}")
         server.halt 200
       else
@@ -312,23 +314,23 @@ module RemoteStorage
         end
 
         -- check for existing directory with the same name as the document
-        local redis_key = "rs_meta:"..user..":"
+        local redis_key = "rs:m:"..user..":"
         if directory == "" then
           redis_key = redis_key..key.."/"
         else
           redis_key = redis_key..directory.."/"..key.."/"
         end
-        if redis.call("hget", redis_key, "etag") then
+        if redis.call("hget", redis_key, "e") then
           return true
         end
 
         for index, dir in pairs(parent_directories) do
-          if redis.call("hget", "rs_meta:"..user..":"..dir.."/", "etag") then
+          if redis.call("hget", "rs:m:"..user..":"..dir.."/", "e") then
             -- the directory already exists, no need to do further checks
             return false
           else
             -- check for existing document with same name as directory
-            if redis.call("hget", "rs_meta:"..user..":"..dir, "etag") then
+            if redis.call("hget", "rs:m:"..user..":"..dir, "e") then
               return true
             end
           end
@@ -400,17 +402,14 @@ module RemoteStorage
     end
 
     def update_metadata_object(user, directory, key, metadata)
-      redis_key = "rs_meta:#{user}:#{directory}/#{key}"
+      redis_key = "rs:m:#{user}:#{directory}/#{key}"
       redis.hmset(redis_key, *metadata)
-      redis.sadd "rs_meta:#{user}:#{directory}/:items", key
+      redis.sadd "rs:m:#{user}:#{directory}/:items", key
 
       true
     end
 
-    def update_dir_objects(user, directory)
-      # TODO use actual last modified time from the document put request
-      timestamp = (Time.now.to_f * 1000).to_i
-
+    def update_dir_objects(user, directory, timestamp)
       parent_directories_for(directory).each do |dir|
         unless dir == ""
           res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
@@ -420,10 +419,10 @@ module RemoteStorage
           etag = etag_for(get_response.body)
         end
 
-        key = "rs_meta:#{user}:#{dir}/"
-        metadata = {etag: etag, modified: timestamp}
+        key = "rs:m:#{user}:#{dir}/"
+        metadata = {e: etag, m: timestamp}
         redis.hmset(key, *metadata)
-        redis.sadd "rs_meta:#{user}:#{parent_directory_for(dir)}:items", "#{top_directory(dir)}/"
+        redis.sadd "rs:m:#{user}:#{parent_directory_for(dir)}:items", "#{top_directory(dir)}/"
       end
 
       true
@@ -438,21 +437,22 @@ module RemoteStorage
     end
 
     def delete_metadata_objects(user, directory, key)
-      redis_key = "rs_meta:#{user}:#{directory}/#{key}"
+      redis_key = "rs:m:#{user}:#{directory}/#{key}"
       redis.del(redis_key)
-      redis.srem "rs_meta:#{user}:#{directory}/:items", key
+      redis.srem "rs:m:#{user}:#{directory}/:items", key
     end
 
     def delete_dir_objects(user, directory)
+      timestamp = (Time.now.to_f * 1000).to_i
+
       parent_directories_for(directory).each do |dir|
         if dir_empty?(user, dir)
           unless dir == ""
             do_delete_request("#{url_for_directory(user, dir)}/")
           end
-          redis.del "rs_meta:#{user}:#{directory}/"
-          redis.srem "rs_meta:#{user}:#{parent_directory_for(dir)}:items", "#{dir}/"
+          redis.del "rs:m:#{user}:#{directory}/"
+          redis.srem "rs:m:#{user}:#{parent_directory_for(dir)}:items", "#{dir}/"
         else
-          timestamp = (Time.now.to_f * 1000).to_i
           unless dir == ""
             res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
             etag = res.headers[:etag]
@@ -460,15 +460,15 @@ module RemoteStorage
             get_response = do_get_request("#{container_url_for(user)}/?format=json&path=")
             etag = etag_for(get_response.body)
           end
-          metadata = {etag: etag, modified: timestamp}
-          redis.hmset("rs_meta:#{user}:#{dir}/", *metadata)
+          metadata = {e: etag, m: timestamp}
+          redis.hmset("rs:m:#{user}:#{dir}/", *metadata)
         end
       end
     end
 
     def dir_empty?(user, dir)
       if directory_backend(user).match(/new/)
-        redis.smembers("rs_meta:#{user}:#{dir}/:items").empty?
+        redis.smembers("rs:m:#{user}:#{dir}/:items").empty?
       else
         do_get_request("#{container_url_for(user)}/?format=plain&limit=1&path=#{escape(dir)}/") do |res|
           return res.headers[:content_length] == "0"
@@ -538,7 +538,7 @@ module RemoteStorage
     end
 
     def directory_backend(user)
-      @directory_backend ||= redis.get("rs_config:dir_backend:#{user}") || "legacy"
+      @directory_backend ||= redis.get("rsc:db:#{user}") || "legacy"
     end
 
     def etag_for(body)
