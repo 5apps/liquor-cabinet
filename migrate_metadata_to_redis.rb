@@ -18,7 +18,7 @@ class Migrator
     @settings = YAML.load(File.read('config.yml'))[@environment]
 
     @swift_host = @settings["swift"]["host"]
-    @swift_token = File.read("tmp/swift_token.txt")
+    @swift_token = File.read("tmp/swift_token.txt").strip
 
     @dry_run = ENV["DRYRUN"] || false # disables writing anything to Redis when true
 
