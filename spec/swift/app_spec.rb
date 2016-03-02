@@ -31,7 +31,7 @@ describe "App" do
           put "/phil/food/aguacate", "si"
         end
 
-        metadata = redis.hgetall "rsm:phil:food/aguacate"
+        metadata = redis.hgetall "rs:m:phil:food/aguacate"
         metadata["s"].must_equal "2"
         metadata["t"].must_equal "text/plain; charset=utf-8"
         metadata["e"].must_equal "bla"
@@ -50,20 +50,20 @@ describe "App" do
           end
         end
 
-        metadata = redis.hgetall "rsm:phil:/"
+        metadata = redis.hgetall "rs:m:phil:/"
         metadata["e"].must_equal "rootetag"
         metadata["m"].length.must_equal 13
 
-        metadata = redis.hgetall "rsm:phil:food/"
+        metadata = redis.hgetall "rs:m:phil:food/"
         metadata["e"].must_equal "bla"
         metadata["m"].length.must_equal 13
 
-        food_items = redis.smembers "rsm:phil:food/:i"
+        food_items = redis.smembers "rs:m:phil:food/:i"
         food_items.each do |food_item|
           ["camaron", "aguacate"].must_include food_item
         end
 
-        root_items = redis.smembers "rsm:phil:/:i"
+        root_items = redis.smembers "rs:m:phil:/:i"
         root_items.must_equal ["food/"]
       end
 
@@ -81,7 +81,7 @@ describe "App" do
 
           last_response.status.must_equal 200
 
-          metadata = redis.hgetall "rsm:phil:food/aguacate"
+          metadata = redis.hgetall "rs:m:phil:food/aguacate"
           metadata["s"].must_equal "2"
         end
 
@@ -94,7 +94,7 @@ describe "App" do
 
           last_response.status.must_equal 409
 
-          metadata = redis.hgetall "rsm:phil:food"
+          metadata = redis.hgetall "rs:m:phil:food"
           metadata.must_be_empty
         end
 
@@ -107,7 +107,7 @@ describe "App" do
 
           last_response.status.must_equal 409
 
-          metadata = redis.hgetall "rsm:phil:food/aguacate/empanado"
+          metadata = redis.hgetall "rs:m:phil:food/aguacate/empanado"
           metadata.must_be_empty
         end
       end
@@ -123,7 +123,7 @@ describe "App" do
 
             last_response.status.must_equal 503
 
-            metadata = redis.hgetall "rsm:phil:food/aguacate"
+            metadata = redis.hgetall "rs:m:phil:food/aguacate"
             metadata.must_be_empty
           end
         end
@@ -138,7 +138,7 @@ describe "App" do
 
             last_response.status.must_equal 503
 
-            metadata = redis.hgetall "rsm:phil:food/aguacate"
+            metadata = redis.hgetall "rs:m:phil:food/aguacate"
             metadata.must_be_empty
           end
         end
@@ -178,12 +178,12 @@ describe "App" do
           end
         end
 
-        metadata = redis.hgetall "rsm:phil:food/aguacate"
+        metadata = redis.hgetall "rs:m:phil:food/aguacate"
         metadata.must_be_empty
       end
 
       it "deletes the directory objects metadata in redis" do
-        old_metadata = redis.hgetall "rsm:phil:food/"
+        old_metadata = redis.hgetall "rs:m:phil:food/"
 
         put_stub = OpenStruct.new(headers: {etag: "newetag"})
         get_stub = OpenStruct.new(body: "rootbody")
@@ -197,15 +197,15 @@ describe "App" do
           end
         end
 
-        metadata = redis.hgetall "rsm:phil:food/"
+        metadata = redis.hgetall "rs:m:phil:food/"
         metadata["e"].must_equal "newetag"
         metadata["m"].length.must_equal 13
         metadata["m"].wont_equal old_metadata["m"]
 
-        food_items = redis.smembers "rsm:phil:food/:i"
+        food_items = redis.smembers "rs:m:phil:food/:i"
         food_items.must_equal ["camaron"]
 
-        root_items = redis.smembers "rsm:phil:/:i"
+        root_items = redis.smembers "rs:m:phil:/:i"
         root_items.must_equal ["food/"]
       end
 
@@ -223,13 +223,13 @@ describe "App" do
           end
         end
 
-        metadata = redis.hgetall "rsm:phil:food/"
+        metadata = redis.hgetall "rs:m:phil:food/"
         metadata.must_be_empty
 
-        food_items = redis.smembers "rsm:phil:food/:i"
+        food_items = redis.smembers "rs:m:phil:food/:i"
         food_items.must_be_empty
 
-        root_items = redis.smembers "rsm:phil:/:i"
+        root_items = redis.smembers "rs:m:phil:/:i"
         root_items.must_be_empty
       end
     end

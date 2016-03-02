@@ -85,13 +85,13 @@ class Migrator
   end
 
   def add_item_to_parent_dir(dir, item)
-    key = "rsm:#{username}:#{parent_directory_for(dir)}:i"
+    key = "rs:m:#{username}:#{parent_directory_for(dir)}:i"
     logger.debug "Adding item #{item} to #{key}"
     redis.sadd(key, item) unless dry_run
   end
 
   def save_directory_data(dir, item, data, timestamp)
-    key = "rsm:#{username}:#{dir.gsub(/^\//, "")}#{item}"
+    key = "rs:m:#{username}:#{dir.gsub(/^\//, "")}#{item}"
     metadata = {
       e: data["ETag"],
       m: timestamp_for(data["Last-Modified"])
@@ -102,7 +102,7 @@ class Migrator
   end
 
   def save_document_data(dir, item, data)
-    key = "rsm:#{username}:#{dir.gsub(/^\//, "")}#{item}"
+    key = "rs:m:#{username}:#{dir.gsub(/^\//, "")}#{item}"
     metadata = {
       e: data["ETag"],
       s: data["Content-Length"],
