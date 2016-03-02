@@ -76,7 +76,7 @@ class Migrator
           # get dir listing and repeat
           work_on_dir(item, "#{parent_directory}#{directory}")
         else
-          save_document_data("#{parent_directory}#{directory}", item, data, timestamp)
+          save_document_data("#{parent_directory}#{directory}", item, data)
         end
 
         add_item_to_parent_dir("#{parent_directory}#{directory}", item)
@@ -92,19 +92,22 @@ class Migrator
 
   def save_directory_data(dir, item, data, timestamp)
     key = "rs_meta:#{username}:#{dir.gsub(/^\//, "")}#{item}"
-    metadata = {etag: data["ETag"], modified: timestamp}
+    metadata = {
+      etag: data["ETag"],
+      modified: timestamp_for(data["Last-Modified"])
+    }
 
     logger.debug "Metadata for dir #{key}: #{metadata}"
     redis.hmset(key, *metadata) unless dry_run
   end
 
-  def save_document_data(dir, item, data, timestamp)
+  def save_document_data(dir, item, data)
     key = "rs_meta:#{username}:#{dir.gsub(/^\//, "")}#{item}"
     metadata = {
       etag: data["ETag"],
       size: data["Content-Length"],
       type: data["Content-Type"],
-      modified: timestamp
+      modified: timestamp_for(data["Last-Modified"])
     }
     logger.debug "Metadata for document #{key}: #{metadata}"
     redis.hmset(key, *metadata) unless dry_run
@@ -116,6 +119,10 @@ class Migrator
     else
       return "/"
     end
+  end
+
+  def timestamp_for(date)
+    return DateTime.parse(date).strftime("%Q").to_i
   end
 
   def redis
@@ -159,6 +166,7 @@ class Migrator
         listing["items"].merge!({
           name => {
             "ETag"           => entry["hash"],
+            "Last-Modified"  => entry["last_modified"]
           }
         })
       else # It's a file
@@ -166,7 +174,8 @@ class Migrator
           name => {
             "ETag"           => entry["hash"],
             "Content-Type"   => entry["content_type"],
-            "Content-Length" => entry["bytes"]
+            "Content-Length" => entry["bytes"],
+            "Last-Modified"  => entry["last_modified"]
           }
         })
       end
