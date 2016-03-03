@@ -1,4 +1,4 @@
-require_relative "spec_helper"
+require_relative "../spec_helper"
 
 describe "Directories" do
   include Rack::Test::Methods
@@ -251,7 +251,7 @@ describe "Directories" do
         context "charset given in content-type header" do
           before do
             header "Content-Type", "image/jpeg; charset=binary"
-            filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+            filename = File.join(File.expand_path(File.dirname(__FILE__)), "..", "fixtures", "rockrule.jpeg")
             @image = File.open(filename, "r").read
             put "/jimmy/tasks/jaypeg.jpg", @image
           end
@@ -273,7 +273,7 @@ describe "Directories" do
         context "no charset in content-type header" do
           before do
             header "Content-Type", "image/jpeg"
-            filename = File.join(File.expand_path(File.dirname(__FILE__)), "fixtures", "rockrule.jpeg")
+            filename = File.join(File.expand_path(File.dirname(__FILE__)), "..", "fixtures", "rockrule.jpeg")
             @image = File.open(filename, "r").read
             put "/jimmy/tasks/jaypeg.jpg", @image
           end
