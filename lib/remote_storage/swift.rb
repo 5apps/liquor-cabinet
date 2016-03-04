@@ -130,6 +130,7 @@ module RemoteStorage
     end
 
     def put_data(user, directory, key, data, content_type)
+      server.halt 400 if server.env["HTTP_CONTENT_RANGE"]
       server.halt 409 if has_name_collision?(user, directory, key)
 
       existing_metadata = redis.hgetall "rs:m:#{user}:#{directory}/#{key}"

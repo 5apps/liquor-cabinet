@@ -129,6 +129,14 @@ describe "App" do
           metadata = redis.hgetall "rs:m:phil:food/aguacate/empanado"
           metadata.must_be_empty
         end
+
+        it "returns 400 when a Content-Range header is sent" do
+          header "Content-Range", "bytes 0-3/3"
+
+          put "/phil/food/aguacate", "si"
+
+          last_response.status.must_equal 400
+        end
       end
     end
   end
