@@ -216,7 +216,7 @@ describe "App" do
         metadata["m"].wont_equal old_metadata["m"]
 
         food_items = redis.smembers "rs:m:phil:food/:items"
-        food_items.must_equal ["desayunos/", "camaron"]
+        food_items.sort.must_equal ["camaron", "desayunos/"]
 
         root_items = redis.smembers "rs:m:phil:/:items"
         root_items.must_equal ["food/"]
