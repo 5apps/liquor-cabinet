@@ -16,7 +16,6 @@ describe "App" do
 
     before do
       purge_redis
-      redis.set "rsc:db:phil", "new"
     end
 
     context "authorized" do
@@ -26,7 +25,11 @@ describe "App" do
       end
 
       it "creates the metadata object in redis" do
-        put_stub = OpenStruct.new(headers: {etag: "bla"})
+        put_stub = OpenStruct.new(headers: {
+          etag: "bla",
+          last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+        })
+
         RestClient.stub :put, put_stub do
           put "/phil/food/aguacate", "si"
         end
@@ -39,11 +42,15 @@ describe "App" do
       end
 
       it "creates the directory objects metadata in redis" do
-        put_stub = OpenStruct.new(headers: {etag: "bla"})
+        put_stub = OpenStruct.new(headers: {
+          etag: "bla",
+          last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+        })
         get_stub = OpenStruct.new(body: "rootbody")
+
         RestClient.stub :put, put_stub do
           RestClient.stub :get, get_stub do
-            RemoteStorage::Swift.stub_any_instance :etag_for, "rootetag" do
+            RemoteStorage::Swift.stub_any_instance :etag_for, "newetag" do
               put "/phil/food/aguacate", "si"
               put "/phil/food/camaron", "yummi"
             end
@@ -51,11 +58,11 @@ describe "App" do
         end
 
         metadata = redis.hgetall "rs:m:phil:/"
-        metadata["e"].must_equal "rootetag"
+        metadata["e"].must_equal "newetag"
         metadata["m"].length.must_equal 13
 
         metadata = redis.hgetall "rs:m:phil:food/"
-        metadata["e"].must_equal "bla"
+        metadata["e"].must_equal "newetag"
         metadata["m"].length.must_equal 13
 
         food_items = redis.smembers "rs:m:phil:food/:items"
@@ -69,8 +76,12 @@ describe "App" do
 
       describe "name collision checks" do
         it "is successful when there is no name collision" do
-          put_stub = OpenStruct.new(headers: {etag: "bla"})
+          put_stub = OpenStruct.new(headers: {
+            etag: "bla",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
           get_stub = OpenStruct.new(body: "rootbody")
+
           RestClient.stub :put, put_stub do
             RestClient.stub :get, get_stub do
               RemoteStorage::Swift.stub_any_instance :etag_for, "rootetag" do
@@ -86,7 +97,11 @@ describe "App" do
         end
 
         it "conflicts when there is a directory with same name as document" do
-          put_stub = OpenStruct.new(headers: {etag: "bla"})
+          put_stub = OpenStruct.new(headers: {
+            etag: "bla",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
           RestClient.stub :put, put_stub do
             put "/phil/food/aguacate", "si"
             put "/phil/food", "wontwork"
@@ -99,7 +114,11 @@ describe "App" do
         end
 
         it "conflicts when there is a document with same name as directory" do
-          put_stub = OpenStruct.new(headers: {etag: "bla"})
+          put_stub = OpenStruct.new(headers: {
+            etag: "bla",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
           RestClient.stub :put, put_stub do
             put "/phil/food/aguacate", "si"
             put "/phil/food/aguacate/empanado", "wontwork"
@@ -111,38 +130,6 @@ describe "App" do
           metadata.must_be_empty
         end
       end
-
-      describe "directory backend configuration" do
-        context "locked new backed" do
-          before do
-            redis.set "rsc:db:phil", "new-locked"
-          end
-
-          it "responds with 503" do
-            put "/phil/food/aguacate", "si"
-
-            last_response.status.must_equal 503
-
-            metadata = redis.hgetall "rs:m:phil:food/aguacate"
-            metadata.must_be_empty
-          end
-        end
-
-        context "locked legacy backend" do
-          before do
-            redis.set "rsc:db:phil", "legacy-locked"
-          end
-
-          it "responds with 503" do
-            put "/phil/food/aguacate", "si"
-
-            last_response.status.must_equal 503
-
-            metadata = redis.hgetall "rs:m:phil:food/aguacate"
-            metadata.must_be_empty
-          end
-        end
-      end
     end
   end
 
@@ -150,7 +137,6 @@ describe "App" do
 
     before do
       purge_redis
-      redis.set "rsc:db:phil", "new"
     end
 
     context "authorized" do
@@ -158,7 +144,11 @@ describe "App" do
         redis.sadd "authorizations:phil:amarillo", [":rw"]
         header "Authorization", "Bearer amarillo"
 
-        put_stub = OpenStruct.new(headers: {etag: "bla"})
+        put_stub = OpenStruct.new(headers: {
+          etag: "bla",
+          last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+        })
+
         RestClient.stub :put, put_stub do
           put "/phil/food/aguacate", "si"
           put "/phil/food/camaron", "yummi"
@@ -166,8 +156,12 @@ describe "App" do
       end
 
       it "deletes the metadata object in redis" do
-        put_stub = OpenStruct.new(headers: {etag: "bla"})
+        put_stub = OpenStruct.new(headers: {
+          etag: "bla",
+          last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+        })
         get_stub = OpenStruct.new(body: "rootbody")
+
         RestClient.stub :put, put_stub do
           RestClient.stub :delete, "" do
             RestClient.stub :get, get_stub do
@@ -185,12 +179,16 @@ describe "App" do
       it "deletes the directory objects metadata in redis" do
         old_metadata = redis.hgetall "rs:m:phil:food/"
 
-        put_stub = OpenStruct.new(headers: {etag: "newetag"})
+        put_stub = OpenStruct.new(headers: {
+          etag: "bla",
+          last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+        })
         get_stub = OpenStruct.new(body: "rootbody")
+
         RestClient.stub :put, put_stub do
           RestClient.stub :delete, "" do
             RestClient.stub :get, get_stub do
-              RemoteStorage::Swift.stub_any_instance :etag_for, "rootetag" do
+              RemoteStorage::Swift.stub_any_instance :etag_for, "newetag" do
                 delete "/phil/food/aguacate"
               end
             end
@@ -210,8 +208,12 @@ describe "App" do
       end
 
       it "deletes the parent directory objects metadata when deleting all items" do
-        put_stub = OpenStruct.new(headers: {etag: "bla"})
+        put_stub = OpenStruct.new(headers: {
+          etag: "bla",
+          last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+        })
         get_stub = OpenStruct.new(body: "rootbody")
+
         RestClient.stub :put, put_stub do
           RestClient.stub :delete, "" do
             RestClient.stub :get, get_stub do
@@ -239,7 +241,6 @@ describe "App" do
 
     before do
       purge_redis
-      redis.set "rsc:db:phil", "new"
     end
 
     context "authorized" do
@@ -248,7 +249,11 @@ describe "App" do
         redis.sadd "authorizations:phil:amarillo", [":rw"]
         header "Authorization", "Bearer amarillo"
 
-        put_stub = OpenStruct.new(headers: {etag: "bla"})
+        put_stub = OpenStruct.new(headers: {
+          etag: "bla",
+          last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+        })
+
         RestClient.stub :put, put_stub do
           put "/phil/food/aguacate", "si"
           put "/phil/food/camaron", "yummi"
@@ -262,11 +267,11 @@ describe "App" do
           get "/phil/food/"
 
           last_response.status.must_equal 200
-          last_response.headers["ETag"].must_equal "\"bla\""
+          last_response.headers["ETag"].must_equal "\"a693babe4b4027de2340b4f1c362d2c8\""
         end
 
         it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
-          header "If-None-Match", "bla"
+          header "If-None-Match", "a693babe4b4027de2340b4f1c362d2c8"
           get "/phil/food/"
 
           last_response.status.must_equal 304
@@ -289,7 +294,7 @@ describe "App" do
           content["items"]["camaron"]["Content-Length"].must_equal 5
           content["items"]["camaron"]["ETag"].must_equal "bla"
           content["items"]["desunyos/"].wont_be_nil
-          content["items"]["desunyos/"]["ETag"].must_equal "bla"
+          content["items"]["desunyos/"]["ETag"].must_equal "5e17228c28f15521416812ecac6f718e"
         end
 
         it "contains all items in the root directory" do
@@ -300,36 +305,10 @@ describe "App" do
 
           content = JSON.parse(last_response.body)
           content["items"]["food/"].wont_be_nil
-          content["items"]["food/"]["ETag"].must_equal "bla"
+          content["items"]["food/"]["ETag"].must_equal "a693babe4b4027de2340b4f1c362d2c8"
         end
 
       end
-    end
-
-    context "with legacy directory backend" do
-
-      before do
-        redis.sadd "authorizations:phil:amarillo", [":rw"]
-        header "Authorization", "Bearer amarillo"
-
-        put_stub = OpenStruct.new(headers: {etag: "bla"})
-        RestClient.stub :put, put_stub do
-          put "/phil/food/aguacate", "si"
-          put "/phil/food/camaron", "yummi"
-        end
-
-        redis.set "rsc:db:phil", "legacy"
-      end
-
-      it "serves directory listing from Swift backend" do
-        RemoteStorage::Swift.stub_any_instance :get_directory_listing_from_swift, "directory listing" do
-          get "/phil/food/"
-        end
-
-        last_response.status.must_equal 200
-        last_response.body.must_equal "directory listing"
-      end
-
     end
 
   end
