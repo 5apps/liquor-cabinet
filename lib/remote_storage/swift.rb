@@ -133,7 +133,7 @@ module RemoteStorage
       server.halt 400 if server.env["HTTP_CONTENT_RANGE"]
       server.halt 409 if has_name_collision?(user, directory, key)
 
-      existing_metadata = redis.hgetall "rs:m:#{user}:#{directory}/#{key}"
+      existing_metadata = redis.hgetall redis_metadata_object_key(user, directory, key)
       url = url_for_key(user, directory, key)
 
       if required_match = server.env["HTTP_IF_MATCH"]
@@ -309,7 +309,7 @@ module RemoteStorage
     end
 
     def update_metadata_object(user, directory, key, metadata)
-      redis_key = "rs:m:#{user}:#{directory}/#{key}"
+      redis_key = redis_metadata_object_key(user, directory, key)
       redis.hmset(redis_key, *metadata)
       redis.sadd "rs:m:#{user}:#{directory}/:items", key
 
@@ -328,8 +328,7 @@ module RemoteStorage
     end
 
     def delete_metadata_objects(user, directory, key)
-      redis_key = "rs:m:#{user}:#{directory}/#{key}"
-      redis.del(redis_key)
+      redis.del redis_metadata_object_key(user, directory, key)
       redis.srem "rs:m:#{user}:#{directory}/:items", key
     end
 
@@ -351,6 +350,10 @@ module RemoteStorage
 
     def dir_empty?(user, dir)
       redis.smembers("rs:m:#{user}:#{dir}/:items").empty?
+    end
+
+    def redis_metadata_object_key(user, directory, key)
+      "rs:m:#{user}:#{[directory, key].delete_if(&:empty?).join("/")}"
     end
 
     def container_url_for(user)

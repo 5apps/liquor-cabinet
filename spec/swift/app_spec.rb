@@ -74,6 +74,32 @@ describe "App" do
         root_items.must_equal ["food/"]
       end
 
+      describe "objects in root dir" do
+        before do
+          put_stub = OpenStruct.new(headers: {
+            etag: "bla",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
+          RestClient.stub :put, put_stub do
+            put "/phil/bamboo.txt", "shir kan"
+          end
+        end
+
+        it "are listed in the directory listing with all metadata" do
+          get "phil/"
+
+          last_response.status.must_equal 200
+          last_response.content_type.must_equal "application/json"
+
+          content = JSON.parse(last_response.body)
+          content["items"]["bamboo.txt"].wont_be_nil
+          content["items"]["bamboo.txt"]["ETag"].must_equal "bla"
+          content["items"]["bamboo.txt"]["Content-Type"].must_equal "text/plain; charset=utf-8"
+          content["items"]["bamboo.txt"]["Content-Length"].must_equal 8
+        end
+      end
+
       describe "name collision checks" do
         it "is successful when there is no name collision" do
           put_stub = OpenStruct.new(headers: {
