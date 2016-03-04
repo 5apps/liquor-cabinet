@@ -271,7 +271,7 @@ describe "App" do
         end
 
         it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
-          header "If-None-Match", "a693babe4b4027de2340b4f1c362d2c8"
+          header "If-None-Match", "\"a693babe4b4027de2340b4f1c362d2c8\""
           get "/phil/food/"
 
           last_response.status.must_equal 304

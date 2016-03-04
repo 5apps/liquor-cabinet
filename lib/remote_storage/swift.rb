@@ -72,14 +72,14 @@ module RemoteStorage
       none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
 
       if etag
-        server.halt 304 if none_match.include? etag
+        server.halt 304 if none_match.include? %Q("#{etag}")
 
         items = get_directory_listing_from_redis_via_lua(user, directory)
       else
         etag = etag_for(user, directory)
         items = {}
 
-        server.halt 304 if none_match.include? etag
+        server.halt 304 if none_match.include? %Q("#{etag}")
       end
 
       server.headers["ETag"] = %Q("#{etag}")
