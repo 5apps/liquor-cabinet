@@ -301,11 +301,11 @@ describe "App" do
           get "/phil/food/"
 
           last_response.status.must_equal 200
-          last_response.headers["ETag"].must_equal "\"a693babe4b4027de2340b4f1c362d2c8\""
+          last_response.headers["ETag"].must_equal "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
         end
 
         it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
-          header "If-None-Match", "\"a693babe4b4027de2340b4f1c362d2c8\""
+          header "If-None-Match", "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
           get "/phil/food/"
 
           last_response.status.must_equal 304
@@ -328,7 +328,7 @@ describe "App" do
           content["items"]["camaron"]["Content-Length"].must_equal 5
           content["items"]["camaron"]["ETag"].must_equal "bla"
           content["items"]["desunyos/"].wont_be_nil
-          content["items"]["desunyos/"]["ETag"].must_equal "5e17228c28f15521416812ecac6f718e"
+          content["items"]["desunyos/"]["ETag"].must_equal "926233ce4a147a5b679e0ddf665517dd"
         end
 
         it "contains all items in the root directory" do
@@ -339,7 +339,7 @@ describe "App" do
 
           content = JSON.parse(last_response.body)
           content["items"]["food/"].wont_be_nil
-          content["items"]["food/"]["ETag"].must_equal "a693babe4b4027de2340b4f1c362d2c8"
+          content["items"]["food/"]["ETag"].must_equal "f9f85fbf5aa1fa378fd79ac8aa0a457d"
         end
 
       end
