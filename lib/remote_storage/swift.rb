@@ -29,7 +29,6 @@ module RemoteStorage
 
       server.halt 401 unless permission
       if ["PUT", "DELETE"].include? request_method
-        server.halt 503 if directory_backend(user).match(/locked/)
         server.halt 401 unless permission == "rw"
       end
     end
@@ -60,28 +59,37 @@ module RemoteStorage
     end
 
     def get_head_directory_listing(user, directory)
-      is_root_listing = directory.empty?
-      if is_root_listing
-        # We need to calculate the etag ourselves
-        res = do_get_request("#{url_for_directory(user, directory)}/?format=json")
-        etag = etag_for(res.body)
-      else
-        res  = do_head_request("#{url_for_directory(user, directory)}/")
-        etag = res.headers[:etag]
-      end
+      get_directory_listing(user, directory)
 
-      server.headers["Content-Type"] = "application/json"
-      server.headers["ETag"]         = %Q("#{etag}")
-    rescue RestClient::ResourceNotFound
-      server.halt 404
+      "" # just return empty body, headers are set by get_directory_listing
     end
 
     def get_directory_listing(user, directory)
-      if directory_backend(user).match(/new/)
-        get_directory_listing_from_redis(user, directory)
+      etag = redis.hget "rs:m:#{user}:#{directory}/", "e"
+
+      server.headers["Content-Type"] = "application/json"
+
+      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
+
+      if etag
+        server.halt 304 if none_match.include? etag
+
+        items = get_directory_listing_from_redis_via_lua(user, directory)
       else
-        get_directory_listing_from_swift(user, directory)
+        etag = etag_for(user, directory)
+        items = {}
+
+        server.halt 304 if none_match.include? etag
       end
+
+      server.headers["ETag"] = %Q("#{etag}")
+
+      listing = {
+        "@context" => "http://remotestorage.io/spec/folder-description",
+        "items"    => items
+      }
+
+      listing.to_json
     end
 
     def get_directory_listing_from_redis_via_lua(user, directory)
@@ -121,76 +129,22 @@ module RemoteStorage
       JSON.parse(redis.eval(lua_script, nil, [user, directory]))
     end
 
-    def get_directory_listing_from_redis(user, directory)
-      etag = redis.hget "rs:m:#{user}:#{directory}/", "e"
-
-      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
-      server.halt 304 if none_match.include? etag
-
-      server.headers["Content-Type"] = "application/json"
-      server.headers["ETag"] = %Q("#{etag}")
-
-      listing = {
-        "@context" => "http://remotestorage.io/spec/folder-description",
-        "items"    => get_directory_listing_from_redis_via_lua(user, directory)
-      }
-
-      listing.to_json
-    end
-
-    def get_directory_listing_from_swift(user, directory)
-      is_root_listing = directory.empty?
-
-      server.headers["Content-Type"] = "application/json"
-
-      etag, get_response = nil
-
-      do_head_request("#{url_for_directory(user, directory)}/") do |response|
-        return directory_listing([]).to_json if response.code == 404
-
-        if is_root_listing
-          get_response = do_get_request("#{container_url_for(user)}/?format=json&path=")
-          etag = etag_for(get_response.body)
-        else
-          get_response = do_get_request("#{container_url_for(user)}/?format=json&path=#{escape(directory)}/")
-          etag = response.headers[:etag]
-        end
-
-        none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
-        server.halt 304 if none_match.include? %Q("#{etag}")
-      end
-
-      server.headers["ETag"] = %Q("#{etag}")
-
-      if body = JSON.parse(get_response.body)
-        listing = directory_listing(body)
-      else
-        puts "listing not JSON"
-      end
-
-      listing.to_json
-    end
-
     def put_data(user, directory, key, data, content_type)
       server.halt 409 if has_name_collision?(user, directory, key)
 
+      existing_metadata = redis.hgetall "rs:m:#{user}:#{directory}/#{key}"
       url = url_for_key(user, directory, key)
 
       if required_match = server.env["HTTP_IF_MATCH"]
-        do_head_request(url) do |response|
-          server.halt 412 unless required_match == %Q("#{response.headers[:etag]}")
-        end
+        server.halt 412 unless required_match == %Q("#{existing_metadata["e"]}")
       end
       if server.env["HTTP_IF_NONE_MATCH"] == "*"
-        do_head_request(url) do |response|
-          server.halt 412 unless response.code == 404
-        end
+        server.halt 412 unless existing_metadata.empty?
       end
 
       res = do_put_request(url, data, content_type)
 
-      # TODO use actual last modified time from the document put request
-      timestamp = (Time.now.to_f * 1000).to_i
+      timestamp = timestamp_for(res.headers[:last_modified])
 
       metadata = {
         e: res.headers[:etag],
@@ -199,8 +153,11 @@ module RemoteStorage
         m: timestamp
       }
 
-      if update_metadata_object(user, directory, key, metadata) &&
-         update_dir_objects(user, directory, timestamp)
+      if update_metadata_object(user, directory, key, metadata)
+        if metadata_changed?(existing_metadata, metadata)
+          update_dir_objects(user, directory, timestamp)
+        end
+
         server.headers["ETag"] = %Q("#{res.headers[:etag]}")
         server.halt 200
       else
@@ -211,10 +168,10 @@ module RemoteStorage
     def delete_data(user, directory, key)
       url = url_for_key(user, directory, key)
 
+      existing_metadata = redis.hgetall "rs:m:#{user}:#{directory}/#{key}"
+
       if required_match = server.env["HTTP_IF_MATCH"]
-        do_head_request(url) do |response|
-          server.halt 412 unless required_match == %Q("#{response.headers[:etag]}")
-        end
+        server.halt 412 unless required_match == %Q("#{existing_metadata["e"]}")
       end
 
       do_delete_request(url)
@@ -293,14 +250,6 @@ module RemoteStorage
     end
 
     def has_name_collision?(user, directory, key)
-      if directory_backend(user).match(/new/)
-        has_name_collision_via_redis?(user, directory, key)
-      else
-        has_name_collision_via_swift?(user, directory, key)
-      end
-    end
-
-    def has_name_collision_via_redis?(user, directory, key)
       lua_script = <<-EOF
         local user = ARGV[1]
         local directory = ARGV[2]
@@ -344,31 +293,17 @@ module RemoteStorage
       redis.eval(lua_script, nil, [user, directory, key, *parent_directories])
     end
 
-    def has_name_collision_via_swift?(user, directory, key)
-      # check for existing directory with the same name as the document
-      url = url_for_key(user, directory, key)
-      do_head_request("#{url}/") do |res|
-        return true if res.code == 200
-      end
+    def metadata_changed?(old_metadata, new_metadata)
+      # check metadata relevant to the directory listing
+      # ie. the timestamp (m) is not relevant, because it's not used in
+      # the listing
+      return old_metadata["e"] != new_metadata[:e]      ||
+             old_metadata["s"] != new_metadata[:s].to_s ||
+             old_metadata["t"] != new_metadata[:t]
+    end
 
-      # check for existing documents with the same name as one of the parent directories
-      parent_directories_for(directory).each do |dir|
-        do_head_request("#{url_for_directory(user, dir)}/") do |res_dir|
-          if res_dir.code == 200
-            return false
-          else
-            do_head_request("#{url_for_directory(user, dir)}") do |res_key|
-              if res_key.code == 200
-                return true
-              else
-                next
-              end
-            end
-          end
-        end
-      end
-
-      false
+    def timestamp_for(date)
+      return DateTime.parse(date).strftime("%Q").to_i
     end
 
     def parent_directories_for(directory)
@@ -411,29 +346,13 @@ module RemoteStorage
 
     def update_dir_objects(user, directory, timestamp)
       parent_directories_for(directory).each do |dir|
-        unless dir == ""
-          res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
-          etag = res.headers[:etag]
-        else
-          get_response = do_get_request("#{container_url_for(user)}/?format=json&path=")
-          etag = etag_for(get_response.body)
-        end
+        etag = etag_for(dir, timestamp)
 
         key = "rs:m:#{user}:#{dir}/"
         metadata = {e: etag, m: timestamp}
         redis.hmset(key, *metadata)
         redis.sadd "rs:m:#{user}:#{parent_directory_for(dir)}:items", "#{top_directory(dir)}/"
       end
-
-      true
-    rescue
-      parent_directories_for(directory).each do |dir|
-        unless dir == ""
-          do_delete_request("#{url_for_directory(user, dir)}/") rescue false
-        end
-      end
-
-      false
     end
 
     def delete_metadata_objects(user, directory, key)
@@ -447,19 +366,11 @@ module RemoteStorage
 
       parent_directories_for(directory).each do |dir|
         if dir_empty?(user, dir)
-          unless dir == ""
-            do_delete_request("#{url_for_directory(user, dir)}/")
-          end
           redis.del "rs:m:#{user}:#{directory}/"
           redis.srem "rs:m:#{user}:#{parent_directory_for(dir)}:items", "#{dir}/"
         else
-          unless dir == ""
-            res = do_put_request("#{url_for_directory(user, dir)}/", timestamp.to_s, "text/plain")
-            etag = res.headers[:etag]
-          else
-            get_response = do_get_request("#{container_url_for(user)}/?format=json&path=")
-            etag = etag_for(get_response.body)
-          end
+          etag = etag_for(dir, timestamp)
+
           metadata = {e: etag, m: timestamp}
           redis.hmset("rs:m:#{user}:#{dir}/", *metadata)
         end
@@ -467,13 +378,7 @@ module RemoteStorage
     end
 
     def dir_empty?(user, dir)
-      if directory_backend(user).match(/new/)
-        redis.smembers("rs:m:#{user}:#{dir}/:items").empty?
-      else
-        do_get_request("#{container_url_for(user)}/?format=plain&limit=1&path=#{escape(dir)}/") do |res|
-          return res.headers[:content_length] == "0"
-        end
-      end
+      redis.smembers("rs:m:#{user}:#{dir}/:items").empty?
     end
 
     def container_url_for(user)
@@ -537,18 +442,8 @@ module RemoteStorage
       @redis ||= Redis.new(settings.redis.symbolize_keys)
     end
 
-    def directory_backend(user)
-      @directory_backend ||= redis.get("rsc:db:#{user}") || "legacy"
-    end
-
-    def etag_for(body)
-      objects = JSON.parse(body)
-
-      if objects.empty?
-        Digest::MD5.hexdigest ''
-      else
-        Digest::MD5.hexdigest objects.map { |o| o["hash"] }.join
-      end
+    def etag_for(*args)
+      Digest::MD5.hexdigest args.join(":")
     end
 
     def reload_swift_token
