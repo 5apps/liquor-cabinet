@@ -156,7 +156,7 @@ module RemoteStorage
 
       if update_metadata_object(user, directory, key, metadata)
         if metadata_changed?(existing_metadata, metadata)
-          update_dir_objects(user, directory, timestamp)
+          update_dir_objects(user, directory, timestamp, checksum_for(data))
         end
 
         server.headers["ETag"] = %Q("#{res.headers[:etag]}")
@@ -164,6 +164,10 @@ module RemoteStorage
       else
         server.halt 500
       end
+    end
+
+    def checksum_for(data)
+      Digest::MD5.hexdigest(data)
     end
 
     def delete_data(user, directory, key)
@@ -316,9 +320,9 @@ module RemoteStorage
       true
     end
 
-    def update_dir_objects(user, directory, timestamp)
+    def update_dir_objects(user, directory, timestamp, checksum)
       parent_directories_for(directory).each do |dir|
-        etag = etag_for(dir, timestamp)
+        etag = etag_for(dir, timestamp, checksum)
 
         key = "rs:m:#{user}:#{dir}/"
         metadata = {e: etag, m: timestamp}
@@ -337,8 +341,8 @@ module RemoteStorage
 
       parent_directories_for(directory).each do |dir|
         if dir_empty?(user, dir)
-          redis.del "rs:m:#{user}:#{directory}/"
-          redis.srem "rs:m:#{user}:#{parent_directory_for(dir)}:items", "#{dir}/"
+          redis.del "rs:m:#{user}:#{dir}/"
+          redis.srem "rs:m:#{user}:#{parent_directory_for(dir)}:items", "#{top_directory(dir)}/"
         else
           etag = etag_for(dir, timestamp)
 

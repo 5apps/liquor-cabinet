@@ -186,23 +186,14 @@ describe "App" do
         RestClient.stub :put, put_stub do
           put "/phil/food/aguacate", "si"
           put "/phil/food/camaron", "yummi"
+          put "/phil/food/desayunos/bolon", "wow"
         end
       end
 
       it "deletes the metadata object in redis" do
-        put_stub = OpenStruct.new(headers: {
-          etag: "bla",
-          last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
-        })
-        get_stub = OpenStruct.new(body: "rootbody")
-
-        RestClient.stub :put, put_stub do
-          RestClient.stub :delete, "" do
-            RestClient.stub :get, get_stub do
-              RemoteStorage::Swift.stub_any_instance :etag_for, "rootetag" do
-                delete "/phil/food/aguacate"
-              end
-            end
+        RestClient.stub :delete, "" do
+          RemoteStorage::Swift.stub_any_instance :etag_for, "rootetag" do
+            delete "/phil/food/aguacate"
           end
         end
 
@@ -213,19 +204,9 @@ describe "App" do
       it "deletes the directory objects metadata in redis" do
         old_metadata = redis.hgetall "rs:m:phil:food/"
 
-        put_stub = OpenStruct.new(headers: {
-          etag: "bla",
-          last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
-        })
-        get_stub = OpenStruct.new(body: "rootbody")
-
-        RestClient.stub :put, put_stub do
-          RestClient.stub :delete, "" do
-            RestClient.stub :get, get_stub do
-              RemoteStorage::Swift.stub_any_instance :etag_for, "newetag" do
-                delete "/phil/food/aguacate"
-              end
-            end
+        RestClient.stub :delete, "" do
+          RemoteStorage::Swift.stub_any_instance :etag_for, "newetag" do
+            delete "/phil/food/aguacate"
           end
         end
 
@@ -235,38 +216,28 @@ describe "App" do
         metadata["m"].wont_equal old_metadata["m"]
 
         food_items = redis.smembers "rs:m:phil:food/:items"
-        food_items.must_equal ["camaron"]
+        food_items.sort.must_equal ["camaron", "desayunos/"]
 
         root_items = redis.smembers "rs:m:phil:/:items"
         root_items.must_equal ["food/"]
       end
 
       it "deletes the parent directory objects metadata when deleting all items" do
-        put_stub = OpenStruct.new(headers: {
-          etag: "bla",
-          last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
-        })
-        get_stub = OpenStruct.new(body: "rootbody")
-
-        RestClient.stub :put, put_stub do
-          RestClient.stub :delete, "" do
-            RestClient.stub :get, get_stub do
-              RemoteStorage::Swift.stub_any_instance :etag_for, "rootetag" do
-                delete "/phil/food/aguacate"
-                delete "/phil/food/camaron"
-              end
-            end
+        RestClient.stub :delete, "" do
+          RemoteStorage::Swift.stub_any_instance :etag_for, "rootetag" do
+            delete "/phil/food/aguacate"
+            delete "/phil/food/camaron"
+            delete "/phil/food/desayunos/bolon"
           end
         end
 
-        metadata = redis.hgetall "rs:m:phil:food/"
-        metadata.must_be_empty
+        redis.smembers("rs:m:phil:food/desayunos:items").must_be_empty
+        redis.hgetall("rs:m:phil:food/desayunos/").must_be_empty
 
-        food_items = redis.smembers "rs:m:phil:food/:items"
-        food_items.must_be_empty
+        redis.smembers("rs:m:phil:food/:items").must_be_empty
+        redis.hgetall("rs:m:phil:food/").must_be_empty
 
-        root_items = redis.smembers "rs:m:phil:/:items"
-        root_items.must_be_empty
+        redis.smembers("rs:m:phil:/:items").must_be_empty
       end
     end
   end
@@ -291,7 +262,7 @@ describe "App" do
         RestClient.stub :put, put_stub do
           put "/phil/food/aguacate", "si"
           put "/phil/food/camaron", "yummi"
-          put "/phil/food/desunyos/bolon", "wow"
+          put "/phil/food/desayunos/bolon", "wow"
         end
       end
 
@@ -301,11 +272,11 @@ describe "App" do
           get "/phil/food/"
 
           last_response.status.must_equal 200
-          last_response.headers["ETag"].must_equal "\"a693babe4b4027de2340b4f1c362d2c8\""
+          last_response.headers["ETag"].must_equal "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
         end
 
         it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
-          header "If-None-Match", "\"a693babe4b4027de2340b4f1c362d2c8\""
+          header "If-None-Match", "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
           get "/phil/food/"
 
           last_response.status.must_equal 304
@@ -327,8 +298,8 @@ describe "App" do
           content["items"]["camaron"]["Content-Type"].must_equal "text/plain; charset=utf-8"
           content["items"]["camaron"]["Content-Length"].must_equal 5
           content["items"]["camaron"]["ETag"].must_equal "bla"
-          content["items"]["desunyos/"].wont_be_nil
-          content["items"]["desunyos/"]["ETag"].must_equal "5e17228c28f15521416812ecac6f718e"
+          content["items"]["desayunos/"].wont_be_nil
+          content["items"]["desayunos/"]["ETag"].must_equal "dd36e3cfe52b5f33421150b289a7d48d"
         end
 
         it "contains all items in the root directory" do
@@ -339,7 +310,7 @@ describe "App" do
 
           content = JSON.parse(last_response.body)
           content["items"]["food/"].wont_be_nil
-          content["items"]["food/"]["ETag"].must_equal "a693babe4b4027de2340b4f1c362d2c8"
+          content["items"]["food/"]["ETag"].must_equal "f9f85fbf5aa1fa378fd79ac8aa0a457d"
         end
 
       end
