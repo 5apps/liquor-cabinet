@@ -72,14 +72,14 @@ module RemoteStorage
       none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
 
       if etag
-        server.halt 304 if none_match.include? etag
+        server.halt 304 if none_match.include? %Q("#{etag}")
 
         items = get_directory_listing_from_redis_via_lua(user, directory)
       else
         etag = etag_for(user, directory)
         items = {}
 
-        server.halt 304 if none_match.include? etag
+        server.halt 304 if none_match.include? %Q("#{etag}")
       end
 
       server.headers["ETag"] = %Q("#{etag}")
@@ -130,9 +130,10 @@ module RemoteStorage
     end
 
     def put_data(user, directory, key, data, content_type)
+      server.halt 400 if server.env["HTTP_CONTENT_RANGE"]
       server.halt 409 if has_name_collision?(user, directory, key)
 
-      existing_metadata = redis.hgetall "rs:m:#{user}:#{directory}/#{key}"
+      existing_metadata = redis.hgetall redis_metadata_object_key(user, directory, key)
       url = url_for_key(user, directory, key)
 
       if required_match = server.env["HTTP_IF_MATCH"]
@@ -218,35 +219,6 @@ module RemoteStorage
       end
 
       permission
-    end
-
-    def directory_listing(res_body)
-      listing = {
-        "@context" => "http://remotestorage.io/spec/folder-description",
-        "items"    => {}
-      }
-
-      res_body.each do |entry|
-        name = entry["name"]
-        name.sub!("#{File.dirname(entry["name"])}/", '')
-        if name[-1] == "/" # It's a directory
-          listing["items"].merge!({
-            name => {
-              "ETag"           => entry["hash"],
-            }
-          })
-        else # It's a file
-          listing["items"].merge!({
-            name => {
-              "ETag"           => entry["hash"],
-              "Content-Type"   => entry["content_type"],
-              "Content-Length" => entry["bytes"]
-            }
-          })
-        end
-      end
-
-      listing
     end
 
     def has_name_collision?(user, directory, key)
@@ -337,7 +309,7 @@ module RemoteStorage
     end
 
     def update_metadata_object(user, directory, key, metadata)
-      redis_key = "rs:m:#{user}:#{directory}/#{key}"
+      redis_key = redis_metadata_object_key(user, directory, key)
       redis.hmset(redis_key, *metadata)
       redis.sadd "rs:m:#{user}:#{directory}/:items", key
 
@@ -356,8 +328,7 @@ module RemoteStorage
     end
 
     def delete_metadata_objects(user, directory, key)
-      redis_key = "rs:m:#{user}:#{directory}/#{key}"
-      redis.del(redis_key)
+      redis.del redis_metadata_object_key(user, directory, key)
       redis.srem "rs:m:#{user}:#{directory}/:items", key
     end
 
@@ -379,6 +350,10 @@ module RemoteStorage
 
     def dir_empty?(user, dir)
       redis.smembers("rs:m:#{user}:#{dir}/:items").empty?
+    end
+
+    def redis_metadata_object_key(user, directory, key)
+      "rs:m:#{user}:#{[directory, key].delete_if(&:empty?).join("/")}"
     end
 
     def container_url_for(user)
