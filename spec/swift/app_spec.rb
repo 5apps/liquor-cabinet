@@ -186,7 +186,7 @@ describe "App" do
         RestClient.stub :put, put_stub do
           put "/phil/food/aguacate", "si"
           put "/phil/food/camaron", "yummi"
-          put "/phil/food/desunyos/bolon", "wow"
+          put "/phil/food/desayunos/bolon", "wow"
         end
       end
 
@@ -216,7 +216,7 @@ describe "App" do
         metadata["m"].wont_equal old_metadata["m"]
 
         food_items = redis.smembers "rs:m:phil:food/:items"
-        food_items.must_equal ["desunyos/", "camaron"]
+        food_items.must_equal ["desayunos/", "camaron"]
 
         root_items = redis.smembers "rs:m:phil:/:items"
         root_items.must_equal ["food/"]
@@ -227,12 +227,12 @@ describe "App" do
           RemoteStorage::Swift.stub_any_instance :etag_for, "rootetag" do
             delete "/phil/food/aguacate"
             delete "/phil/food/camaron"
-            delete "/phil/food/desunyos/bolon"
+            delete "/phil/food/desayunos/bolon"
           end
         end
 
-        redis.smembers("rs:m:phil:food/desunyos:items").must_be_empty
-        redis.hgetall("rs:m:phil:food/desunyos/").must_be_empty
+        redis.smembers("rs:m:phil:food/desayunos:items").must_be_empty
+        redis.hgetall("rs:m:phil:food/desayunos/").must_be_empty
 
         redis.smembers("rs:m:phil:food/:items").must_be_empty
         redis.hgetall("rs:m:phil:food/").must_be_empty
@@ -262,7 +262,7 @@ describe "App" do
         RestClient.stub :put, put_stub do
           put "/phil/food/aguacate", "si"
           put "/phil/food/camaron", "yummi"
-          put "/phil/food/desunyos/bolon", "wow"
+          put "/phil/food/desayunos/bolon", "wow"
         end
       end
 
@@ -298,8 +298,8 @@ describe "App" do
           content["items"]["camaron"]["Content-Type"].must_equal "text/plain; charset=utf-8"
           content["items"]["camaron"]["Content-Length"].must_equal 5
           content["items"]["camaron"]["ETag"].must_equal "bla"
-          content["items"]["desunyos/"].wont_be_nil
-          content["items"]["desunyos/"]["ETag"].must_equal "926233ce4a147a5b679e0ddf665517dd"
+          content["items"]["desayunos/"].wont_be_nil
+          content["items"]["desayunos/"]["ETag"].must_equal "dd36e3cfe52b5f33421150b289a7d48d"
         end
 
         it "contains all items in the root directory" do
