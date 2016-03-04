@@ -221,35 +221,6 @@ module RemoteStorage
       permission
     end
 
-    def directory_listing(res_body)
-      listing = {
-        "@context" => "http://remotestorage.io/spec/folder-description",
-        "items"    => {}
-      }
-
-      res_body.each do |entry|
-        name = entry["name"]
-        name.sub!("#{File.dirname(entry["name"])}/", '')
-        if name[-1] == "/" # It's a directory
-          listing["items"].merge!({
-            name => {
-              "ETag"           => entry["hash"],
-            }
-          })
-        else # It's a file
-          listing["items"].merge!({
-            name => {
-              "ETag"           => entry["hash"],
-              "Content-Type"   => entry["content_type"],
-              "Content-Length" => entry["bytes"]
-            }
-          })
-        end
-      end
-
-      listing
-    end
-
     def has_name_collision?(user, directory, key)
       lua_script = <<-EOF
         local user = ARGV[1]
