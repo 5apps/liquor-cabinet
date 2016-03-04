@@ -341,8 +341,8 @@ module RemoteStorage
 
       parent_directories_for(directory).each do |dir|
         if dir_empty?(user, dir)
-          redis.del "rs:m:#{user}:#{directory}/"
-          redis.srem "rs:m:#{user}:#{parent_directory_for(dir)}:items", "#{dir}/"
+          redis.del "rs:m:#{user}:#{dir}/"
+          redis.srem "rs:m:#{user}:#{parent_directory_for(dir)}:items", "#{top_directory(dir)}/"
         else
           etag = etag_for(dir, timestamp)
 
