@@ -446,11 +446,15 @@ module RemoteStorage
       begin
         block.call
       rescue RestClient::Unauthorized => ex
-        Raven.capture_exception(
-          ex,
-          tags: { swift_token:           settings.swift_token,
-                  swift_token_loaded_at: settings.swift_token_loaded_at }
-        )
+        if defined?(Raven)
+          Raven.capture_exception(
+            ex,
+            tags: { swift_token:           settings.swift_token,
+                    swift_token_loaded_at: settings.swift_token_loaded_at }
+          )
+        else
+          server.logger.error "Encountered RestClient::Unauthorized exception"
+        end
         server.halt 500
       end
     end
