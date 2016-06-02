@@ -427,9 +427,9 @@ describe "App" do
         end
       end
 
-      describe "data" do
+      describe "documents" do
 
-        it "has the required response headers" do
+        it "returns the required response headers" do
           get_stub = OpenStruct.new(body: "si", headers: {
             etag: "0815etag",
             last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
@@ -461,14 +461,14 @@ describe "App" do
 
       describe "directory listings" do
 
-        it "has an ETag in the header" do
+        it "returns the correct ETag header" do
           get "/phil/food/"
 
           last_response.status.must_equal 200
           last_response.headers["ETag"].must_equal "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
         end
 
-        it "has a Cache-Control in the header" do
+        it "returns a Cache-Control header with value 'no-cache'" do
           get "/phil/food/"
 
           last_response.status.must_equal 200
@@ -513,7 +513,7 @@ describe "App" do
           content["items"]["food/"]["ETag"].must_equal "f9f85fbf5aa1fa378fd79ac8aa0a457d"
         end
 
-        it "responds with 200 and empty object when directory doesn't exist" do
+        it "responds with an empty directory liting when directory doesn't exist" do
           get "phil/some-non-existing-dir/"
 
           last_response.status.must_equal 200
@@ -576,7 +576,7 @@ describe "App" do
       end
 
       describe "directory listings" do
-        it "has the header information" do
+        it "returns the correct header information" do
           get "/phil/food/"
 
           last_response.status.must_equal 200
@@ -585,8 +585,8 @@ describe "App" do
         end
       end
 
-      describe "data" do
-        it "returns a 404 when data doesn't exist" do
+      describe "documents" do
+        it "returns a 404 when the document doesn't exist" do
           raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
           RestClient.stub :head, raises_exception do
             head "/phil/food/steak"
