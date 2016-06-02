@@ -24,12 +24,14 @@ module RemoteStorage
         return true if ["GET", "HEAD"].include?(request_method) && !listing
       end
 
+      server.halt 401, "Unauthorized" if token.empty?
+
       authorizations = redis.smembers("authorizations:#{user}:#{token}")
       permission = directory_permission(authorizations, directory)
 
-      server.halt 401 unless permission
+      server.halt 401, "Unauthorized" unless permission
       if ["PUT", "DELETE"].include? request_method
-        server.halt 401 unless permission == "rw"
+        server.halt 401, "Unauthorized" unless permission == "rw"
       end
     end
 
@@ -55,7 +57,7 @@ module RemoteStorage
 
       return res.body
     rescue RestClient::ResourceNotFound
-      server.halt 404
+      server.halt 404, "Not Found"
     end
 
     def get_head_directory_listing(user, directory)
@@ -131,16 +133,16 @@ module RemoteStorage
 
     def put_data(user, directory, key, data, content_type)
       server.halt 400 if server.env["HTTP_CONTENT_RANGE"]
-      server.halt 409 if has_name_collision?(user, directory, key)
+      server.halt 409, "Conflict" if has_name_collision?(user, directory, key)
 
       existing_metadata = redis.hgetall redis_metadata_object_key(user, directory, key)
       url = url_for_key(user, directory, key)
 
       if required_match = server.env["HTTP_IF_MATCH"]
-        server.halt 412 unless required_match == %Q("#{existing_metadata["e"]}")
+        server.halt 412, "Precondition Failed" unless required_match == %Q("#{existing_metadata["e"]}")
       end
       if server.env["HTTP_IF_NONE_MATCH"] == "*"
-        server.halt 412 unless existing_metadata.empty?
+        server.halt 412, "Precondition Failed" unless existing_metadata.empty?
       end
 
       res = do_put_request(url, data, content_type)
@@ -176,7 +178,7 @@ module RemoteStorage
       existing_metadata = redis.hgetall "rs:m:#{user}:#{directory}/#{key}"
 
       if required_match = server.env["HTTP_IF_MATCH"]
-        server.halt 412 unless required_match == %Q("#{existing_metadata["e"]}")
+        server.halt 412, "Precondition Failed" unless required_match == %Q("#{existing_metadata["e"]}")
       end
 
       do_delete_request(url)
@@ -186,7 +188,7 @@ module RemoteStorage
       server.headers["Etag"] = %Q("#{existing_metadata["e"]}")
       server.halt 200
     rescue RestClient::ResourceNotFound
-      server.halt 404
+      server.halt 404, "Not Found"
     end
 
     private
