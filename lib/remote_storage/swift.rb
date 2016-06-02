@@ -67,7 +67,7 @@ module RemoteStorage
     def get_directory_listing(user, directory)
       etag = redis.hget "rs:m:#{user}:#{directory}/", "e"
 
-      server.headers["Content-Type"] = "application/json"
+      server.headers["Content-Type"] = "application/ld+json"
 
       none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
 

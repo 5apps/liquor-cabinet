@@ -90,7 +90,7 @@ describe "App" do
           get "phil/"
 
           last_response.status.must_equal 200
-          last_response.content_type.must_equal "application/json"
+          last_response.content_type.must_equal "application/ld+json"
 
           content = JSON.parse(last_response.body)
           content["items"]["bamboo.txt"].wont_be_nil
@@ -286,7 +286,7 @@ describe "App" do
           get "/phil/food/"
 
           last_response.status.must_equal 200
-          last_response.content_type.must_equal "application/json"
+          last_response.content_type.must_equal "application/ld+json"
 
           content = JSON.parse(last_response.body)
           content["@context"].must_equal "http://remotestorage.io/spec/folder-description"
@@ -306,7 +306,7 @@ describe "App" do
           get "phil/"
 
           last_response.status.must_equal 200
-          last_response.content_type.must_equal "application/json"
+          last_response.content_type.must_equal "application/ld+json"
 
           content = JSON.parse(last_response.body)
           content["items"]["food/"].wont_be_nil
@@ -317,5 +317,44 @@ describe "App" do
     end
 
   end
+
+  describe "HEAD requests" do
+
+    before do
+      purge_redis
+    end
+
+    context "authorized" do
+
+      before do
+        redis.sadd "authorizations:phil:amarillo", [":rw"]
+        header "Authorization", "Bearer amarillo"
+
+        put_stub = OpenStruct.new(headers: {
+          etag: "bla",
+          last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+        })
+
+        RestClient.stub :put, put_stub do
+          put "/phil/food/aguacate", "si"
+          put "/phil/food/camaron", "yummi"
+          put "/phil/food/desayunos/bolon", "wow"
+        end
+      end
+
+      describe "directory listings" do
+        it "has the header information" do
+          get "/phil/food/"
+
+          last_response.status.must_equal 200
+          last_response.content_type.must_equal "application/ld+json"
+          last_response.headers["ETag"].must_equal "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
+        end
+      end
+
+    end
+
+  end
+
 end
 
