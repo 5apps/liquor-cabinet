@@ -274,6 +274,28 @@ describe "App" do
         end
       end
 
+      describe "data" do
+
+        it "has the required response headers" do
+          get_stub = OpenStruct.new(body: "si", headers: {
+            etag: "0815etag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
+            content_type: "text/plain; charset=utf-8",
+            content_length: 2
+          })
+
+          RestClient.stub :get, get_stub do
+            get "/phil/food/aguacate"
+          end
+
+          last_response.status.must_equal 200
+          last_response.headers["ETag"].must_equal "\"0815etag\""
+          last_response.headers["Cache-Control"].must_equal "no-cache"
+          last_response.headers["Content-Type"].must_equal "text/plain; charset=utf-8"
+        end
+
+      end
+
       describe "directory listings" do
 
         it "has an ETag in the header" do
@@ -281,6 +303,13 @@ describe "App" do
 
           last_response.status.must_equal 200
           last_response.headers["ETag"].must_equal "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
+        end
+
+        it "has a Cache-Control in the header" do
+          get "/phil/food/"
+
+          last_response.status.must_equal 200
+          last_response.headers["Cache-Control"].must_equal "no-cache"
         end
 
         it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
