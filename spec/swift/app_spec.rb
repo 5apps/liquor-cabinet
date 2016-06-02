@@ -350,6 +350,16 @@ describe "App" do
           content["items"]["food/"]["ETag"].must_equal "f9f85fbf5aa1fa378fd79ac8aa0a457d"
         end
 
+        it "responds with 200 and empty object when directory doesn't exist" do
+          get "phil/some-non-existing-dir/"
+
+          last_response.status.must_equal 200
+          last_response.content_type.must_equal "application/ld+json"
+
+          content = JSON.parse(last_response.body)
+          content["items"].must_equal({})
+        end
+
       end
     end
 
