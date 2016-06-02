@@ -134,6 +134,7 @@ describe "App" do
           end
 
           last_response.status.must_equal 409
+          last_response.body.must_equal "Conflict"
 
           metadata = redis.hgetall "rs:m:phil:food"
           metadata.must_be_empty
@@ -164,13 +165,111 @@ describe "App" do
           last_response.status.must_equal 400
         end
       end
+
+      describe "If-Match header" do
+        before do
+          put_stub = OpenStruct.new(headers: {
+            etag: "oldetag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "si"
+          end
+        end
+
+        it "allows the request if the header matches the current ETag" do
+          header "If-Match", "\"oldetag\""
+
+          put_stub = OpenStruct.new(headers: {
+            etag: "newetag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "aye"
+          end
+
+          last_response.status.must_equal 200
+          last_response.headers["Etag"].must_equal "\"newetag\""
+        end
+
+        it "fails the request if the header does not match the current ETag" do
+          header "If-Match", "someotheretag"
+
+          put "/phil/food/aguacate", "aye"
+
+          last_response.status.must_equal 412
+          last_response.body.must_equal "Precondition Failed"
+        end
+      end
+
+      describe "If-None-Match header set to '*'" do
+        it "succeeds when the document doesn't exist yet" do
+          put_stub = OpenStruct.new(headers: {
+            etag: "someetag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
+          header "If-None-Match", "*"
+
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "si"
+          end
+
+          last_response.status.must_equal 200
+        end
+
+        it "fails the request if the document already exsits" do
+          put_stub = OpenStruct.new(headers: {
+            etag: "someetag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "si"
+          end
+
+          header "If-None-Match", "*"
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "si"
+          end
+
+          last_response.status.must_equal 412
+          last_response.body.must_equal "Precondition Failed"
+        end
+      end
     end
+
   end
 
   describe "DELETE requests" do
 
     before do
       purge_redis
+    end
+
+    context "not authorized" do
+
+      describe "with no token" do
+        it "says it's not authorized" do
+          delete "/phil/food/aguacate"
+
+          last_response.status.must_equal 401
+          last_response.body.must_equal "Unauthorized"
+        end
+      end
+
+      describe "with wrong token" do
+        it "says it's not authorized" do
+          header "Authorization", "Bearer wrongtoken"
+          delete "/phil/food/aguacate"
+
+          last_response.status.must_equal 401
+          last_response.body.must_equal "Unauthorized"
+        end
+      end
+
     end
 
     context "authorized" do
@@ -239,6 +338,37 @@ describe "App" do
 
         redis.smembers("rs:m:phil:/:items").must_be_empty
       end
+
+      it "returns a 404 when item doesn't exist" do
+        raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
+        RestClient.stub :delete, raises_exception do
+          delete "/phil/food/steak"
+        end
+
+        last_response.status.must_equal 404
+        last_response.body.must_equal "Not Found"
+      end
+
+      describe "If-Match header" do
+        it "succeeds when the header matches the current ETag" do
+          header "If-Match", "\"bla\""
+
+          RestClient.stub :delete, "" do
+            delete "/phil/food/aguacate"
+          end
+
+          last_response.status.must_equal 200
+        end
+
+        it "fails the request if it does not match the current ETag" do
+          header "If-Match", "someotheretag"
+
+          delete "/phil/food/aguacate"
+
+          last_response.status.must_equal 412
+          last_response.body.must_equal "Precondition Failed"
+        end
+      end
     end
   end
 
@@ -246,6 +376,29 @@ describe "App" do
 
     before do
       purge_redis
+    end
+
+    context "not authorized" do
+
+      describe "without token" do
+        it "says it's not authorized" do
+          get "/phil/food/"
+
+          last_response.status.must_equal 401
+          last_response.body.must_equal "Unauthorized"
+        end
+      end
+
+      describe "with wrong token" do
+        it "says it's not authorized" do
+          header "Authorization", "Bearer wrongtoken"
+          get "/phil/food/"
+
+          last_response.status.must_equal 401
+          last_response.body.must_equal "Unauthorized"
+        end
+      end
+
     end
 
     context "authorized" do
@@ -264,6 +417,20 @@ describe "App" do
           put "/phil/food/camaron", "yummi"
           put "/phil/food/desayunos/bolon", "wow"
         end
+      end
+
+      describe "data" do
+
+        it "returns a 404 when data doesn't exist" do
+          raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
+          RestClient.stub :get, raises_exception do
+            get "/phil/food/steak"
+          end
+
+          last_response.status.must_equal 404
+          last_response.body.must_equal "Not Found"
+        end
+
       end
 
       describe "directory listings" do
@@ -317,5 +484,58 @@ describe "App" do
     end
 
   end
+
+  describe "HEAD requests" do
+
+    before do
+      purge_redis
+    end
+
+    context "not authorized" do
+
+      describe "without token" do
+        it "says it's not authorized" do
+          head "/phil/food/camarones"
+
+          last_response.status.must_equal 401
+          last_response.body.must_be_empty
+        end
+      end
+
+      describe "with wrong token" do
+        it "says it's not authorized" do
+          header "Authorization", "Bearer wrongtoken"
+          head "/phil/food/camarones"
+
+          last_response.status.must_equal 401
+          last_response.body.must_be_empty
+        end
+      end
+
+    end
+
+    context "authorized" do
+
+      before do
+        redis.sadd "authorizations:phil:amarillo", [":rw"]
+        header "Authorization", "Bearer amarillo"
+      end
+
+      describe "data" do
+        it "returns a 404 when data doesn't exist" do
+          raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
+          RestClient.stub :head, raises_exception do
+            head "/phil/food/steak"
+          end
+
+          last_response.status.must_equal 404
+          last_response.body.must_be_empty
+        end
+      end
+
+    end
+
+  end
+
 end
 
