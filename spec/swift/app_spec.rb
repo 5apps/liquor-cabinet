@@ -173,6 +173,29 @@ describe "App" do
       purge_redis
     end
 
+    context "not authorized" do
+
+      describe "with no token" do
+        it "says it's not authorized" do
+          delete "/phil/food/aguacate"
+
+          last_response.status.must_equal 401
+          last_response.body.must_equal "Unauthorized"
+        end
+      end
+
+      describe "with wrong token" do
+        it "says it's not authorized" do
+          header "Authorization", "Bearer wrongtoken"
+          delete "/phil/food/aguacate"
+
+          last_response.status.must_equal 401
+          last_response.body.must_equal "Unauthorized"
+        end
+      end
+
+    end
+
     context "authorized" do
       before do
         redis.sadd "authorizations:phil:amarillo", [":rw"]
@@ -246,6 +269,29 @@ describe "App" do
 
     before do
       purge_redis
+    end
+
+    context "not authorized" do
+
+      describe "without token" do
+        it "says it's not authorized" do
+          get "/phil/food/"
+
+          last_response.status.must_equal 401
+          last_response.body.must_equal "Unauthorized"
+        end
+      end
+
+      describe "with wrong token" do
+        it "says it's not authorized" do
+          header "Authorization", "Bearer wrongtoken"
+          get "/phil/food/"
+
+          last_response.status.must_equal 401
+          last_response.body.must_equal "Unauthorized"
+        end
+      end
+
     end
 
     context "authorized" do
