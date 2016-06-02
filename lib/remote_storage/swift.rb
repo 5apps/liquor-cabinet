@@ -183,6 +183,7 @@ module RemoteStorage
       delete_metadata_objects(user, directory, key)
       delete_dir_objects(user, directory)
 
+      server.headers["Etag"] = %Q("#{existing_metadata["e"]}")
       server.halt 200
     rescue RestClient::ResourceNotFound
       server.halt 404

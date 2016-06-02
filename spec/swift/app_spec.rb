@@ -239,6 +239,14 @@ describe "App" do
 
         redis.smembers("rs:m:phil:/:items").must_be_empty
       end
+
+      it "responds with the ETag of the deleted item in the haeder" do
+        RestClient.stub :delete, "" do
+          delete "/phil/food/aguacate"
+        end
+
+        last_response.headers["ETag"].must_equal "\"bla\""
+      end
     end
   end
 
