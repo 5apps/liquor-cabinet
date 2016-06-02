@@ -133,7 +133,7 @@ module RemoteStorage
 
     def put_data(user, directory, key, data, content_type)
       server.halt 400 if server.env["HTTP_CONTENT_RANGE"]
-      server.halt 409 if has_name_collision?(user, directory, key)
+      server.halt 409, "Conflict" if has_name_collision?(user, directory, key)
 
       existing_metadata = redis.hgetall redis_metadata_object_key(user, directory, key)
       url = url_for_key(user, directory, key)

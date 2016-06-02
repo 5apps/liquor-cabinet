@@ -134,6 +134,7 @@ describe "App" do
           end
 
           last_response.status.must_equal 409
+          last_response.body.must_equal "Conflict"
 
           metadata = redis.hgetall "rs:m:phil:food"
           metadata.must_be_empty
