@@ -57,7 +57,7 @@ module RemoteStorage
 
       return res.body
     rescue RestClient::ResourceNotFound
-      server.halt 404
+      server.halt 404, "Not Found"
     end
 
     def get_head_directory_listing(user, directory)
@@ -187,7 +187,7 @@ module RemoteStorage
 
       server.halt 200
     rescue RestClient::ResourceNotFound
-      server.halt 404
+      server.halt 404, "Not Found"
     end
 
     private

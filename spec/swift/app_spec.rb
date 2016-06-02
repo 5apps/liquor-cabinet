@@ -263,6 +263,16 @@ describe "App" do
 
         redis.smembers("rs:m:phil:/:items").must_be_empty
       end
+
+      it "returns a 404 when item doesn't exist" do
+        raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
+        RestClient.stub :delete, raises_exception do
+          delete "/phil/food/steak"
+        end
+
+        last_response.status.must_equal 404
+        last_response.body.must_equal "Not Found"
+      end
     end
   end
 
@@ -311,6 +321,20 @@ describe "App" do
           put "/phil/food/camaron", "yummi"
           put "/phil/food/desayunos/bolon", "wow"
         end
+      end
+
+      describe "data" do
+
+        it "returns a 404 when data doesn't exist" do
+          raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
+          RestClient.stub :get, raises_exception do
+            get "/phil/food/steak"
+          end
+
+          last_response.status.must_equal 404
+          last_response.body.must_equal "Not Found"
+        end
+
       end
 
       describe "directory listings" do
@@ -364,5 +388,58 @@ describe "App" do
     end
 
   end
+
+  describe "HEAD requests" do
+
+    before do
+      purge_redis
+    end
+
+    context "not authorized" do
+
+      describe "without token" do
+        it "says it's not authorized" do
+          head "/phil/food/camarones"
+
+          last_response.status.must_equal 401
+          last_response.body.must_be_empty
+        end
+      end
+
+      describe "with wrong token" do
+        it "says it's not authorized" do
+          header "Authorization", "Bearer wrongtoken"
+          head "/phil/food/camarones"
+
+          last_response.status.must_equal 401
+          last_response.body.must_be_empty
+        end
+      end
+
+    end
+
+    context "authorized" do
+
+      before do
+        redis.sadd "authorizations:phil:amarillo", [":rw"]
+        header "Authorization", "Bearer amarillo"
+      end
+
+      describe "data" do
+        it "returns a 404 when data doesn't exist" do
+          raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
+          RestClient.stub :head, raises_exception do
+            head "/phil/food/steak"
+          end
+
+          last_response.status.must_equal 404
+          last_response.body.must_be_empty
+        end
+      end
+
+    end
+
+  end
+
 end
 
