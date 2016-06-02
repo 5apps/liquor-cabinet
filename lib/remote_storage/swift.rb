@@ -139,10 +139,10 @@ module RemoteStorage
       url = url_for_key(user, directory, key)
 
       if required_match = server.env["HTTP_IF_MATCH"]
-        server.halt 412 unless required_match == %Q("#{existing_metadata["e"]}")
+        server.halt 412, "Precondition Failed" unless required_match == %Q("#{existing_metadata["e"]}")
       end
       if server.env["HTTP_IF_NONE_MATCH"] == "*"
-        server.halt 412 unless existing_metadata.empty?
+        server.halt 412, "Precondition Failed" unless existing_metadata.empty?
       end
 
       res = do_put_request(url, data, content_type)
@@ -178,7 +178,7 @@ module RemoteStorage
       existing_metadata = redis.hgetall "rs:m:#{user}:#{directory}/#{key}"
 
       if required_match = server.env["HTTP_IF_MATCH"]
-        server.halt 412 unless required_match == %Q("#{existing_metadata["e"]}")
+        server.halt 412, "Precondition Failed" unless required_match == %Q("#{existing_metadata["e"]}")
       end
 
       do_delete_request(url)
