@@ -90,7 +90,7 @@ describe "App" do
           get "phil/"
 
           last_response.status.must_equal 200
-          last_response.content_type.must_equal "application/json"
+          last_response.content_type.must_equal "application/ld+json"
 
           content = JSON.parse(last_response.body)
           content["items"]["bamboo.txt"].wont_be_nil
@@ -339,6 +339,14 @@ describe "App" do
         redis.smembers("rs:m:phil:/:items").must_be_empty
       end
 
+      it "responds with the ETag of the deleted item in the header" do
+        RestClient.stub :delete, "" do
+          delete "/phil/food/aguacate"
+        end
+
+        last_response.headers["ETag"].must_equal "\"bla\""
+      end
+
       it "returns a 404 when item doesn't exist" do
         raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
         RestClient.stub :delete, raises_exception do
@@ -419,7 +427,25 @@ describe "App" do
         end
       end
 
-      describe "data" do
+      describe "documents" do
+
+        it "returns the required response headers" do
+          get_stub = OpenStruct.new(body: "si", headers: {
+            etag: "0815etag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
+            content_type: "text/plain; charset=utf-8",
+            content_length: 2
+          })
+
+          RestClient.stub :get, get_stub do
+            get "/phil/food/aguacate"
+          end
+
+          last_response.status.must_equal 200
+          last_response.headers["ETag"].must_equal "\"0815etag\""
+          last_response.headers["Cache-Control"].must_equal "no-cache"
+          last_response.headers["Content-Type"].must_equal "text/plain; charset=utf-8"
+        end
 
         it "returns a 404 when data doesn't exist" do
           raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
@@ -435,11 +461,18 @@ describe "App" do
 
       describe "directory listings" do
 
-        it "has an ETag in the header" do
+        it "returns the correct ETag header" do
           get "/phil/food/"
 
           last_response.status.must_equal 200
           last_response.headers["ETag"].must_equal "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
+        end
+
+        it "returns a Cache-Control header with value 'no-cache'" do
+          get "/phil/food/"
+
+          last_response.status.must_equal 200
+          last_response.headers["Cache-Control"].must_equal "no-cache"
         end
 
         it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
@@ -453,7 +486,7 @@ describe "App" do
           get "/phil/food/"
 
           last_response.status.must_equal 200
-          last_response.content_type.must_equal "application/json"
+          last_response.content_type.must_equal "application/ld+json"
 
           content = JSON.parse(last_response.body)
           content["@context"].must_equal "http://remotestorage.io/spec/folder-description"
@@ -473,11 +506,21 @@ describe "App" do
           get "phil/"
 
           last_response.status.must_equal 200
-          last_response.content_type.must_equal "application/json"
+          last_response.content_type.must_equal "application/ld+json"
 
           content = JSON.parse(last_response.body)
           content["items"]["food/"].wont_be_nil
           content["items"]["food/"]["ETag"].must_equal "f9f85fbf5aa1fa378fd79ac8aa0a457d"
+        end
+
+        it "responds with an empty directory liting when directory doesn't exist" do
+          get "phil/some-non-existing-dir/"
+
+          last_response.status.must_equal 200
+          last_response.content_type.must_equal "application/ld+json"
+
+          content = JSON.parse(last_response.body)
+          content["items"].must_equal({})
         end
 
       end
@@ -519,10 +562,31 @@ describe "App" do
       before do
         redis.sadd "authorizations:phil:amarillo", [":rw"]
         header "Authorization", "Bearer amarillo"
+
+        put_stub = OpenStruct.new(headers: {
+          etag: "bla",
+          last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+        })
+
+        RestClient.stub :put, put_stub do
+          put "/phil/food/aguacate", "si"
+          put "/phil/food/camaron", "yummi"
+          put "/phil/food/desayunos/bolon", "wow"
+        end
       end
 
-      describe "data" do
-        it "returns a 404 when data doesn't exist" do
+      describe "directory listings" do
+        it "returns the correct header information" do
+          get "/phil/food/"
+
+          last_response.status.must_equal 200
+          last_response.content_type.must_equal "application/ld+json"
+          last_response.headers["ETag"].must_equal "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
+        end
+      end
+
+      describe "documents" do
+        it "returns a 404 when the document doesn't exist" do
           raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
           RestClient.stub :head, raises_exception do
             head "/phil/food/steak"
