@@ -90,7 +90,7 @@ describe "App" do
           get "phil/"
 
           last_response.status.must_equal 200
-          last_response.content_type.must_equal "application/json"
+          last_response.content_type.must_equal "application/ld+json"
 
           content = JSON.parse(last_response.body)
           content["items"]["bamboo.txt"].wont_be_nil
@@ -134,6 +134,7 @@ describe "App" do
           end
 
           last_response.status.must_equal 409
+          last_response.body.must_equal "Conflict"
 
           metadata = redis.hgetall "rs:m:phil:food"
           metadata.must_be_empty
@@ -164,13 +165,111 @@ describe "App" do
           last_response.status.must_equal 400
         end
       end
+
+      describe "If-Match header" do
+        before do
+          put_stub = OpenStruct.new(headers: {
+            etag: "oldetag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "si"
+          end
+        end
+
+        it "allows the request if the header matches the current ETag" do
+          header "If-Match", "\"oldetag\""
+
+          put_stub = OpenStruct.new(headers: {
+            etag: "newetag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "aye"
+          end
+
+          last_response.status.must_equal 200
+          last_response.headers["Etag"].must_equal "\"newetag\""
+        end
+
+        it "fails the request if the header does not match the current ETag" do
+          header "If-Match", "someotheretag"
+
+          put "/phil/food/aguacate", "aye"
+
+          last_response.status.must_equal 412
+          last_response.body.must_equal "Precondition Failed"
+        end
+      end
+
+      describe "If-None-Match header set to '*'" do
+        it "succeeds when the document doesn't exist yet" do
+          put_stub = OpenStruct.new(headers: {
+            etag: "someetag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
+          header "If-None-Match", "*"
+
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "si"
+          end
+
+          last_response.status.must_equal 200
+        end
+
+        it "fails the request if the document already exsits" do
+          put_stub = OpenStruct.new(headers: {
+            etag: "someetag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "si"
+          end
+
+          header "If-None-Match", "*"
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "si"
+          end
+
+          last_response.status.must_equal 412
+          last_response.body.must_equal "Precondition Failed"
+        end
+      end
     end
+
   end
 
   describe "DELETE requests" do
 
     before do
       purge_redis
+    end
+
+    context "not authorized" do
+
+      describe "with no token" do
+        it "says it's not authorized" do
+          delete "/phil/food/aguacate"
+
+          last_response.status.must_equal 401
+          last_response.body.must_equal "Unauthorized"
+        end
+      end
+
+      describe "with wrong token" do
+        it "says it's not authorized" do
+          header "Authorization", "Bearer wrongtoken"
+          delete "/phil/food/aguacate"
+
+          last_response.status.must_equal 401
+          last_response.body.must_equal "Unauthorized"
+        end
+      end
+
     end
 
     context "authorized" do
@@ -239,6 +338,45 @@ describe "App" do
 
         redis.smembers("rs:m:phil:/:items").must_be_empty
       end
+
+      it "responds with the ETag of the deleted item in the header" do
+        RestClient.stub :delete, "" do
+          delete "/phil/food/aguacate"
+        end
+
+        last_response.headers["ETag"].must_equal "\"bla\""
+      end
+
+      it "returns a 404 when item doesn't exist" do
+        raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
+        RestClient.stub :delete, raises_exception do
+          delete "/phil/food/steak"
+        end
+
+        last_response.status.must_equal 404
+        last_response.body.must_equal "Not Found"
+      end
+
+      describe "If-Match header" do
+        it "succeeds when the header matches the current ETag" do
+          header "If-Match", "\"bla\""
+
+          RestClient.stub :delete, "" do
+            delete "/phil/food/aguacate"
+          end
+
+          last_response.status.must_equal 200
+        end
+
+        it "fails the request if it does not match the current ETag" do
+          header "If-Match", "someotheretag"
+
+          delete "/phil/food/aguacate"
+
+          last_response.status.must_equal 412
+          last_response.body.must_equal "Precondition Failed"
+        end
+      end
     end
   end
 
@@ -246,6 +384,177 @@ describe "App" do
 
     before do
       purge_redis
+    end
+
+    context "not authorized" do
+
+      describe "without token" do
+        it "says it's not authorized" do
+          get "/phil/food/"
+
+          last_response.status.must_equal 401
+          last_response.body.must_equal "Unauthorized"
+        end
+      end
+
+      describe "with wrong token" do
+        it "says it's not authorized" do
+          header "Authorization", "Bearer wrongtoken"
+          get "/phil/food/"
+
+          last_response.status.must_equal 401
+          last_response.body.must_equal "Unauthorized"
+        end
+      end
+
+    end
+
+    context "authorized" do
+
+      before do
+        redis.sadd "authorizations:phil:amarillo", [":rw"]
+        header "Authorization", "Bearer amarillo"
+
+        put_stub = OpenStruct.new(headers: {
+          etag: "bla",
+          last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+        })
+
+        RestClient.stub :put, put_stub do
+          put "/phil/food/aguacate", "si"
+          put "/phil/food/camaron", "yummi"
+          put "/phil/food/desayunos/bolon", "wow"
+        end
+      end
+
+      describe "documents" do
+
+        it "returns the required response headers" do
+          get_stub = OpenStruct.new(body: "si", headers: {
+            etag: "0815etag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
+            content_type: "text/plain; charset=utf-8",
+            content_length: 2
+          })
+
+          RestClient.stub :get, get_stub do
+            get "/phil/food/aguacate"
+          end
+
+          last_response.status.must_equal 200
+          last_response.headers["ETag"].must_equal "\"0815etag\""
+          last_response.headers["Cache-Control"].must_equal "no-cache"
+          last_response.headers["Content-Type"].must_equal "text/plain; charset=utf-8"
+        end
+
+        it "returns a 404 when data doesn't exist" do
+          raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
+          RestClient.stub :get, raises_exception do
+            get "/phil/food/steak"
+          end
+
+          last_response.status.must_equal 404
+          last_response.body.must_equal "Not Found"
+        end
+
+      end
+
+      describe "directory listings" do
+
+        it "returns the correct ETag header" do
+          get "/phil/food/"
+
+          last_response.status.must_equal 200
+          last_response.headers["ETag"].must_equal "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
+        end
+
+        it "returns a Cache-Control header with value 'no-cache'" do
+          get "/phil/food/"
+
+          last_response.status.must_equal 200
+          last_response.headers["Cache-Control"].must_equal "no-cache"
+        end
+
+        it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
+          header "If-None-Match", "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
+          get "/phil/food/"
+
+          last_response.status.must_equal 304
+        end
+
+        it "contains all items in the directory" do
+          get "/phil/food/"
+
+          last_response.status.must_equal 200
+          last_response.content_type.must_equal "application/ld+json"
+
+          content = JSON.parse(last_response.body)
+          content["@context"].must_equal "http://remotestorage.io/spec/folder-description"
+          content["items"]["aguacate"].wont_be_nil
+          content["items"]["aguacate"]["Content-Type"].must_equal "text/plain; charset=utf-8"
+          content["items"]["aguacate"]["Content-Length"].must_equal 2
+          content["items"]["aguacate"]["ETag"].must_equal "bla"
+          content["items"]["camaron"].wont_be_nil
+          content["items"]["camaron"]["Content-Type"].must_equal "text/plain; charset=utf-8"
+          content["items"]["camaron"]["Content-Length"].must_equal 5
+          content["items"]["camaron"]["ETag"].must_equal "bla"
+          content["items"]["desayunos/"].wont_be_nil
+          content["items"]["desayunos/"]["ETag"].must_equal "dd36e3cfe52b5f33421150b289a7d48d"
+        end
+
+        it "contains all items in the root directory" do
+          get "phil/"
+
+          last_response.status.must_equal 200
+          last_response.content_type.must_equal "application/ld+json"
+
+          content = JSON.parse(last_response.body)
+          content["items"]["food/"].wont_be_nil
+          content["items"]["food/"]["ETag"].must_equal "f9f85fbf5aa1fa378fd79ac8aa0a457d"
+        end
+
+        it "responds with an empty directory liting when directory doesn't exist" do
+          get "phil/some-non-existing-dir/"
+
+          last_response.status.must_equal 200
+          last_response.content_type.must_equal "application/ld+json"
+
+          content = JSON.parse(last_response.body)
+          content["items"].must_equal({})
+        end
+
+      end
+    end
+
+  end
+
+  describe "HEAD requests" do
+
+    before do
+      purge_redis
+    end
+
+    context "not authorized" do
+
+      describe "without token" do
+        it "says it's not authorized" do
+          head "/phil/food/camarones"
+
+          last_response.status.must_equal 401
+          last_response.body.must_be_empty
+        end
+      end
+
+      describe "with wrong token" do
+        it "says it's not authorized" do
+          header "Authorization", "Bearer wrongtoken"
+          head "/phil/food/camarones"
+
+          last_response.status.must_equal 401
+          last_response.body.must_be_empty
+        end
+      end
+
     end
 
     context "authorized" do
@@ -267,55 +576,30 @@ describe "App" do
       end
 
       describe "directory listings" do
-
-        it "has an ETag in the header" do
+        it "returns the correct header information" do
           get "/phil/food/"
 
           last_response.status.must_equal 200
+          last_response.content_type.must_equal "application/ld+json"
           last_response.headers["ETag"].must_equal "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
         end
-
-        it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
-          header "If-None-Match", "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
-          get "/phil/food/"
-
-          last_response.status.must_equal 304
-        end
-
-        it "contains all items in the directory" do
-          get "/phil/food/"
-
-          last_response.status.must_equal 200
-          last_response.content_type.must_equal "application/json"
-
-          content = JSON.parse(last_response.body)
-          content["@context"].must_equal "http://remotestorage.io/spec/folder-description"
-          content["items"]["aguacate"].wont_be_nil
-          content["items"]["aguacate"]["Content-Type"].must_equal "text/plain; charset=utf-8"
-          content["items"]["aguacate"]["Content-Length"].must_equal 2
-          content["items"]["aguacate"]["ETag"].must_equal "bla"
-          content["items"]["camaron"].wont_be_nil
-          content["items"]["camaron"]["Content-Type"].must_equal "text/plain; charset=utf-8"
-          content["items"]["camaron"]["Content-Length"].must_equal 5
-          content["items"]["camaron"]["ETag"].must_equal "bla"
-          content["items"]["desayunos/"].wont_be_nil
-          content["items"]["desayunos/"]["ETag"].must_equal "dd36e3cfe52b5f33421150b289a7d48d"
-        end
-
-        it "contains all items in the root directory" do
-          get "phil/"
-
-          last_response.status.must_equal 200
-          last_response.content_type.must_equal "application/json"
-
-          content = JSON.parse(last_response.body)
-          content["items"]["food/"].wont_be_nil
-          content["items"]["food/"]["ETag"].must_equal "f9f85fbf5aa1fa378fd79ac8aa0a457d"
-        end
-
       end
+
+      describe "documents" do
+        it "returns a 404 when the document doesn't exist" do
+          raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
+          RestClient.stub :head, raises_exception do
+            head "/phil/food/steak"
+          end
+
+          last_response.status.must_equal 404
+          last_response.body.must_be_empty
+        end
+      end
+
     end
 
   end
+
 end
 
