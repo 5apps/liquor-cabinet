@@ -74,6 +74,36 @@ describe "App" do
         root_items.must_equal ["food/"]
       end
 
+      context "logging usage size" do
+        before do
+          @put_stub = OpenStruct.new(headers: {
+            etag: "bla",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
+        end
+
+        it "logs the complete size when creating new objects" do
+          RestClient.stub :put, @put_stub do
+            put "/phil/food/aguacate", "1234567890"
+          end
+
+          size_log = redis.get "rs:s:phil"
+          size_log.must_equal "10"
+        end
+
+        it "logs the size difference when updating existing objects" do
+          RestClient.stub :put, @put_stub do
+            put "/phil/food/camaron",  "1234567890"
+            put "/phil/food/aguacate", "1234567890"
+            put "/phil/food/aguacate", "123"
+          end
+
+          size_log = redis.get "rs:s:phil"
+          size_log.must_equal "13"
+        end
+      end
+
       describe "objects in root dir" do
         before do
           put_stub = OpenStruct.new(headers: {
@@ -287,6 +317,17 @@ describe "App" do
           put "/phil/food/camaron", "yummi"
           put "/phil/food/desayunos/bolon", "wow"
         end
+      end
+
+      it "decreases the size log by size of deleted object" do
+        RestClient.stub :delete, "" do
+          RemoteStorage::Swift.stub_any_instance :etag_for, "rootetag" do
+            delete "/phil/food/aguacate"
+          end
+        end
+
+        size_log = redis.get "rs:s:phil"
+        size_log.must_equal "8"
       end
 
       it "deletes the metadata object in redis" do
