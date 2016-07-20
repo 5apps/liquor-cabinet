@@ -24,7 +24,7 @@ module RemoteStorage
         return true if ["GET", "HEAD"].include?(request_method) && !listing
       end
 
-      server.halt 401, "Unauthorized" if token.empty?
+      server.halt 401, "Unauthorized" if token.nil? || token.empty?
 
       authorizations = redis.smembers("authorizations:#{user}:#{token}")
       permission = directory_permission(authorizations, directory)

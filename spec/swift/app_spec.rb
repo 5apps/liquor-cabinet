@@ -280,9 +280,18 @@ describe "App" do
     end
 
     context "not authorized" do
-
       describe "with no token" do
         it "says it's not authorized" do
+          delete "/phil/food/aguacate"
+
+          last_response.status.must_equal 401
+          last_response.body.must_equal "Unauthorized"
+        end
+      end
+
+      describe "with empty token" do
+        it "says it's not authorized" do
+          header "Authorization", "Bearer "
           delete "/phil/food/aguacate"
 
           last_response.status.must_equal 401
