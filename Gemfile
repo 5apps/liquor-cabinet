@@ -9,7 +9,7 @@ gem "rest-client"
 gem "redis"
 # Remove require when we can update to 3.0, which sets the new storage
 # format to columnar by default. Increases performance
-gem "mime-types", "~> 2.99", require: 'mime/types/columnar'
+gem "mime-types"
 
 group :test do
   gem 'rake'
