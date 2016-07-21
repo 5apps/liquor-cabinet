@@ -24,7 +24,7 @@ module RemoteStorage
         return true if ["GET", "HEAD"].include?(request_method) && !listing
       end
 
-      server.halt 401, "Unauthorized" if token.empty?
+      server.halt 401, "Unauthorized" if token.nil? || token.empty?
 
       authorizations = redis.smembers("authorizations:#{user}:#{token}")
       permission = directory_permission(authorizations, directory)
@@ -159,6 +159,7 @@ module RemoteStorage
       if update_metadata_object(user, directory, key, metadata)
         if metadata_changed?(existing_metadata, metadata)
           update_dir_objects(user, directory, timestamp, checksum_for(data))
+          log_size_difference(user, existing_metadata["s"], metadata[:s])
         end
 
         server.headers["ETag"] = %Q("#{res.headers[:etag]}")
@@ -166,6 +167,11 @@ module RemoteStorage
       else
         server.halt 500
       end
+    end
+
+    def log_size_difference(user, old_size, new_size)
+      delta = new_size.to_i - old_size.to_i
+      redis.incrby "rs:s:#{user}", delta
     end
 
     def checksum_for(data)
@@ -182,6 +188,7 @@ module RemoteStorage
       end
 
       do_delete_request(url)
+      log_size_difference(user, existing_metadata["s"], 0)
       delete_metadata_objects(user, directory, key)
       delete_dir_objects(user, directory)
 
