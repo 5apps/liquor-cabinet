@@ -447,7 +447,7 @@ module RemoteStorage
     end
 
     def swift_token
-      reload_swift_token if Time.now - settings.swift_token_loaded_at > 3600
+      reload_swift_token if Time.now - settings.swift_token_loaded_at > 1800
 
       settings.swift_token
     end
