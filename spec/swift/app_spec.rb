@@ -74,13 +74,38 @@ describe "App" do
         root_items.must_equal ["food/"]
       end
 
+      context "response code" do
+        before do
+          @put_stub = OpenStruct.new(headers: {
+            etag: "bla",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+        end
+
+        it "is 201 for newly created objects" do
+          RestClient.stub :put, @put_stub do
+            put "/phil/food/aguacate", "muy deliciosa"
+          end
+
+          last_response.status.must_equal 201
+        end
+
+        it "is 200 for updated objects" do
+          RestClient.stub :put, @put_stub do
+            put "/phil/food/aguacate", "deliciosa"
+            put "/phil/food/aguacate", "muy deliciosa"
+          end
+
+          last_response.status.must_equal 200
+        end
+      end
+
       context "logging usage size" do
         before do
           @put_stub = OpenStruct.new(headers: {
             etag: "bla",
             last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
           })
-
         end
 
         it "logs the complete size when creating new objects" do
@@ -146,7 +171,7 @@ describe "App" do
             end
           end
 
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
 
           metadata = redis.hgetall "rs:m:phil:food/aguacate"
           metadata["s"].must_equal "2"
@@ -247,7 +272,7 @@ describe "App" do
             put "/phil/food/aguacate", "si"
           end
 
-          last_response.status.must_equal 200
+          last_response.status.must_equal 201
         end
 
         it "fails the request if the document already exsits" do
