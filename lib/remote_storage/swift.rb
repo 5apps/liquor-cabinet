@@ -163,7 +163,7 @@ module RemoteStorage
         end
 
         server.headers["ETag"] = %Q("#{res.headers[:etag]}")
-        server.halt 200
+        server.halt existing_metadata.empty? ? 201 : 200
       else
         server.halt 500
       end
