@@ -180,6 +180,7 @@ module RemoteStorage
 
     def delete_data(user, directory, key)
       url = url_for_key(user, directory, key)
+      not_found = false
 
       existing_metadata = redis.hgetall "rs:m:#{user}:#{directory}/#{key}"
 
@@ -187,15 +188,22 @@ module RemoteStorage
         server.halt 412, "Precondition Failed" unless required_match == %Q("#{existing_metadata["e"]}")
       end
 
-      do_delete_request(url)
+      begin
+        do_delete_request(url)
+      rescue RestClient::ResourceNotFound
+        not_found = true
+      end
+
       log_size_difference(user, existing_metadata["s"], 0)
       delete_metadata_objects(user, directory, key)
       delete_dir_objects(user, directory)
 
-      server.headers["Etag"] = %Q("#{existing_metadata["e"]}")
-      server.halt 200
-    rescue RestClient::ResourceNotFound
-      server.halt 404, "Not Found"
+      if not_found
+        server.halt 404, "Not Found"
+      else
+        server.headers["Etag"] = %Q("#{existing_metadata["e"]}")
+        server.halt 200
+      end
     end
 
     private
