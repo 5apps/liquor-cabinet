@@ -383,7 +383,13 @@ module RemoteStorage
     end
 
     def container_url_for(user)
-      "#{base_url}/#{container_for(user)}"
+      user_container_url = "#{base_url}/#{container_for(user)}"
+      res = do_head_request(user_container_url)
+      # User before container migration
+      return user_container_url if res.status == 200
+    rescue RestClient::ResourceNotFound
+      # User after container migration
+      "#{base_url}/rs:documents:#{settings.environment.to_s}/#{user}"
     end
 
     def url_for_key(user, directory, key)
