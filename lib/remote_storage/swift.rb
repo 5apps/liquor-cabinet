@@ -20,6 +20,10 @@ module RemoteStorage
     def authorize_request(user, directory, token, listing=false)
       request_method = server.env["REQUEST_METHOD"]
 
+      if request_method.match(/PUT|DELETE/) && redis.sismember("migration_in_progress", user)
+        server.halt 503, "Down for maintenance. Back soon!"
+      end
+
       if directory.split("/").first == "public"
         return true if ["GET", "HEAD"].include?(request_method) && !listing
       end
