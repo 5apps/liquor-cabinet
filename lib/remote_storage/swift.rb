@@ -20,7 +20,7 @@ module RemoteStorage
     def authorize_request(user, directory, token, listing=false)
       request_method = server.env["REQUEST_METHOD"]
 
-      if request_method.match(/PUT|DELETE/) && container_type(user) == "locked"
+      if request_method.match(/PUT|DELETE/) && container_migration(user) == "in_progress"
         server.halt 503, "Down for maintenance. Back soon!"
       end
 
@@ -383,10 +383,10 @@ module RemoteStorage
     end
 
     def container_url_for(user)
-      if container_type(user) == "shared"
-        "#{base_url}/rs:documents:#{settings.environment.to_s}/#{user}"
-      else
+      if container_migration(user)
         user_container_url
+      else
+        "#{base_url}/rs:documents:#{settings.environment.to_s}/#{user}"
       end
     end
 
@@ -402,8 +402,8 @@ module RemoteStorage
       "rs:#{settings.environment.to_s.chars.first}:#{user}"
     end
 
-    def container_type(user)
-      redis.get("rs:container:#{user}") || "legacy"
+    def container_migration(user)
+      redis.get("rs:container_migration:#{user}")
     end
 
     def default_headers
