@@ -20,7 +20,7 @@ module RemoteStorage
     def authorize_request(user, directory, token, listing=false)
       request_method = server.env["REQUEST_METHOD"]
 
-      if request_method.match(/PUT|DELETE/) && redis.sismember("migration_in_progress", user)
+      if request_method.match(/PUT|DELETE/) && container_type(user) == "locked"
         server.halt 503, "Down for maintenance. Back soon!"
       end
 
@@ -383,13 +383,11 @@ module RemoteStorage
     end
 
     def container_url_for(user)
-      user_container_url = "#{base_url}/#{container_for(user)}"
-      res = do_head_request(user_container_url)
-      # User before container migration
-      return user_container_url if res.status == 200
-    rescue RestClient::ResourceNotFound
-      # User after container migration
-      "#{base_url}/rs:documents:#{settings.environment.to_s}/#{user}"
+      if container_type(user) == "shared"
+        "#{base_url}/rs:documents:#{settings.environment.to_s}/#{user}"
+      else
+        user_container_url
+      end
     end
 
     def url_for_key(user, directory, key)
@@ -402,6 +400,10 @@ module RemoteStorage
 
     def container_for(user)
       "rs:#{settings.environment.to_s.chars.first}:#{user}"
+    end
+
+    def container_type(user)
+      redis.get("rs:container:#{user}") || "legacy"
     end
 
     def default_headers
