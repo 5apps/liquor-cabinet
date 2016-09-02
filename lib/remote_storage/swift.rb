@@ -396,14 +396,6 @@ module RemoteStorage
       File.join [container_url_for(user), escape(directory), escape(key)].compact
     end
 
-    def url_for_directory(user, directory)
-      if directory.empty?
-        container_url_for(user)
-      else
-        "#{container_url_for(user)}/#{escape(directory)}"
-      end
-    end
-
     def base_url
       @base_url ||= settings.swift["host"]
     end
