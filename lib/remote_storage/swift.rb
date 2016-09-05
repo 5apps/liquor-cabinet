@@ -384,9 +384,9 @@ module RemoteStorage
 
     def container_url_for(user)
       if container_migration(user)
-        user_container_url
+        "#{base_url}/rs:#{settings.environment.to_s.chars.first}:#{user}"
       else
-        "#{base_url}/rs:documents:#{settings.environment.to_s}/#{user}"
+        "#{base_url}/#{container_for(user)}"
       end
     end
 
@@ -399,7 +399,7 @@ module RemoteStorage
     end
 
     def container_for(user)
-      "rs:#{settings.environment.to_s.chars.first}:#{user}"
+      "rs:documents:#{settings.environment.to_s}/#{user}"
     end
 
     def container_migration(user)
