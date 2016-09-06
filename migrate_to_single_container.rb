@@ -61,15 +61,18 @@ class Migrator
   end
 
   def work_on_dir(directory, parent_directory)
-    logger.debug "Retrieving listing for '#{parent_directory}#{directory}'"
+    full_directory = "#{parent_directory}#{directory}"
+    logger.debug "Retrieving listing for '#{full_directory}'"
 
-    listing = get_directory_listing_from_swift("#{parent_directory}#{directory}")
+    listing = get_directory_listing_from_swift("#{full_directory}")
+
+    logger.debug "Listing for '#{full_directory}': #{listing}"
 
     if listing
       listing.split("\n").each do |item|
         if is_dir? item
           # get dir listing and repeat
-          work_on_dir(item, "#{parent_directory}")
+          work_on_dir(item, "#{parent_directory}") unless item == full_directory
         else
           copy_document("#{parent_directory}", item)
         end
@@ -99,14 +102,10 @@ class Migrator
 
     get_response = nil
 
-    do_head_request("#{url_for_directory(@username, directory)}") do |response|
-      return "" if response.code == 404
-
-      if is_root_listing
-        get_response = do_get_request("#{container_url_for(@username)}/?path=")
-      else
-        get_response = do_get_request("#{container_url_for(@username)}/?path=#{escape(directory)}")
-      end
+    if is_root_listing
+      get_response = do_get_request("#{container_url_for(@username)}/?delimiter=/&prefix=")
+    else
+      get_response = do_get_request("#{container_url_for(@username)}/?delimiter=/&prefix=#{escape(directory)}")
     end
 
     get_response.body
