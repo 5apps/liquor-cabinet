@@ -20,6 +20,10 @@ module RemoteStorage
     def authorize_request(user, directory, token, listing=false)
       request_method = server.env["REQUEST_METHOD"]
 
+      if request_method.match(/PUT|DELETE/) && container_migration(user) == "in_progress"
+        server.halt 503, "Down for maintenance. Back soon!"
+      end
+
       if directory.split("/").first == "public"
         return true if ["GET", "HEAD"].include?(request_method) && !listing
       end
@@ -379,27 +383,23 @@ module RemoteStorage
     end
 
     def container_url_for(user)
-      "#{base_url}/#{container_for(user)}"
+      if container_migration(user)
+        "#{base_url}/rs:#{settings.environment.to_s.chars.first}:#{user}"
+      else
+        "#{base_url}/rs:documents:#{settings.environment.to_s}/#{user}"
+      end
     end
 
     def url_for_key(user, directory, key)
       File.join [container_url_for(user), escape(directory), escape(key)].compact
     end
 
-    def url_for_directory(user, directory)
-      if directory.empty?
-        container_url_for(user)
-      else
-        "#{container_url_for(user)}/#{escape(directory)}"
-      end
-    end
-
     def base_url
       @base_url ||= settings.swift["host"]
     end
 
-    def container_for(user)
-      "rs:#{settings.environment.to_s.chars.first}:#{user}"
+    def container_migration(user)
+      redis.hget("rs:container_migration", user)
     end
 
     def default_headers
