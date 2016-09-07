@@ -129,15 +129,45 @@ class Migrator
   end
 end
 
-username = ARGV[0]
+class MigrationRunner
 
-unless username
-  puts "No username given."
-  puts "Usage:"
-  puts "ENVIRONMENT=staging ./migrate_to_single_container.rb <username>"
-  exit 1
+  attr_accessor :environment, :settings
+
+  def initialize
+    @environment = ENV["ENVIRONMENT"] || "staging"
+    @settings = YAML.load(File.read('config.yml'))[@environment]
+  end
+
+  def migrate
+    while username = pick_unmigrated_user
+      migrator = Migrator.new username
+      migrator.migrate
+    end
+  end
+
+  def unmigrated_users
+    redis.hgetall("rs:container_migration").select { |_, value|
+      value == "not_started"
+    }.keys
+  end
+
+  def pick_unmigrated_user
+    unmigrated_users.sample # pick a random user from list
+  end
+
+  def redis
+    @redis ||= Redis.new(@settings["redis"].symbolize_keys)
+  end
+
 end
 
-migrator = Migrator.new username
-migrator.migrate
+username = ARGV[0]
+
+if username
+  migrator = Migrator.new username
+  migrator.migrate
+else
+  runner = MigrationRunner.new
+  runner.migrate
+end
 
