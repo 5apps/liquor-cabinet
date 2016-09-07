@@ -399,7 +399,7 @@ module RemoteStorage
     end
 
     def container_migration(user)
-      redis.get("rs:container_migration:#{user}")
+      redis.hget("rs:container_migration", user)
     end
 
     def default_headers
