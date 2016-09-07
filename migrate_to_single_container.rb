@@ -53,11 +53,11 @@ class Migrator
   end
 
   def set_container_migration_state(type)
-    redis.set("rs:container_migration:#{username}", type) unless dry_run
+    redis.hset("rs:container_migration", username, type) unless dry_run
   end
 
   def delete_container_migration_state
-    redis.del("rs:container_migration:#{username}") unless dry_run
+    redis.hdel("rs:container_migration", username) unless dry_run
   end
 
   def work_on_dir(directory, parent_directory)
