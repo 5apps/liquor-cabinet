@@ -82,15 +82,12 @@ class Migrator
 
   def copy_document(directory, document)
     old_document_url = "#{url_for_directory(@username, directory)}/#{escape(document)}"
-    new_document_url = "#{new_url_for_directory(@username, directory)}/#{escape(document)}"
 
-    logger.debug "Copying document from #{old_document_url} to #{new_document_url}"
+    full_path = [directory, document].reject(&:empty?).join('/')
+    new_document_path = "rs:documents:#{environment.to_s.downcase}/#{@username}/#{escape(full_path)}"
 
-    response = do_get_request(old_document_url)
-
-    unless dry_run
-      do_put_request(new_document_url, response.body, response.headers[:content_type])
-    end
+    logger.debug "Copying document from #{old_document_url} to #{new_document_path}"
+    do_copy_request(old_document_url, new_document_path) unless dry_run
   end
 
   def redis
@@ -123,6 +120,14 @@ class Migrator
     RestClient.put(url, data, default_headers.merge({content_type: content_type}))
   end
 
+  def do_copy_request(url, destination_path)
+    RestClient::Request.execute(
+      method: :copy,
+      url: url,
+      headers: default_headers.merge({destination: destination_path})
+    )
+  end
+
   def default_headers
     {"x-auth-token" => @swift_token}
   end
@@ -137,18 +142,6 @@ class Migrator
 
   def container_url_for(user)
     "#{base_url}/#{container_for(user)}"
-  end
-
-  def new_container_url_for(user)
-    "#{base_url}/rs:documents:#{environment.to_s.downcase}/#{user}"
-  end
-
-  def new_url_for_directory(user, directory)
-    if directory.empty?
-      new_container_url_for(user)
-    else
-      "#{new_container_url_for(user)}/#{escape(directory)}"
-    end
   end
 
   def base_url
