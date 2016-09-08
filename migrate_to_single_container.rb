@@ -68,11 +68,19 @@ class Migrator
     logger.debug "Full listing: #{listing}"
 
     if listing
+
+      # skip user when there are more files than we can list
+      if listing.split("\n").size > 9999
+        File.open('log/10k_users.log', 'a') { |f| f.puts username }
+        raise "User has too many files"
+      end
+
       listing.split("\n").each do |item|
         if is_document? item
           copy_document(item)
         end
       end
+
     end
   end
 
