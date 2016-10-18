@@ -433,7 +433,10 @@ module RemoteStorage
 
     def reload_swift_token
       server.logger.debug "Reloading swift token. Old token: #{settings.swift_token}"
-      settings.swift_token           = File.read(swift_token_path)
+      # Remove the line break from the token file. The line break that the
+      # token script is adding to the file was causing Sentry to reject the
+      # token field
+      settings.swift_token           = File.read(swift_token_path).rstrip
       settings.swift_token_loaded_at = Time.now
       server.logger.debug "Reloaded swift token. New token: #{settings.swift_token}"
     end
