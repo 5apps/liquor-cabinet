@@ -457,7 +457,7 @@ module RemoteStorage
       rescue RestClient::Unauthorized => ex
         Raven.capture_exception(
           ex,
-          tags: { swift_token:           settings.swift_token,
+          tags: { swift_token:           settings.swift_token[0..19], # send the first 20 characters
                   swift_token_loaded_at: settings.swift_token_loaded_at }
         )
         server.halt 500
