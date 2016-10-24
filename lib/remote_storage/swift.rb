@@ -433,7 +433,10 @@ module RemoteStorage
 
     def reload_swift_token
       server.logger.debug "Reloading swift token. Old token: #{settings.swift_token}"
-      settings.swift_token           = File.read(swift_token_path)
+      # Remove the line break from the token file. The line break that the
+      # token script is adding to the file was causing Sentry to reject the
+      # token field
+      settings.swift_token           = File.read(swift_token_path).rstrip
       settings.swift_token_loaded_at = Time.now
       server.logger.debug "Reloaded swift token. New token: #{settings.swift_token}"
     end
@@ -454,7 +457,7 @@ module RemoteStorage
       rescue RestClient::Unauthorized => ex
         Raven.capture_exception(
           ex,
-          tags: { swift_token:           settings.swift_token,
+          tags: { swift_token:           settings.swift_token[0..19], # send the first 20 characters
                   swift_token_loaded_at: settings.swift_token_loaded_at }
         )
         server.halt 500
