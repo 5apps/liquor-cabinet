@@ -76,7 +76,7 @@ class Migrator
       redis.call("set", size_key, total_size)
     EOF
 
-    redis.eval(lua_script, ["rs:s:#{user}", "test"], [user])
+    redis.eval(lua_script, ["rs:s:#{user}"], [user])
   end
 
 end
