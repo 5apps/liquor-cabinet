@@ -26,14 +26,17 @@ class Migrator
 
   def migrate
     logger.info "Starting migration for '#{username}'"
+    set_container_migration_state("in_progress")
     begin
       write_storage_size_from_redis_metadata(username)
     rescue Exception => ex
       logger.error "Error setting storage size from metadata for '#{username}': #{ex}"
+      set_container_migration_state("not_started")
       # write username to file for later reference
       File.open('log/failed_migration.log', 'a') { |f| f.puts username }
       exit 1
     end
+    delete_container_migration_state
     logger.info "Finished migration for '#{username}'"
   end
 
@@ -79,17 +82,53 @@ class Migrator
     redis.eval(lua_script, ["rs:s:#{user}"], [user])
   end
 
+  def set_container_migration_state(type)
+    redis.hset("rs:size_migration", username, type)
+  end
+
+  def delete_container_migration_state
+    redis.hdel("rs:size_migration", username)
+  end
+
+end
+
+class MigrationRunner
+  attr_accessor :environment, :settings
+
+  def initialize
+    @environment = ENV["ENVIRONMENT"] || "staging"
+    @settings = YAML.load(File.read('config.yml'))[@environment]
+  end
+
+  def migrate
+    while username = pick_unmigrated_user
+      migrator = Migrator.new username
+      migrator.migrate
+    end
+  end
+
+  def unmigrated_users
+    redis.hgetall("rs:size_migration").select { |_, value|
+      value == "not_started"
+    }.keys
+  end
+
+  def pick_unmigrated_user
+    unmigrated_users.sample # pick a random user from list
+  end
+
+  def redis
+    @redis ||= Redis.new(@settings["redis"].symbolize_keys)
+  end
+
 end
 
 username = ARGV[0]
 
-unless username
-  puts "No username given."
-  puts "Usage:"
-  puts "ENVIRONMENT=staging ./migrate_storage_size_from_metadata.rb <username>"
-  exit 1
+if username
+  migrator = Migrator.new username
+  migrator.migrate
+else
+  runner = MigrationRunner.new
+  runner.migrate
 end
-
-migrator = Migrator.new username
-migrator.migrate
-
