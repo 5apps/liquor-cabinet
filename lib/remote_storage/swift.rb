@@ -463,5 +463,22 @@ module RemoteStorage
         server.halt 500
       end
     end
+
+    def reload_swift_token
+      server.logger.debug "Reloading swift token. Old token: #{settings.swift_token}"
+      settings.swift_token           = File.read(swift_token_path)
+      settings.swift_token_loaded_at = Time.now
+      server.logger.debug "Reloaded swift token. New token: #{settings.swift_token}"
+    end
+
+    def swift_token_path
+      "tmp/swift_token.txt"
+    end
+
+    def swift_token
+      reload_swift_token if Time.now - settings.swift_token_loaded_at > 3600
+
+      settings.swift_token
+    end
   end
 end
