@@ -16,6 +16,8 @@ development: &defaults
   # # uncomment this section and comment the riak one
   # swift: &swift_defaults
   #   host: "https://swift.example.com"
+  # couchdb: #TODO create the database using chef
+  #   uri: "http://localhost:5984/enterprise_storage"
   # # Redis is needed for the swift backend
   # redis:
   #   host: localhost

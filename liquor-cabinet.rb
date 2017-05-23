@@ -6,6 +6,7 @@ require 'sinatra/config_file'
 require "sinatra/reloader"
 require "remote_storage/riak"
 require "remote_storage/swift"
+require "remote_storage/couchdb"
 
 class LiquorCabinet < Sinatra::Base
 
@@ -79,7 +80,7 @@ class LiquorCabinet < Sinatra::Base
       token = env["HTTP_AUTHORIZATION"] ? env["HTTP_AUTHORIZATION"].split(" ")[1] : ""
 
       no_key = @key.nil? || @key.empty?
-      storage.authorize_request(@user, @directory, token, no_key) unless request.options?
+      storage_for(@user).authorize_request(@user, @directory, token, no_key) unless request.options?
     end
 
     options path do
@@ -89,11 +90,11 @@ class LiquorCabinet < Sinatra::Base
 
   ["/:user/*/:key", "/:user/:key"].each do |path|
     head path do
-      storage.get_head(@user, @directory, @key)
+      storage_for(@user).get_head(@user, @directory, @key)
     end
 
     get path do
-      storage.get_data(@user, @directory, @key)
+      storage_for(@user).get_data(@user, @directory, @key)
     end
 
     put path do
@@ -107,21 +108,21 @@ class LiquorCabinet < Sinatra::Base
         content_type = env['CONTENT_TYPE']
       end
 
-      storage.put_data(@user, @directory, @key, data, content_type)
+      storage_for(@user).put_data(@user, @directory, @key, data, content_type)
     end
 
     delete path do
-      storage.delete_data(@user, @directory, @key)
+      storage_for(@user).delete_data(@user, @directory, @key)
     end
   end
 
   ["/:user/*/", "/:user/"].each do |path|
     head path do
-      storage.get_head_directory_listing(@user, @directory)
+      storage_for(@user).get_head_directory_listing(@user, @directory)
     end
 
     get path do
-      storage.get_directory_listing(@user, @directory)
+      storage_for(@user).get_directory_listing(@user, @directory)
     end
   end
 
@@ -142,4 +143,19 @@ Riak and Swift are currently supported. See config.yml.example.
     end
   end
 
+  def couchdb_storage
+    @couchdb_storage ||= begin
+      if settings.respond_to? :couchdb
+        RemoteStorage::CouchDB.new(settings, self)
+      end
+    end
+  end
+
+  def storage_for(user)
+    if user.start_with? "ilpt"
+      couchdb_storage
+    else
+      storage
+    end
+  end
 end
