@@ -9,7 +9,7 @@ require "digest/md5"
 require 'mime/types'
 
 module RemoteStorage
-	class CouchDB
+  class CouchDB
 
     attr_accessor :settings, :server
 
