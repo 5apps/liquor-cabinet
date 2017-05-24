@@ -17,6 +17,10 @@ describe "App" do
     RestClient.put(base_url, "")
   end
 
+  before do
+    header "X-Storage-Backend", "couchdb"
+  end
+
   after(:all) do
     purge_redis
 

@@ -152,7 +152,7 @@ Riak and Swift are currently supported. See config.yml.example.
   end
 
   def storage_for(user)
-    if user.start_with? "ilpt"
+    if env["HTTP_X_STORAGE_BACKEND"] == "couchdb"
       couchdb_storage
     else
       storage
