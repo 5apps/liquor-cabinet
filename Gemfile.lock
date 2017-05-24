@@ -57,7 +57,8 @@ GEM
       mime-types-data (~> 3.2015)
     mime-types-data (3.2016.0521)
     mini_portile2 (2.1.0)
-    minitest (5.9.0)
+    minitest (5.10.2)
+    minitest-hooks (1.4.0)
     minitest-stub_any_instance (1.0.1)
     multi_json (1.12.1)
     multipart-post (2.0.0)
@@ -116,6 +117,7 @@ DEPENDENCIES
   fog-aws
   m
   mime-types
+  minitest-hooks
   minitest-stub_any_instance
   purdytest
   rainbows
@@ -128,4 +130,4 @@ DEPENDENCIES
   sinatra-contrib
 
 BUNDLED WITH
-   1.11.2
+   1.15.0

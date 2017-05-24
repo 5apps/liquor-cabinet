@@ -1,10 +1,26 @@
 require_relative "../spec_helper"
+require 'minitest/hooks'
 
 describe "App" do
   include Rack::Test::Methods
+  include Minitest::Hooks
 
   def app
     LiquorCabinet
+  end
+
+  def base_url
+    app.settings.couchdb['uri']
+  end
+
+  before(:all) do
+    RestClient.put(base_url, "")
+  end
+
+  after(:all) do
+    purge_redis
+
+    RestClient.delete(base_url)
   end
 
   it "returns 404 on non-existing routes" do
@@ -24,38 +40,27 @@ describe "App" do
         header "Authorization", "Bearer amarillo"
       end
 
-      it "creates the metadata object in redis" do
-        put_stub = OpenStruct.new(headers: {
-          etag: "bla",
-          date: "Fri, 04 Mar 2016 12:20:18 GMT"
-        })
+      after do
+        delete "/ilpt-phil/food/aguacate"
+        delete "/ilpt-phil/food/camaron"
+      end
 
-        RestClient.stub :put, put_stub do
-          put "/ilpt-phil/food/aguacate", "si"
-        end
+      it "creates the metadata object in redis" do
+        put "/ilpt-phil/food/aguacate", "si"
+
+        aguacate_etag = etag_for('ilpt-phil/food/aguacate')
 
         metadata = redis.hgetall "rs:m:ilpt-phil:food/aguacate"
         metadata["s"].must_equal "2"
         metadata["t"].must_equal "text/plain; charset=utf-8"
-        metadata["e"].must_equal "bla"
+        metadata["e"].must_equal aguacate_etag
         metadata["m"].length.must_equal 13
       end
 
       it "creates the directory objects metadata in redis" do
-        put_stub = OpenStruct.new(headers: {
-          etag: "bla",
-          date: "Fri, 04 Mar 2016 12:20:18 GMT"
-        })
-        get_stub = OpenStruct.new(body: JSON.generate("_id" => "ilpt-phil%2Ffood%2Faguacate",
-                                                       "rev" => "123-12345667"))
-
-        RestClient.stub :put, put_stub do
-          RestClient.stub :get, get_stub do
-            RemoteStorage::CouchDB.stub_any_instance :etag_for, "newetag" do
-              put "/ilpt-phil/food/aguacate", "si"
-              put "/ilpt-phil/food/camaron", "yummi"
-            end
-          end
+        RemoteStorage::CouchDB.stub_any_instance :etag_for, "newetag" do
+          put "/ilpt-phil/food/aguacate", "si"
+          put "/ilpt-phil/food/camaron", "yummi"
         end
 
         metadata = redis.hgetall "rs:m:ilpt-phil:/"
@@ -72,54 +77,32 @@ describe "App" do
       end
 
       context "response code" do
-        before do
-          @put_stub = OpenStruct.new(headers: {
-            etag: "bla",
-            date: "Fri, 04 Mar 2016 12:20:18 GMT"
-          })
-        end
-
         it "is 201 for newly created objects" do
-          RestClient.stub :put, @put_stub do
-            put "/ilpt-phil/food/aguacate", "muy deliciosa"
-          end
+          put "/ilpt-phil/food/aguacate", "muy deliciosa"
 
           last_response.status.must_equal 201
         end
 
         it "is 200 for updated objects" do
-          RestClient.stub :put, @put_stub do
-            put "/ilpt-phil/food/aguacate", "deliciosa"
-            put "/ilpt-phil/food/aguacate", "muy deliciosa"
-          end
+          put "/ilpt-phil/food/aguacate", "deliciosa"
+          put "/ilpt-phil/food/aguacate", "muy deliciosa"
 
           last_response.status.must_equal 200
         end
       end
 
       context "logging usage size" do
-        before do
-          @put_stub = OpenStruct.new(headers: {
-            etag: "bla",
-            date: "Fri, 04 Mar 2016 12:20:18 GMT"
-          })
-        end
-
         it "logs the complete size when creating new objects" do
-          RestClient.stub :put, @put_stub do
-            put "/ilpt-phil/food/aguacate", "1234567890"
-          end
+          put "/ilpt-phil/food/aguacate", "1234567890"
 
           size_log = redis.get "rs:s:ilpt-phil"
           size_log.must_equal "10"
         end
 
         it "logs the size difference when updating existing objects" do
-          RestClient.stub :put, @put_stub do
-            put "/ilpt-phil/food/camaron",  "1234567890"
-            put "/ilpt-phil/food/aguacate", "1234567890"
-            put "/ilpt-phil/food/aguacate", "123"
-          end
+          put "/ilpt-phil/food/camaron",  "1234567890"
+          put "/ilpt-phil/food/aguacate", "1234567890"
+          put "/ilpt-phil/food/aguacate", "123"
 
           size_log = redis.get "rs:s:ilpt-phil"
           size_log.must_equal "13"
@@ -128,14 +111,7 @@ describe "App" do
 
       describe "objects in root dir" do
         before do
-          put_stub = OpenStruct.new(headers: {
-            etag: "bla",
-            date: "Fri, 04 Mar 2016 12:20:18 GMT"
-          })
-
-          RestClient.stub :put, put_stub do
-            put "/ilpt-phil/bamboo.txt", "shir kan"
-          end
+          put "/ilpt-phil/bamboo.txt", "shir kan"
         end
 
         it "are listed in the directory listing with all metadata" do
@@ -145,8 +121,10 @@ describe "App" do
           last_response.content_type.must_equal "application/ld+json"
 
           content = JSON.parse(last_response.body)
+          bamboo_etag = etag_for('ilpt-phil/bamboo.txt')
+
           content["items"]["bamboo.txt"].wont_be_nil
-          content["items"]["bamboo.txt"]["ETag"].must_equal "bla"
+          content["items"]["bamboo.txt"]["ETag"].must_equal bamboo_etag
           content["items"]["bamboo.txt"]["Content-Type"].must_equal "text/plain; charset=utf-8"
           content["items"]["bamboo.txt"]["Content-Length"].must_equal 8
         end
@@ -163,15 +141,8 @@ describe "App" do
         end
 
         it "conflicts when there is a directory with same name as document" do
-          put_stub = OpenStruct.new(headers: {
-            etag: "bla",
-            date: "Fri, 04 Mar 2016 12:20:18 GMT"
-          })
-
-          RestClient.stub :put, put_stub do
-            put "/ilpt-phil/food/aguacate", "si"
-            put "/ilpt-phil/food", "wontwork"
-          end
+          put "/ilpt-phil/food/aguacate", "si"
+          put "/ilpt-phil/food", "wontwork"
 
           last_response.status.must_equal 409
           last_response.body.must_equal "Conflict"
@@ -181,15 +152,8 @@ describe "App" do
         end
 
         it "conflicts when there is a document with same name as directory" do
-          put_stub = OpenStruct.new(headers: {
-            etag: "bla",
-            date: "Fri, 04 Mar 2016 12:20:18 GMT"
-          })
-
-          RestClient.stub :put, put_stub do
-            put "/ilpt-phil/food/aguacate", "si"
-            put "/ilpt-phil/food/aguacate/empanado", "wontwork"
-          end
+          put "/ilpt-phil/food/aguacate", "si"
+          put "/ilpt-phil/food/aguacate/empanado", "wontwork"
 
           last_response.status.must_equal 409
 
@@ -208,30 +172,18 @@ describe "App" do
 
       describe "If-Match header" do
         before do
-          put_stub = OpenStruct.new(headers: {
-            etag: "oldetag",
-            date: "Fri, 04 Mar 2016 12:20:18 GMT"
-          })
-
-          RestClient.stub :put, put_stub do
-            put "/ilpt-phil/food/aguacate", "si"
-          end
+          put "/ilpt-phil/food/aguacate", "si"
         end
 
         it "allows the request if the header matches the current ETag" do
-          header "If-Match", "\"oldetag\""
+          old_etag = etag_for "ilpt-phil/food/aguacate"
+          header "If-Match", %Q("#{old_etag}")
 
-          put_stub = OpenStruct.new(headers: {
-            etag: "newetag",
-            date: "Fri, 04 Mar 2016 12:20:18 GMT"
-          })
-
-          RestClient.stub :put, put_stub do
-            put "/ilpt-phil/food/aguacate", "aye"
-          end
+          put "/ilpt-phil/food/aguacate", "aye"
+          new_etag = etag_for "ilpt-phil/food/aguacate"
 
           last_response.status.must_equal 200
-          last_response.headers["Etag"].must_equal "\"newetag\""
+          last_response.headers["Etag"].must_equal %Q("#{new_etag}")
         end
 
         it "fails the request if the header does not match the current ETag" do
@@ -246,34 +198,18 @@ describe "App" do
 
       describe "If-None-Match header set to '*'" do
         it "succeeds when the document doesn't exist yet" do
-          put_stub = OpenStruct.new(headers: {
-            etag: "someetag",
-            date: "Fri, 04 Mar 2016 12:20:18 GMT"
-          })
-
           header "If-None-Match", "*"
 
-          RestClient.stub :put, put_stub do
-            put "/ilpt-phil/food/aguacate", "si"
-          end
+          put "/ilpt-phil/food/aguacate", "si"
 
           last_response.status.must_equal 201
         end
 
         it "fails the request if the document already exsits" do
-          put_stub = OpenStruct.new(headers: {
-            etag: "someetag",
-            date: "Fri, 04 Mar 2016 12:20:18 GMT"
-          })
-
-          RestClient.stub :put, put_stub do
-            put "/ilpt-phil/food/aguacate", "si"
-          end
+          put "/ilpt-phil/food/aguacate", "si"
 
           header "If-None-Match", "*"
-          RestClient.stub :put, put_stub do
-            put "/ilpt-phil/food/aguacate", "si"
-          end
+          put "/ilpt-phil/food/aguacate", "si"
 
           last_response.status.must_equal 412
           last_response.body.must_equal "Precondition Failed"
@@ -326,23 +262,20 @@ describe "App" do
         redis.sadd "authorizations:ilpt-phil:amarillo", [":rw"]
         header "Authorization", "Bearer amarillo"
 
-        put_stub = OpenStruct.new(headers: {
-          etag: "bla",
-          date: "Fri, 04 Mar 2016 12:20:18 GMT"
-        })
+        put "/ilpt-phil/food/aguacate", "si"
+        put "/ilpt-phil/food/camaron", "yummi"
+        put "/ilpt-phil/food/desayunos/bolon", "wow"
+      end
 
-        RestClient.stub :put, put_stub do
-          put "/ilpt-phil/food/aguacate", "si"
-          put "/ilpt-phil/food/camaron", "yummi"
-          put "/ilpt-phil/food/desayunos/bolon", "wow"
-        end
+      after do
+        delete "/ilpt-phil/food/aguacate"
+        delete "/ilpt-phil/food/camaron"
+        delete "/ilpt-phil/food/desayunos/bolon"
       end
 
       it "decreases the size log by size of deleted object" do
-        RestClient.stub :delete, "" do
-          RemoteStorage::CouchDB.stub_any_instance :etag_for, "rootetag" do
-            delete "/ilpt-phil/food/aguacate"
-          end
+        RemoteStorage::CouchDB.stub_any_instance :etag_for, "rootetag" do
+          delete "/ilpt-phil/food/aguacate"
         end
 
         size_log = redis.get "rs:s:ilpt-phil"
@@ -350,10 +283,8 @@ describe "App" do
       end
 
       it "deletes the metadata object in redis" do
-        RestClient.stub :delete, "" do
-          RemoteStorage::CouchDB.stub_any_instance :etag_for, "rootetag" do
-            delete "/ilpt-phil/food/aguacate"
-          end
+        RemoteStorage::CouchDB.stub_any_instance :etag_for, "rootetag" do
+          delete "/ilpt-phil/food/aguacate"
         end
 
         metadata = redis.hgetall "rs:m:ilpt-phil:food/aguacate"
@@ -363,10 +294,8 @@ describe "App" do
       it "deletes the directory objects metadata in redis" do
         old_metadata = redis.hgetall "rs:m:ilpt-phil:food/"
 
-        RestClient.stub :delete, "" do
-          RemoteStorage::CouchDB.stub_any_instance :etag_for, "newetag" do
-            delete "/ilpt-phil/food/aguacate"
-          end
+        RemoteStorage::CouchDB.stub_any_instance :etag_for, "newetag" do
+          delete "/ilpt-phil/food/aguacate"
         end
 
         metadata = redis.hgetall "rs:m:ilpt-phil:food/"
@@ -382,12 +311,10 @@ describe "App" do
       end
 
       it "deletes the parent directory objects metadata when deleting all items" do
-        RestClient.stub :delete, "" do
-          RemoteStorage::CouchDB.stub_any_instance :etag_for, "rootetag" do
-            delete "/ilpt-phil/food/aguacate"
-            delete "/ilpt-phil/food/camaron"
-            delete "/ilpt-phil/food/desayunos/bolon"
-          end
+        RemoteStorage::CouchDB.stub_any_instance :etag_for, "rootetag" do
+          delete "/ilpt-phil/food/aguacate"
+          delete "/ilpt-phil/food/camaron"
+          delete "/ilpt-phil/food/desayunos/bolon"
         end
 
         redis.smembers("rs:m:ilpt-phil:food/desayunos:items").must_be_empty
@@ -400,42 +327,32 @@ describe "App" do
       end
 
       it "responds with the ETag of the deleted item in the header" do
-        RestClient.stub :delete, "" do
-          delete "/ilpt-phil/food/aguacate"
-        end
+        aguacate_etag = etag_for('ilpt-phil/food/aguacate')
 
-        last_response.headers["ETag"].must_equal "\"bla\""
+        delete "/ilpt-phil/food/aguacate"
+
+        last_response.headers["ETag"].must_equal %Q("#{aguacate_etag}")
       end
 
       context "when item doesn't exist" do
         before do
-          purge_redis
-
-          put_stub = OpenStruct.new(headers: {
-            etag: "bla",
-            date: "Fri, 04 Mar 2016 12:20:18 GMT"
-          })
-
-          RestClient.stub :put, put_stub do
-            put "/ilpt-phil/food/steak", "si"
-          end
-
-          raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
-          RestClient.stub :delete, raises_exception do
-            delete "/ilpt-phil/food/steak"
-          end
+          put "/ilpt-phil/food/steak", "si"
+          delete "/ilpt-phil/food/steak"
         end
 
         it "returns a 404" do
+          get "/ilpt-phil/food/steak"
           last_response.status.must_equal 404
           last_response.body.must_equal "Not Found"
         end
 
         it "deletes any metadata that might still exist" do
-          raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
-          RestClient.stub :delete, raises_exception do
-            delete "/ilpt-phil/food/steak"
-          end
+          delete "/ilpt-phil/food/aguacate"
+          delete "/ilpt-phil/food/camaron"
+          delete "/ilpt-phil/food/desayunos/bolon"
+
+          put "/ilpt-phil/food/steak", "si"
+          delete "/ilpt-phil/food/steak"
 
           metadata = redis.hgetall "rs:m:ilpt-phil:food/steak"
           metadata.must_be_empty
@@ -449,11 +366,12 @@ describe "App" do
 
       describe "If-Match header" do
         it "succeeds when the header matches the current ETag" do
-          header "If-Match", "\"bla\""
+          res = RestClient.get("#{base_url}/ilpt-phil%2Ffood%2Faguacate")
+          etag = %Q("#{res.headers[:etag]}")
 
-          RestClient.stub :delete, "" do
-            delete "/ilpt-phil/food/aguacate"
-          end
+          header "If-Match", etag
+
+          delete "/ilpt-phil/food/aguacate"
 
           last_response.status.must_equal 200
         end
@@ -505,20 +423,17 @@ describe "App" do
         redis.sadd "authorizations:ilpt-phil:amarillo", [":rw"]
         header "Authorization", "Bearer amarillo"
 
-        put_stub = OpenStruct.new(headers: {
-          etag: "bla",
-          date: "Fri, 04 Mar 2016 12:20:18 GMT"
-        })
+        put "/ilpt-phil/food/aguacate", "si"
+        put "/ilpt-phil/food/camaron", "yummi"
+        put "/ilpt-phil/food/desayunos/bolon", "wow"
 
-        RestClient.stub :put, put_stub do
-          put "/ilpt-phil/food/aguacate", "si"
-          put "/ilpt-phil/food/camaron", "yummi"
-          put "/ilpt-phil/food/desayunos/bolon", "wow"
-        end
+        @aguacate_etag = etag_for('ilpt-phil/food/aguacate')
+      end
 
-        base_url = app.settings.couchdb['uri']
-        res = RestClient.get("#{base_url}/ilpt-phil%2Ffood%2Faguacate")
-        @aguacate_etag = res.headers[:etag]
+      after do
+        delete "/ilpt-phil/food/aguacate"
+        delete "/ilpt-phil/food/camaron"
+        delete "/ilpt-phil/food/desayunos/bolon"
       end
 
       describe "documents" do
@@ -547,7 +462,7 @@ describe "App" do
 
         it "returns the correct ETag header" do
           get "/ilpt-phil/food/"
-          
+
           last_response.status.must_equal 200
           last_response.headers["ETag"].must_equal @etag
         end
@@ -574,16 +489,22 @@ describe "App" do
 
           content = JSON.parse(last_response.body)
           content["@context"].must_equal "http://remotestorage.io/spec/folder-description"
+
+          aguacate_etag = etag_for('ilpt-phil/food/aguacate')
           content["items"]["aguacate"].wont_be_nil
           content["items"]["aguacate"]["Content-Type"].must_equal "text/plain; charset=utf-8"
           content["items"]["aguacate"]["Content-Length"].must_equal 2
-          content["items"]["aguacate"]["ETag"].must_equal "bla"
+          content["items"]["aguacate"]["ETag"].must_equal aguacate_etag
+
+          camaron_etag = etag_for('ilpt-phil/food/camaron')
           content["items"]["camaron"].wont_be_nil
           content["items"]["camaron"]["Content-Type"].must_equal "text/plain; charset=utf-8"
           content["items"]["camaron"]["Content-Length"].must_equal 5
-          content["items"]["camaron"]["ETag"].must_equal "bla"
+          content["items"]["camaron"]["ETag"].must_equal camaron_etag
+
+          desayunos_etag = redis.hget "rs:m:ilpt-phil:food/desayunos/", "e"
           content["items"]["desayunos/"].wont_be_nil
-          content["items"]["desayunos/"]["ETag"].must_equal "dd36e3cfe52b5f33421150b289a7d48d"
+          content["items"]["desayunos/"]["ETag"].must_equal desayunos_etag
         end
 
         it "contains all items in the root directory" do
@@ -647,34 +568,32 @@ describe "App" do
         redis.sadd "authorizations:ilpt-phil:amarillo", [":rw"]
         header "Authorization", "Bearer amarillo"
 
-        put_stub = OpenStruct.new(headers: {
-          etag: "bla",
-          date: "Fri, 04 Mar 2016 12:20:18 GMT"
-        })
+        put "/ilpt-phil/food/aguacate", "si"
+        put "/ilpt-phil/food/camaron", "yummi"
+        put "/ilpt-phil/food/desayunos/bolon", "wow"
+      end
 
-        RestClient.stub :put, put_stub do
-          put "/ilpt-phil/food/aguacate", "si"
-          put "/ilpt-phil/food/camaron", "yummi"
-          put "/ilpt-phil/food/desayunos/bolon", "wow"
-        end
+      after do
+        delete "/ilpt-phil/food/aguacate"
+        delete "/ilpt-phil/food/camaron"
+        delete "/ilpt-phil/food/desayunos/bolon"
       end
 
       describe "directory listings" do
         it "returns the correct header information" do
           get "/ilpt-phil/food/"
 
+          etag = %Q("#{redis.hget "rs:m:ilpt-phil:food/", "e"}")
+
           last_response.status.must_equal 200
           last_response.content_type.must_equal "application/ld+json"
-          last_response.headers["ETag"].must_equal "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
+          last_response.headers["ETag"].must_equal etag
         end
       end
 
       describe "documents" do
         it "returns a 404 when the document doesn't exist" do
-          raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
-          RestClient.stub :head, raises_exception do
-            head "/ilpt-phil/food/steak"
-          end
+          head "/ilpt-phil/food/steak"
 
           last_response.status.must_equal 404
           last_response.body.must_be_empty

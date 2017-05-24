@@ -35,13 +35,21 @@ alias context describe
 
 if app.settings.respond_to? :redis
   def redis
-    @redis ||= Redis.new(host: app.settings.redis["host"], port: app.settings.redis["port"])
+    @redis ||= Redis.new(app.settings.redis.symbolize_keys)
   end
 
   def purge_redis
-    redis.keys("rs*").each do |key|
+    redis.keys("*").each do |key|
       redis.del key
     end
+  end
+end
+
+if app.settings.respond_to? :couchdb
+  def etag_for(path)
+    res = RestClient.get("#{app.settings.couchdb['uri']}/#{CGI::escape(path).gsub('+', '%20')}")
+
+    res.headers[:etag]
   end
 end
 

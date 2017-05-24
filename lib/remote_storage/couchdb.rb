@@ -393,7 +393,7 @@ module RemoteStorage
     end
 
     def url_for_key(user, directory, key)
-      File.join [base_url, escape("#{user}/#{directory}/#{key}")].compact
+      File.join [base_url, escape(File.join([user, directory, key].reject(&:empty?)))].compact
     end
 
     def base_url
@@ -414,35 +414,25 @@ module RemoteStorage
       end
       mime_type = MIME::Types[content_type].first
       if mime_type.binary?
-        deal_with_unauthorized_requests do
-          RestClient.put("#{url}/attachment", data, default_headers.merge(content_type: content_type))
-        end
+        RestClient.put("#{url}/attachment", data, default_headers.merge(content_type: content_type))
       else
         json_data = JSON.generate({content: data, content_type: content_type})
-        deal_with_unauthorized_requests do
-          RestClient.put(url, json_data, default_headers)
-        end
+        RestClient.put(url, json_data, default_headers)
       end
     end
 
     def do_get_request(url, &block)
-      deal_with_unauthorized_requests do
-        RestClient.get(url, default_headers, &block)
-      end
+      RestClient.get(url, default_headers, &block)
     end
 
     def do_head_request(url, &block)
-      deal_with_unauthorized_requests do
-        RestClient.head(url, default_headers, &block)
-      end
+      RestClient.head(url, default_headers, &block)
     end
 
     def do_delete_request(url)
-      deal_with_unauthorized_requests do
-        json = RestClient.get(url).body
-        rev = JSON.parse(json)["_rev"]
-        RestClient.delete("#{url}?rev=#{rev}", default_headers)
-      end
+      json = RestClient.get(url).body
+      rev = JSON.parse(json)["_rev"]
+      RestClient.delete("#{url}?rev=#{rev}", default_headers)
     end
 
     def escape(url)
@@ -457,19 +447,5 @@ module RemoteStorage
     def etag_for(*args)
       Digest::MD5.hexdigest args.join(":")
     end
-
-    #TODO replace with coucdb token
-    def deal_with_unauthorized_requests(&block)
-      begin
-        block.call
-      rescue RestClient::Unauthorized => ex
-        Raven.capture_exception(
-          ex,
-          tags: { swift_token:           settings.swift_token[0..19], # send the first 20 characters
-                  swift_token_loaded_at: settings.swift_token_loaded_at }
-        )
-        server.halt 500
-      end
-    end
-	end
+  end
 end

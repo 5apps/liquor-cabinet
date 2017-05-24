@@ -16,6 +16,7 @@ group :test do
   gem 'purdytest', :require => false
   gem 'm'
   gem 'minitest-stub_any_instance'
+  gem 'minitest-hooks'
 end
 
 group :staging, :production do
