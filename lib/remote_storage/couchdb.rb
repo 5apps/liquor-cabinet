@@ -38,11 +38,10 @@ module RemoteStorage
       end
     end
 
-    #Copied
     def get_head(user, directory, key)
       url = url_for_key(user, directory, key)
 
-      res = do_head_request(url)
+      res = do_get_request(url)
 
       set_response_headers(res)
     rescue RestClient::ResourceNotFound
@@ -234,7 +233,14 @@ module RemoteStorage
     def set_response_headers(response)
       server.headers["ETag"]           = response.headers[:etag]
       server.headers["Content-Type"]   = response.headers[:content_type]
-      server.headers["Content-Length"] = response.headers[:content_length]
+
+      begin
+        json = JSON.parse response.body
+        server.headers["Content-Length"] = json["content"].size.to_s
+      rescue JSON::ParserError
+        server.headers["Content-Length"] = response.headers[:content_length]
+      end
+      # server.headers["Content-Length"] = response.headers[:content_length]
       #server.headers["Last-Modified"]  = response.headers[:last_modified] #fixme it does not exist
     end
 
