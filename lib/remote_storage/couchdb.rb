@@ -61,7 +61,7 @@ module RemoteStorage
       set_response_headers(res)
 
       none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
-      server.halt 304 if none_match.include? %Q("#{res.headers[:etag]}")
+      server.halt 304 if none_match.include? res.headers[:etag]
 
       # Try to parse the body as JSON
       begin
@@ -155,6 +155,7 @@ module RemoteStorage
       if required_match = server.env["HTTP_IF_MATCH"]
         server.halt 412, "Precondition Failed" unless required_match == %Q("#{existing_metadata["e"]}")
       end
+
       if server.env["HTTP_IF_NONE_MATCH"] == "*"
         server.halt 412, "Precondition Failed" unless existing_metadata.empty?
       end
@@ -163,8 +164,15 @@ module RemoteStorage
 
       timestamp = timestamp_for(res.headers[:date]) # We do not have the last modified header from couchdb
 
+      etag = begin
+              JSON.parse(res.body)["rev"]
+            rescue JSON::ParserError
+              res.headers[:etag]
+            end
+      etag.gsub('"', '') unless etag.nil?
+
       metadata = {
-        e: res.headers[:etag],
+        e: etag,
         s: data.size,
         t: content_type,
         m: timestamp
@@ -176,7 +184,7 @@ module RemoteStorage
           log_size_difference(user, existing_metadata["s"], metadata[:s])
         end
 
-        server.headers["ETag"] = %Q("#{res.headers[:etag]}")
+        server.headers["ETag"] = %Q("#{etag}")
         server.halt existing_metadata.empty? ? 201 : 200
       else
         server.halt 500
@@ -224,7 +232,7 @@ module RemoteStorage
     private
 
     def set_response_headers(response)
-      server.headers["ETag"]           = %Q("#{response.headers[:etag]}")
+      server.headers["ETag"]           = response.headers[:etag]
       server.headers["Content-Type"]   = response.headers[:content_type]
       server.headers["Content-Length"] = response.headers[:content_length]
       #server.headers["Last-Modified"]  = response.headers[:last_modified] #fixme it does not exist

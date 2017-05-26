@@ -52,7 +52,7 @@ describe "App" do
       it "creates the metadata object in redis" do
         put "/ilpt-phil/food/aguacate", "si"
 
-        aguacate_etag = etag_for('ilpt-phil/food/aguacate')
+        aguacate_etag = etag_for('ilpt-phil/food/aguacate').gsub('"', '')
 
         metadata = redis.hgetall "rs:m:ilpt-phil:food/aguacate"
         metadata["s"].must_equal "2"
@@ -125,7 +125,7 @@ describe "App" do
           last_response.content_type.must_equal "application/ld+json"
 
           content = JSON.parse(last_response.body)
-          bamboo_etag = etag_for('ilpt-phil/bamboo.txt')
+          bamboo_etag = etag_for('ilpt-phil/bamboo.txt').gsub('"', '')
 
           content["items"]["bamboo.txt"].wont_be_nil
           content["items"]["bamboo.txt"]["ETag"].must_equal bamboo_etag
@@ -181,13 +181,13 @@ describe "App" do
 
         it "allows the request if the header matches the current ETag" do
           old_etag = etag_for "ilpt-phil/food/aguacate"
-          header "If-Match", %Q("#{old_etag}")
+          header "If-Match", old_etag
 
           put "/ilpt-phil/food/aguacate", "aye"
           new_etag = etag_for "ilpt-phil/food/aguacate"
 
           last_response.status.must_equal 200
-          last_response.headers["Etag"].must_equal %Q("#{new_etag}")
+          last_response.headers["Etag"].must_equal new_etag
         end
 
         it "fails the request if the header does not match the current ETag" do
@@ -335,7 +335,7 @@ describe "App" do
 
         delete "/ilpt-phil/food/aguacate"
 
-        last_response.headers["ETag"].must_equal %Q("#{aguacate_etag}")
+        last_response.headers["ETag"].must_equal aguacate_etag
       end
 
       context "when item doesn't exist" do
@@ -370,8 +370,7 @@ describe "App" do
 
       describe "If-Match header" do
         it "succeeds when the header matches the current ETag" do
-          res = RestClient.get("#{base_url}/ilpt-phil%2Ffood%2Faguacate")
-          etag = %Q("#{res.headers[:etag]}")
+          etag = etag_for "ilpt-phil/food/aguacate"
 
           header "If-Match", etag
 
@@ -446,7 +445,7 @@ describe "App" do
           get "/ilpt-phil/food/aguacate"
 
           last_response.status.must_equal 200
-          last_response.headers["ETag"].must_equal %Q("#{@aguacate_etag}")
+          last_response.headers["ETag"].must_equal @aguacate_etag
           last_response.headers["Cache-Control"].must_equal "no-cache"
           last_response.headers["Content-Type"].must_equal "application/json"
         end
@@ -494,13 +493,13 @@ describe "App" do
           content = JSON.parse(last_response.body)
           content["@context"].must_equal "http://remotestorage.io/spec/folder-description"
 
-          aguacate_etag = etag_for('ilpt-phil/food/aguacate')
+          aguacate_etag = etag_for('ilpt-phil/food/aguacate').gsub('"', '')
           content["items"]["aguacate"].wont_be_nil
           content["items"]["aguacate"]["Content-Type"].must_equal "text/plain; charset=utf-8"
           content["items"]["aguacate"]["Content-Length"].must_equal 2
           content["items"]["aguacate"]["ETag"].must_equal aguacate_etag
 
-          camaron_etag = etag_for('ilpt-phil/food/camaron')
+          camaron_etag = etag_for('ilpt-phil/food/camaron').gsub('"', '')
           content["items"]["camaron"].wont_be_nil
           content["items"]["camaron"]["Content-Type"].must_equal "text/plain; charset=utf-8"
           content["items"]["camaron"]["Content-Length"].must_equal 5
