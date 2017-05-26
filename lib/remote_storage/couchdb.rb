@@ -49,25 +49,26 @@ module RemoteStorage
       server.halt 404
     end
 
-    #Copied
     def get_data(user, directory, key)
       url = url_for_key(user, directory, key)
 
-      res = do_get_request(url)
+      begin
+        res = do_get_request(url)
+      rescue RestClient::ResourceNotFound
+        server.halt 404, "Not Found"
+      end
 
       set_response_headers(res)
 
       none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
       server.halt 304 if none_match.include? %Q("#{res.headers[:etag]}")
 
-      json = JSON.parse res.body
-      if json["_attachments"].nil?
+      # Try to parse the body as JSON
+      begin
         return JSON.parse(res.body)["content"]
-      else
-        return RestClient.get("#{url}/attachment").body
+      rescue JSON::ParserError
+        return res.body
       end
-    rescue RestClient::ResourceNotFound
-      server.halt 404, "Not Found"
     end
 
     #copied
@@ -413,16 +414,22 @@ module RemoteStorage
         #do nothing
       end
       mime_type = MIME::Types[content_type].first
-      if mime_type.binary?
-        RestClient.put("#{url}/attachment", data, default_headers.merge(content_type: content_type))
-      else
+      if mime_type.content_type == "application/json" || !mime_type.binary?
         json_data = JSON.generate({content: data, content_type: content_type})
         RestClient.put(url, json_data, default_headers)
+      else
+        RestClient.put("#{url}/attachment", data, default_headers.merge(content_type: content_type))
       end
     end
 
     def do_get_request(url, &block)
-      RestClient.get(url, default_headers, &block)
+      res = RestClient.get(url, default_headers, &block)
+      json = JSON.parse res.body
+      if json["_attachments"].nil?
+        return res
+      else
+        return RestClient.get("#{url}/attachment")
+      end
     end
 
     def do_head_request(url, &block)
