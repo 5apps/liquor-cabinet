@@ -219,6 +219,25 @@ describe "App" do
           last_response.body.must_equal "Precondition Failed"
         end
       end
+
+      describe "JSON document containing UTF-8" do
+        after do
+          delete "/ilpt-phil/food/batido.json"
+        end
+
+        it "succeeds" do
+          put "/ilpt-phil/food/batido.json",
+              '{"exercise": "Langhantel Bankdrücken"}',
+              { "CONTENT_TYPE" => "application/json; charset=UTF-8" }
+
+          last_response.status.must_equal 201
+
+          get "/ilpt-phil/food/batido.json"
+
+          last_response.body.must_equal '{"exercise": "Langhantel Bankdrücken"}'
+          last_response.headers["Content-Type"].must_equal "application/json; charset=UTF-8"
+        end
+      end
     end
 
   end
@@ -447,7 +466,7 @@ describe "App" do
           last_response.status.must_equal 200
           last_response.headers["ETag"].must_equal @aguacate_etag
           last_response.headers["Cache-Control"].must_equal "no-cache"
-          last_response.headers["Content-Type"].must_equal "application/json"
+          last_response.headers["Content-Type"].must_equal "text/plain; charset=utf-8"
         end
 
         it "returns a 404 when data doesn't exist" do

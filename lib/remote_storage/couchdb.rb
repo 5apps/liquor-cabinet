@@ -41,9 +41,12 @@ module RemoteStorage
     def get_head(user, directory, key)
       url = url_for_key(user, directory, key)
 
-      res = do_get_request(url)
-
+      res = do_head_request(url)
       set_response_headers(res)
+
+      attachment_res = do_get_request("#{url}/attachment")
+      server.headers["Content-Type"]   = attachment_res.headers[:content_type]
+      server.headers["Content-Length"] = attachment_res.body.size.to_s
     rescue RestClient::ResourceNotFound
       server.halt 404
     end
@@ -62,12 +65,11 @@ module RemoteStorage
       none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
       server.halt 304 if none_match.include? res.headers[:etag]
 
-      # Try to parse the body as JSON
-      begin
-        return JSON.parse(res.body)["content"]
-      rescue JSON::ParserError
-        return res.body
-      end
+      attachment_res = do_get_request("#{url}/attachment")
+      server.headers["Content-Type"] = attachment_res.headers[:content_type]
+      server.headers["Content-Length"] = attachment_res.body.size.to_s
+
+      return attachment_res.body
     end
 
     #copied
@@ -160,15 +162,11 @@ module RemoteStorage
       end
 
       res = do_put_request(url, data, content_type)
-
       timestamp = timestamp_for(res.headers[:date]) # We do not have the last modified header from couchdb
 
-      etag = begin
-              JSON.parse(res.body)["rev"]
-            rescue JSON::ParserError
-              res.headers[:etag]
-            end
-      etag.gsub('"', '') unless etag.nil?
+      head_res = do_head_request(url)
+      etag = head_res.headers[:etag]
+      etag = etag.gsub('"', '') unless etag.nil?
 
       metadata = {
         e: etag,
@@ -233,13 +231,7 @@ module RemoteStorage
     def set_response_headers(response)
       server.headers["ETag"]           = response.headers[:etag]
       server.headers["Content-Type"]   = response.headers[:content_type]
-
-      begin
-        json = JSON.parse response.body
-        server.headers["Content-Length"] = json["content"].size.to_s
-      rescue JSON::ParserError
-        server.headers["Content-Length"] = response.headers[:content_length]
-      end
+      server.headers["Content-Length"] = response.headers[:content_length]
       # server.headers["Content-Length"] = response.headers[:content_length]
       #server.headers["Last-Modified"]  = response.headers[:last_modified] #fixme it does not exist
     end
@@ -420,30 +412,19 @@ module RemoteStorage
     end
 
     def do_put_request(url, data, content_type)
+      attachment_url = "#{url}/attachment"
       begin
         res = RestClient.get(url)
         rev = JSON.parse(res.body)["_rev"]
-        url = "#{url}?rev=#{rev}"
+        attachment_url = "#{attachment_url}?rev=#{rev}" if rev
       rescue RestClient::ResourceNotFound
-        #do nothing
+        # do nothing, no existing revision
       end
-      mime_type = MIME::Types[content_type].first
-      if mime_type.content_type == "application/json" || !mime_type.binary?
-        json_data = JSON.generate({content: data, content_type: content_type})
-        RestClient.put(url, json_data, default_headers)
-      else
-        RestClient.put("#{url}/attachment", data, default_headers.merge(content_type: content_type))
-      end
+      RestClient.put(attachment_url, data, default_headers.merge(content_type: content_type))
     end
 
     def do_get_request(url, &block)
-      res = RestClient.get(url, default_headers, &block)
-      json = JSON.parse res.body
-      if json["_attachments"].nil?
-        return res
-      else
-        return RestClient.get("#{url}/attachment")
-      end
+      RestClient.get(url, default_headers, &block)
     end
 
     def do_head_request(url, &block)
