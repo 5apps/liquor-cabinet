@@ -232,13 +232,14 @@ module RemoteStorage
 
     def set_response_headers(response)
       server.headers["ETag"]           = response.headers[:etag]
-      server.headers["Content-Type"]   = response.headers[:content_type]
 
       begin
         json = JSON.parse response.body
         server.headers["Content-Length"] = json["content"].size.to_s
+        server.headers["Content-Type"]   = json["content_type"]
       rescue JSON::ParserError
         server.headers["Content-Length"] = response.headers[:content_length]
+        server.headers["Content-Type"]   = response.headers[:content_type]
       end
       # server.headers["Content-Length"] = response.headers[:content_length]
       #server.headers["Last-Modified"]  = response.headers[:last_modified] #fixme it does not exist
