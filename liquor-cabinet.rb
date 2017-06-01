@@ -98,8 +98,6 @@ class LiquorCabinet < Sinatra::Base
     end
 
     put path do
-      data = request.body.read
-
       halt 422 unless env['CONTENT_TYPE']
 
       if env['CONTENT_TYPE'] == "application/x-www-form-urlencoded"
@@ -107,6 +105,8 @@ class LiquorCabinet < Sinatra::Base
       else
         content_type = env['CONTENT_TYPE']
       end
+
+      data = request.body.read
 
       storage_for(@user).put_data(@user, @directory, @key, data, content_type)
     end
