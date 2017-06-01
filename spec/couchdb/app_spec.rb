@@ -403,7 +403,7 @@ describe "App" do
 
           get "/ilpt-phil/food/batido.json"
 
-          last_response.body.must_equal '{"exercise": "Langhantel Bankdruecken"}'
+          last_response.body.must_equal '{"exercise":"Langhantel Bankdruecken"}'
           last_response.headers["Content-Type"].must_equal "application/json"
         end
       end
@@ -422,8 +422,8 @@ describe "App" do
 
           get "/ilpt-phil/food/batido.json"
 
-          last_response.body.must_equal '{"exercise": "Langhantel Bankdrücken"}'
-          last_response.headers["Content-Type"].must_equal "application/json; charset=UTF-8"
+          last_response.body.must_equal '{"exercise":"Langhantel Bankdrücken"}'
+          last_response.headers["Content-Type"].must_equal "application/json"
         end
       end
 

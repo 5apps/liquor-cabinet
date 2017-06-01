@@ -44,6 +44,10 @@ module RemoteStorage
       res = do_get_request(url)
 
       set_response_headers(res)
+
+      body = get_body(res)
+
+      server.headers["Content-Length"] = body.size.to_s
     rescue RestClient::ResourceNotFound
       server.halt 404
     end
@@ -62,12 +66,11 @@ module RemoteStorage
       none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
       server.halt 304 if none_match.include? res.headers[:etag]
 
-      # Try to parse the body as JSON
-      begin
-        return JSON.parse(res.body)["content"]
-      rescue JSON::ParserError
-        return res.body
-      end
+      body = get_body(res)
+
+      server.headers["Content-Length"] = body.size.to_s
+
+      return body
     end
 
     #copied
@@ -162,13 +165,14 @@ module RemoteStorage
       res = do_put_request(url, data, content_type)
 
       timestamp = timestamp_for(res.headers[:date]) # We do not have the last modified header from couchdb
-
-      etag = begin
-              JSON.parse(res.body)["rev"]
-            rescue JSON::ParserError
-              res.headers[:etag]
-            end
-      etag.gsub('"', '') unless etag.nil?
+      # We can only get the real ETag by doing a GET request when the file is
+      # an attachment
+      etag = if res.headers[:etag]
+               res.headers[:etag]
+             else
+               do_get_request(url).headers[:etag]
+             end
+      etag.gsub!('"', '') unless etag.nil?
 
       metadata = {
         e: etag,
@@ -233,13 +237,10 @@ module RemoteStorage
     def set_response_headers(response)
       server.headers["ETag"]           = response.headers[:etag]
 
-      begin
-        json = JSON.parse response.body
-        server.headers["Content-Length"] = json["content"].size.to_s
-        server.headers["Content-Type"]   = json["content_type"]
-      rescue JSON::ParserError
+      server.headers["Content-Type"]   = response.headers[:content_type]
+      if response.headers[:content_type].start_with? "application/json"
+      else
         server.headers["Content-Length"] = response.headers[:content_length]
-        server.headers["Content-Type"]   = response.headers[:content_type]
       end
       # server.headers["Content-Length"] = response.headers[:content_length]
       #server.headers["Last-Modified"]  = response.headers[:last_modified] #fixme it does not exist
@@ -421,21 +422,20 @@ module RemoteStorage
     end
 
     def do_put_request(url, data, content_type)
+      mime_type = MIME::Types[content_type].first
       begin
         res = RestClient.get(url)
         rev = JSON.parse(res.body)["_rev"]
-        url = "#{url}?rev=#{rev}"
       rescue RestClient::ResourceNotFound
         #do nothing
       end
-      mime_type = MIME::Types[content_type].first
-      if mime_type.content_type == "application/json" || !mime_type.binary?
-        # FIXME: Is there a better way to do this? This prevents a crash when
-        # uploading UTF-8 files
-        json_data = JSON.generate({content: data.force_encoding('UTF-8'), content_type: content_type})
-        RestClient.put(url, json_data, default_headers)
+      if mime_type.content_type == "application/json"
+        url = "#{url}?rev=#{rev}" if rev
+        RestClient.put(url, data, default_headers.merge(content_type: content_type))
       else
-        RestClient.put("#{url}/attachment", data, default_headers.merge(content_type: content_type))
+        url = "#{url}/attachment"
+        url = "#{url}?rev=#{rev}" if rev
+        RestClient.put(url, data, default_headers.merge(content_type: content_type))
       end
     end
 
@@ -470,6 +470,15 @@ module RemoteStorage
 
     def etag_for(*args)
       Digest::MD5.hexdigest args.join(":")
+    end
+
+    def get_body(res)
+      # Remove the CouchDB keys from the JSON (they start with an underscore)
+      begin
+        JSON.generate(JSON.parse(res.body).reject { |k, _| k.start_with? "_" })
+      rescue JSON::ParserError
+        res.body
+      end
     end
   end
 end

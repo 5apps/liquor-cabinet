@@ -47,9 +47,15 @@ end
 
 if app.settings.respond_to? :couchdb
   def etag_for(path)
-    res = RestClient.get("#{app.settings.couchdb['uri']}/#{CGI::escape(path).gsub('+', '%20')}")
+    url = "#{app.settings.couchdb['uri']}/#{CGI::escape(path).gsub('+', '%20')}"
 
-    res.headers[:etag]
+    res = RestClient.get(url)
+    json = JSON.parse res.body
+    if json["_attachments"].nil?
+      res.headers[:etag]
+    else
+      RestClient.get("#{url}/attachment").headers[:etag]
+    end
   end
 end
 
