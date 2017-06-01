@@ -429,7 +429,9 @@ module RemoteStorage
       end
       mime_type = MIME::Types[content_type].first
       if mime_type.content_type == "application/json" || !mime_type.binary?
-        json_data = JSON.generate({content: data, content_type: content_type})
+        # FIXME: Is there a better way to do this? This prevents a crash when
+        # uploading UTF-8 files
+        json_data = JSON.generate({content: data.force_encoding('UTF-8'), content_type: content_type})
         RestClient.put(url, json_data, default_headers)
       else
         RestClient.put("#{url}/attachment", data, default_headers.merge(content_type: content_type))

@@ -388,6 +388,44 @@ describe "App" do
           last_response.body.must_equal "Precondition Failed"
         end
       end
+
+      describe "JSON document" do
+        after do
+          delete "/ilpt-phil/food/batido.json"
+        end
+
+        it "succeeds" do
+          put "/ilpt-phil/food/batido.json",
+            '{"exercise": "Langhantel Bankdruecken"}',
+            { "CONTENT_TYPE" => "application/json" }
+
+          last_response.status.must_equal 201
+
+          get "/ilpt-phil/food/batido.json"
+
+          last_response.body.must_equal '{"exercise": "Langhantel Bankdruecken"}'
+          last_response.headers["Content-Type"].must_equal "application/json"
+        end
+      end
+
+      describe "JSON document containing UTF-8" do
+        after do
+          delete "/ilpt-phil/food/batido.json"
+        end
+
+        it "succeeds" do
+          put "/ilpt-phil/food/batido.json",
+            '{"exercise": "Langhantel Bankdrücken"}',
+            { "CONTENT_TYPE" => "application/json; charset=UTF-8" }
+
+          last_response.status.must_equal 201
+
+          get "/ilpt-phil/food/batido.json"
+
+          last_response.body.must_equal '{"exercise": "Langhantel Bankdrücken"}'
+          last_response.headers["Content-Type"].must_equal "application/json"
+        end
+      end
     end
   end
 
