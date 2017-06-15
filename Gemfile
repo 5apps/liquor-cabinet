@@ -1,9 +1,9 @@
 source "https://rubygems.org"
 
-gem "sinatra", '~> 1.4'
+gem "sinatra"
 gem "sinatra-contrib"
 gem "activesupport"
-gem "riak-client", :github => "5apps/riak-ruby-client", :branch => "invalid_uri_error"
+gem "riak-client", git: "https://github.com/5apps/riak-ruby-client", branch: "invalid_uri_error"
 gem "fog-aws"
 gem "rest-client"
 gem "redis"
@@ -13,6 +13,7 @@ gem "mime-types"
 
 group :test do
   gem 'rake'
+  gem 'rack-test'
   gem 'purdytest', :require => false
   gem 'm'
   gem 'minitest-stub_any_instance'
