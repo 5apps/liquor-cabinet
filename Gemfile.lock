@@ -13,7 +13,7 @@ GIT
 GEM
   remote: https://rubygems.org/
   specs:
-    activesupport (5.1.1)
+    activesupport (5.1.2)
       concurrent-ruby (~> 1.0, >= 1.0.2)
       i18n (~> 0.7)
       minitest (~> 5.1)
@@ -24,7 +24,7 @@ GEM
     concurrent-ruby (1.0.5)
     domain_name (0.5.20170404)
       unf (>= 0.0.5, < 1.0.0)
-    excon (0.57.0)
+    excon (0.57.1)
     faraday (0.12.1)
       multipart-post (>= 1.2, < 3)
     fog-aws (1.4.0)
@@ -43,6 +43,7 @@ GEM
       fog-core
       nokogiri (>= 1.5.11, < 2.0.0)
     formatador (0.2.5)
+    http-accept (1.7.0)
     http-cookie (1.0.3)
       domain_name (~> 0.5)
     i18n (0.8.4)
@@ -79,7 +80,8 @@ GEM
     raindrops (0.18.0)
     rake (12.0.0)
     redis (3.3.3)
-    rest-client (2.0.2)
+    rest-client (2.1.0.rc1)
+      http-accept (>= 1.7.0, < 2.0)
       http-cookie (>= 1.0.2, < 2.0)
       mime-types (>= 1.16, < 4.0)
       netrc (~> 0.8)
@@ -122,7 +124,7 @@ DEPENDENCIES
   rainbows
   rake
   redis
-  rest-client
+  rest-client (~> 2.1.0.rc1)
   riak-client!
   sentry-raven
   sinatra
