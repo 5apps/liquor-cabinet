@@ -265,6 +265,22 @@ describe "App" do
           last_response.headers["Etag"].must_equal "\"newetag\""
         end
 
+        it "allows the request if the header contains a weak ETAG with leading quote matching the current ETag" do
+          header "If-Match", "\"W/\"oldetag\""
+
+          put_stub = OpenStruct.new(headers: {
+            etag: "newetag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "aye"
+          end
+
+          last_response.status.must_equal 200
+          last_response.headers["Etag"].must_equal "\"newetag\""
+        end
+
         it "fails the request if the header does not match the current ETag" do
           header "If-Match", "someotheretag"
 
