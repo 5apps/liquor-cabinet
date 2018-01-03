@@ -52,7 +52,7 @@ module RemoteStorage
 
       set_response_headers(res)
 
-      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
+      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").gsub(/^W\//, "").split(",").map(&:strip)
       server.halt 304 if none_match.include? %Q("#{res.headers[:etag]}")
 
       return res.body
@@ -71,7 +71,7 @@ module RemoteStorage
 
       server.headers["Content-Type"] = "application/ld+json"
 
-      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",").map(&:strip)
+      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").gsub(/^W\//, "").split(",").map(&:strip)
 
       if etag
         server.halt 304 if none_match.include? %Q("#{etag}")
@@ -139,7 +139,9 @@ module RemoteStorage
       url = url_for_key(user, directory, key)
 
       if required_match = server.env["HTTP_IF_MATCH"]
-        server.halt 412, "Precondition Failed" unless required_match == %Q("#{existing_metadata["e"]}")
+        unless required_match.gsub(/^W\//, "") == %Q("#{existing_metadata["e"]}")
+          server.halt 412, "Precondition Failed"
+        end
       end
       if server.env["HTTP_IF_NONE_MATCH"] == "*"
         server.halt 412, "Precondition Failed" unless existing_metadata.empty?
@@ -185,7 +187,9 @@ module RemoteStorage
       existing_metadata = redis.hgetall "rs:m:#{user}:#{directory}/#{key}"
 
       if required_match = server.env["HTTP_IF_MATCH"]
-        server.halt 412, "Precondition Failed" unless required_match == %Q("#{existing_metadata["e"]}")
+        unless required_match.gsub(/^W\//, "") == %Q("#{existing_metadata["e"]}")
+          server.halt 412, "Precondition Failed"
+        end
       end
 
       begin
