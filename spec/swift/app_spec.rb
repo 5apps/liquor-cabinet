@@ -249,6 +249,38 @@ describe "App" do
           last_response.headers["Etag"].must_equal "\"newetag\""
         end
 
+        it "allows the request if the header contains a weak ETAG matching the current ETag" do
+          header "If-Match", "W/\"oldetag\""
+
+          put_stub = OpenStruct.new(headers: {
+            etag: "newetag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "aye"
+          end
+
+          last_response.status.must_equal 200
+          last_response.headers["Etag"].must_equal "\"newetag\""
+        end
+
+        it "allows the request if the header contains a weak ETAG with leading quote matching the current ETag" do
+          header "If-Match", "\"W/\"oldetag\""
+
+          put_stub = OpenStruct.new(headers: {
+            etag: "newetag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
+          RestClient.stub :put, put_stub do
+            put "/phil/food/aguacate", "aye"
+          end
+
+          last_response.status.must_equal 200
+          last_response.headers["Etag"].must_equal "\"newetag\""
+        end
+
         it "fails the request if the header does not match the current ETag" do
           header "If-Match", "someotheretag"
 
@@ -473,6 +505,16 @@ describe "App" do
           last_response.status.must_equal 200
         end
 
+        it "succeeds when the header contains a weak ETAG matching the current ETag" do
+          header "If-Match", "W/\"bla\""
+
+          RestClient.stub :delete, "" do
+            delete "/phil/food/aguacate"
+          end
+
+          last_response.status.must_equal 200
+        end
+
         it "fails the request if it does not match the current ETag" do
           header "If-Match", "someotheretag"
 
@@ -562,6 +604,40 @@ describe "App" do
           last_response.body.must_equal "Not Found"
         end
 
+        it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
+          header "If-None-Match", "\"0815etag\""
+
+          get_stub = OpenStruct.new(body: "si", headers: {
+            etag: "0815etag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
+            content_type: "text/plain; charset=utf-8",
+            content_length: 2
+          })
+
+          RestClient.stub :get, get_stub do
+            get "/phil/food/aguacate"
+          end
+
+          last_response.status.must_equal 304
+        end
+
+        it "responds with 304 when IF_NONE_MATCH header contains weak ETAG matching the current ETag" do
+          header "If-None-Match", "W/\"0815etag\""
+
+          get_stub = OpenStruct.new(body: "si", headers: {
+            etag: "0815etag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
+            content_type: "text/plain; charset=utf-8",
+            content_length: 2
+          })
+
+          RestClient.stub :get, get_stub do
+            get "/phil/food/aguacate"
+          end
+
+          last_response.status.must_equal 304
+        end
+
       end
 
       describe "directory listings" do
@@ -582,6 +658,13 @@ describe "App" do
 
         it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
           header "If-None-Match", "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
+          get "/phil/food/"
+
+          last_response.status.must_equal 304
+        end
+
+        it "responds with 304 when IF_NONE_MATCH header contains weak ETAG matching the ETag" do
+          header "If-None-Match", "W/\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
           get "/phil/food/"
 
           last_response.status.must_equal 304
