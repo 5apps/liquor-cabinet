@@ -139,8 +139,18 @@ module RemoteStorage
       url = url_for_key(user, directory, key)
 
       if required_match = server.env["HTTP_IF_MATCH"]
-        unless required_match.gsub(/^"?W\//, "") == %Q("#{existing_metadata["e"]}")
-          server.halt 412, "Precondition Failed"
+        required_match = required_match.gsub(/^"?W\//, "")
+        unless required_match == %Q("#{existing_metadata["e"]}")
+
+          # get actual metadata and compare in case redis metadata became out of sync
+          head_res = do_head_request(url)
+
+          if required_match == %Q("#{head_res.headers[:etag]}")
+            # log previous size difference that was missed ealier because of redis failure
+            log_size_difference(user, existing_metadata["s"], head_res.headers[:content_length])
+          else
+            server.halt 412, "Precondition Failed"
+          end
         end
       end
       if server.env["HTTP_IF_NONE_MATCH"] == "*"
