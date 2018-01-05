@@ -147,7 +147,12 @@ module RemoteStorage
         unless required_match == %Q("#{existing_metadata["e"]}")
 
           # get actual metadata and compare in case redis metadata became out of sync
-          head_res = do_head_request(url)
+          begin
+            head_res = do_head_request(url)
+          # The file doesn't exist in Orbit, return 412
+          rescue RestClient::ResourceNotFound
+            server.halt 412, "Precondition Failed"
+          end
 
           if required_match == %Q("#{head_res.headers[:etag]}")
             # log previous size difference that was missed ealier because of redis failure
