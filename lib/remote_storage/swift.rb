@@ -52,7 +52,9 @@ module RemoteStorage
 
       set_response_headers(res)
 
-      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").gsub(/^"?W\//, "").split(",").map(&:strip)
+      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",")
+                                                           .map(&:strip)
+                                                           .map { |s| s.gsub(/^"?W\//, "") }
       server.halt 304 if none_match.include? %Q("#{res.headers[:etag]}")
 
       return res.body
@@ -71,7 +73,9 @@ module RemoteStorage
 
       server.headers["Content-Type"] = "application/ld+json"
 
-      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").gsub(/^"?W\//, "").split(",").map(&:strip)
+      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",")
+                                                           .map(&:strip)
+                                                           .map { |s| s.gsub(/^"?W\//, "") }
 
       if etag
         server.halt 304 if none_match.include? %Q("#{etag}")
