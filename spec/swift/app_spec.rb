@@ -284,10 +284,43 @@ describe "App" do
         it "fails the request if the header does not match the current ETag" do
           header "If-Match", "someotheretag"
 
-          put "/phil/food/aguacate", "aye"
+          head_stub = OpenStruct.new(headers: {
+            etag: "oldetag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
+            content_type: "text/plain",
+            content_length: 23
+          })
+
+          RestClient.stub :head, head_stub do
+            put "/phil/food/aguacate", "aye"
+          end
 
           last_response.status.must_equal 412
           last_response.body.must_equal "Precondition Failed"
+        end
+
+        it "allows the request if redis metadata became out of sync" do
+          header "If-Match", "\"existingetag\""
+
+          head_stub = OpenStruct.new(headers: {
+            etag: "existingetag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
+            content_type: "text/plain",
+            content_length: 23
+          })
+
+          put_stub = OpenStruct.new(headers: {
+            etag: "newetag",
+            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+          })
+
+          RestClient.stub :head, head_stub do
+            RestClient.stub :put, put_stub do
+              put "/phil/food/aguacate", "aye"
+            end
+          end
+
+          last_response.status.must_equal 200
         end
       end
 
@@ -307,7 +340,7 @@ describe "App" do
           last_response.status.must_equal 201
         end
 
-        it "fails the request if the document already exsits" do
+        it "fails the request if the document already exists" do
           put_stub = OpenStruct.new(headers: {
             etag: "someetag",
             last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
