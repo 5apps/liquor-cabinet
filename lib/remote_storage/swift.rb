@@ -126,13 +126,20 @@ module RemoteStorage
           if string.sub(name, -1) ~= "/" then
             listing[name]["Content-Type"]   = metadata["t"]
             listing[name]["Content-Length"] = tonumber(metadata["s"])
+            listing[name]["Last-Modified"]  = tonumber(metadata["m"])
           end
         end
 
         return cjson.encode(listing)
       EOF
 
-      JSON.parse(redis.eval(lua_script, nil, [user, directory]))
+      items = JSON.parse(redis.eval(lua_script, nil, [user, directory]))
+
+      items.select{|k,v| k[-1] != "/"}.each do |k,v|
+        v["Last-Modified"] = Time.at(v["Last-Modified"]/1000).httpdate
+      end
+
+      items
     end
 
     def put_data(user, directory, key, data, content_type)
