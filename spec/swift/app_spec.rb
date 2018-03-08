@@ -152,6 +152,7 @@ describe "App" do
           content["items"]["bamboo.txt"]["ETag"].must_equal "bla"
           content["items"]["bamboo.txt"]["Content-Type"].must_equal "text/plain; charset=utf-8"
           content["items"]["bamboo.txt"]["Content-Length"].must_equal 8
+          content["items"]["bamboo.txt"]["Last-Modified"].must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
         end
       end
 
