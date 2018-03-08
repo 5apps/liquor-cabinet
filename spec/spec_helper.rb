@@ -35,7 +35,7 @@ alias context describe
 
 if app.settings.respond_to? :redis
   def redis
-    @redis ||= Redis.new(host: app.settings.redis["host"], port: app.settings.redis["port"])
+    @redis ||= Redis.new(app.settings.redis.symbolize_keys)
   end
 
   def purge_redis
