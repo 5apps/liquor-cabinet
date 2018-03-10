@@ -142,7 +142,7 @@ module RemoteStorage
 
     def bucket
       @bucket ||= begin
-                    resource.bucket('gk-test')
+                    resource.bucket(settings.s3["bucket"])
                   end
     end
 
