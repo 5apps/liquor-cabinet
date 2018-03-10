@@ -7,6 +7,7 @@ gem "riak-client", git: "https://github.com/5apps/riak-ruby-client", branch: "in
 gem "fog-aws"
 gem "rest-client", "~> 2.1.0.rc1" # Fixes a memory leak in Ruby 2.4
 gem "redis"
+gem "aws-sdk"
 # Remove require when we can update to 3.0, which sets the new storage
 # format to columnar by default. Increases performance
 gem "mime-types"
