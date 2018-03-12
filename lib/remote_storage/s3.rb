@@ -137,7 +137,9 @@ module RemoteStorage
     end
 
     def resource
-      @resource ||= Aws::S3::Resource.new
+      # FIXME: Setting the signature_version to s3 is required for Exoscale SOS
+      # to work
+      @resource ||= Aws::S3::Resource.new(signature_version: 's3')
     end
 
     def bucket
