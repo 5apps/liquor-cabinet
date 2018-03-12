@@ -133,7 +133,7 @@ module RemoteStorage
       server.headers["ETag"]           = object.etag
       server.headers["Content-Type"]   = object.content_type
       server.headers["Content-Length"] = object.content_length.to_s
-      server.headers["Last-Modified"]  = object.last_modified.to_s
+      server.headers["Last-Modified"]  = object.last_modified.httpdate
     end
 
     def resource
