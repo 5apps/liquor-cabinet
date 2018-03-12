@@ -101,6 +101,8 @@ module RemoteStorage
 
     def delete_data(user, directory, key)
       url = url_for_key(user, directory, key)
+      object = bucket.object(url)
+
       not_found = !object.exists?
 
       existing_metadata = redis.hgetall "rs:m:#{user}:#{directory}/#{key}"
@@ -110,8 +112,6 @@ module RemoteStorage
           server.halt 412, "Precondition Failed"
         end
       end
-
-      object = bucket.object(url)
 
       object.delete
 
