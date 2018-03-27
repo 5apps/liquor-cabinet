@@ -42,7 +42,7 @@ module RemoteStorage
       none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",")
                                                            .map(&:strip)
                                                            .map { |s| s.gsub(/^"?W\//, "") }
-      server.halt 304 if none_match.include? %Q("#{object.etag}")
+      server.halt 304 if none_match.include? object.etag
 
       return object.get.body
     end
@@ -62,7 +62,7 @@ module RemoteStorage
           # get actual metadata and compare in case redis metadata became out of sync
           server.halt 412, "Precondition Failed" unless object.exists?
 
-          if required_match == %Q("#{object.etag}")
+          if required_match == object.etag
             # log previous size difference that was missed ealier because of redis failure
             log_size_difference(user, existing_metadata["s"], object.content_length)
           else
@@ -131,7 +131,7 @@ module RemoteStorage
     private
 
     def set_response_headers(object)
-      server.headers["ETag"]           = %Q("#{object.etag}")
+      server.headers["ETag"]           = object.etag # Already surrounded by quotes
       server.headers["Content-Type"]   = object.content_type
       server.headers["Content-Length"] = object.content_length.to_s
       server.headers["Last-Modified"]  = object.last_modified.httpdate
