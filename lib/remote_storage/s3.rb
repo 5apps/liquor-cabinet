@@ -130,7 +130,7 @@ module RemoteStorage
     private
 
     def set_response_headers(object)
-      server.headers["ETag"]           = object.etag
+      server.headers["ETag"]           = %Q("#{object.etag}")
       server.headers["Content-Type"]   = object.content_type
       server.headers["Content-Length"] = object.content_length.to_s
       server.headers["Last-Modified"]  = object.last_modified.httpdate
