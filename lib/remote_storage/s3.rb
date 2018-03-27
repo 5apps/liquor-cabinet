@@ -80,7 +80,8 @@ module RemoteStorage
       timestamp = object.last_modified
 
       metadata = {
-        e: etag,
+        # The Etag from an S3 compatible API is surrounded by quotes, remove them
+        e: etag.delete('"'),
         s: data.size,
         t: content_type,
         m: timestamp.to_s
@@ -92,7 +93,7 @@ module RemoteStorage
           log_size_difference(user, existing_metadata["s"], metadata[:s])
         end
 
-        server.headers["ETag"] = %Q("#{etag}")
+        server.headers["ETag"] = etag
         server.halt existing_metadata.empty? ? 201 : 200
       else
         server.halt 500
