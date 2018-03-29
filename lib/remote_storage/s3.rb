@@ -44,7 +44,7 @@ module RemoteStorage
                                                            .map { |s| s.gsub(/^"?W\//, "") }
       server.halt 304 if none_match.include? object.etag
 
-      return object.get.body
+      return object.get.body.string
     end
 
     def put_data(user, directory, key, data, content_type)
