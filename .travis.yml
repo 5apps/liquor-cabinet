@@ -19,3 +19,6 @@ notifications:
       - http://hook-juggler.herokuapp.com/hooks/travis
     on_success: always
     on_failure: always
+env:
+  - BACKEND=s3
+  - BACKEND=swift
