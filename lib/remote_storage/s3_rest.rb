@@ -6,6 +6,24 @@ require "webrick/httputils"
 module RemoteStorage
   class S3Rest < Swift
 
+    def get_data(user, directory, key)
+      url = url_for_key(user, directory, key)
+
+      res = do_get_request(url)
+
+      set_response_headers(res)
+
+      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",")
+                                                           .map(&:strip)
+                                                           .map { |s| s.gsub(/^"?W\//, "") }
+      # The Etag from an S3 compatible API is surrounded by quotes
+      server.halt 304 if none_match.include? res.headers[:etag]
+
+      return res.body
+    rescue RestClient::ResourceNotFound
+      server.halt 404, "Not Found"
+    end
+
     def put_data(user, directory, key, data, content_type)
       server.halt 400 if server.env["HTTP_CONTENT_RANGE"]
       server.halt 409, "Conflict" if has_name_collision?(user, directory, key)
@@ -20,12 +38,13 @@ module RemoteStorage
           # get actual metadata and compare in case redis metadata became out of sync
           begin
             head_res = do_head_request(url)
-          # The file doesn't exist in Orbit, return 412
+          # The file doesn't exist in S3, return 412
           rescue RestClient::ResourceNotFound
             server.halt 412, "Precondition Failed"
           end
 
-          if required_match == %Q("#{head_res.headers[:etag]}")
+          # The Etag from an S3 compatible API is surrounded by quotes, remove them
+          if required_match == head_res.headers[:etag]
             # log previous size difference that was missed ealier because of redis failure
             log_size_difference(user, existing_metadata["s"], head_res.headers[:content_length])
           else
@@ -44,7 +63,8 @@ module RemoteStorage
       timestamp = timestamp_for(head_res.headers[:last_modified])
 
       metadata = {
-        e: res.headers[:etag],
+        # The Etag from an S3 compatible API is surrounded by quotes, remove them
+        e: res.headers[:etag].delete('"'),
         s: data.size,
         t: content_type,
         m: timestamp
@@ -56,13 +76,54 @@ module RemoteStorage
           log_size_difference(user, existing_metadata["s"], metadata[:s])
         end
 
-        server.headers["ETag"] = %Q("#{res.headers[:etag]}")
+        server.headers["ETag"] = res.headers[:etag]
         server.halt existing_metadata.empty? ? 201 : 200
       else
         server.halt 500
       end
     end
+
+    def delete_data(user, directory, key)
+      url = url_for_key(user, directory, key)
+      not_found = false
+
+      # S3 returns a 200 on a delete request on an object that does not exist
+      begin
+        do_head_request(url)
+      rescue RestClient::ResourceNotFound
+        not_found = true
+      end
+
+      existing_metadata = redis.hgetall "rs:m:#{user}:#{directory}/#{key}"
+
+      if required_match = server.env["HTTP_IF_MATCH"]
+        unless required_match.gsub(/^"?W\//, "") == %Q("#{existing_metadata["e"]}")
+          server.halt 412, "Precondition Failed"
+        end
+      end
+
+      do_delete_request(url)
+
+      log_size_difference(user, existing_metadata["s"], 0)
+      delete_metadata_objects(user, directory, key)
+      delete_dir_objects(user, directory)
+
+      if not_found
+        server.halt 404, "Not Found"
+      else
+        server.headers["Etag"] = %Q("#{existing_metadata["e"]}")
+        server.halt 200
+      end
+    end
+
     private
+
+    def set_response_headers(response)
+      # The Etag from an S3 compatible API is already surrounded by quotes
+      server.headers["ETag"]           = response.headers[:etag]
+      server.headers["Content-Type"]   = response.headers[:content_type]
+      server.headers["Content-Length"] = response.headers[:content_length]
+    end
 
     def do_put_request(url, data, content_type)
       deal_with_unauthorized_requests do
@@ -140,4 +201,5 @@ module RemoteStorage
       end
     end
   end
+
 end

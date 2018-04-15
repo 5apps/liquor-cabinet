@@ -26,7 +26,7 @@ describe "App" do
 
       it "creates the metadata object in redis" do
         put_stub = OpenStruct.new(headers: {
-          etag: "bla"
+          etag: '"bla"'
         })
 
         RestClient.stub :put, put_stub do
@@ -44,7 +44,7 @@ describe "App" do
 
       it "creates the directory objects metadata in redis" do
         put_stub = OpenStruct.new(headers: {
-          etag: "bla"
+          etag: '"bla"'
         })
         get_stub = OpenStruct.new(body: "rootbody")
 
@@ -79,7 +79,7 @@ describe "App" do
       context "response code" do
         before do
           @put_stub = OpenStruct.new(headers: {
-            etag: "bla"
+            etag: '"bla"'
           })
         end
 
@@ -108,7 +108,7 @@ describe "App" do
       context "logging usage size" do
         before do
           @put_stub = OpenStruct.new(headers: {
-            etag: "bla"
+            etag: '"bla"'
           })
           @head_stub = OpenStruct.new(headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
         end
@@ -141,7 +141,7 @@ describe "App" do
       describe "objects in root dir" do
         before do
           put_stub = OpenStruct.new(headers: {
-            etag: "bla",
+            etag: '"bla"',
             last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
           })
 
@@ -170,7 +170,7 @@ describe "App" do
       describe "name collision checks" do
         it "is successful when there is no name collision" do
           put_stub = OpenStruct.new(headers: {
-            etag: "bla",
+            etag: '"bla"',
             last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
           })
           get_stub = OpenStruct.new(body: "rootbody")
@@ -193,7 +193,7 @@ describe "App" do
 
         it "conflicts when there is a directory with same name as document" do
           put_stub = OpenStruct.new(headers: {
-            etag: "bla"
+            etag: '"bla"'
           })
 
           RestClient.stub :put, put_stub do
@@ -212,7 +212,7 @@ describe "App" do
 
         it "conflicts when there is a document with same name as directory" do
           put_stub = OpenStruct.new(headers: {
-            etag: "bla"
+            etag: '"bla"'
           })
 
           RestClient.stub :put, put_stub do
@@ -240,7 +240,7 @@ describe "App" do
       describe "If-Match header" do
         before do
           put_stub = OpenStruct.new(headers: {
-            etag: "oldetag"
+            etag: '"oldetag"'
           })
 
           RestClient.stub :put, put_stub do
@@ -254,7 +254,7 @@ describe "App" do
           header "If-Match", "\"oldetag\""
 
           put_stub = OpenStruct.new(headers: {
-            etag: "newetag"
+            etag: '"newetag"'
           })
 
           RestClient.stub :put, put_stub do
@@ -271,7 +271,7 @@ describe "App" do
           header "If-Match", "W/\"oldetag\""
 
           put_stub = OpenStruct.new(headers: {
-            etag: "newetag"
+            etag: '"newetag"'
           })
 
           RestClient.stub :put, put_stub do
@@ -288,7 +288,7 @@ describe "App" do
           header "If-Match", "\"W/\"oldetag\""
 
           put_stub = OpenStruct.new(headers: {
-            etag: "newetag",
+            etag: '"newetag"',
           })
 
           RestClient.stub :put, put_stub do
@@ -305,7 +305,7 @@ describe "App" do
           header "If-Match", "someotheretag"
 
           head_stub = OpenStruct.new(headers: {
-            etag: "oldetag",
+            etag: '"oldetag"',
             last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
             content_type: "text/plain",
             content_length: 23
@@ -323,15 +323,14 @@ describe "App" do
           header "If-Match", "\"existingetag\""
 
           head_stub = OpenStruct.new(headers: {
-            etag: "existingetag",
+            etag: '"existingetag"',
             last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
             content_type: "text/plain",
             content_length: 23
           })
 
           put_stub = OpenStruct.new(headers: {
-            etag: "newetag",
-            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT"
+            etag: '"newetag"'
           })
 
           RestClient.stub :head, head_stub do
@@ -347,7 +346,7 @@ describe "App" do
       describe "If-None-Match header set to '*'" do
         it "succeeds when the document doesn't exist yet" do
           put_stub = OpenStruct.new(headers: {
-            etag: "someetag"
+            etag: '"someetag"'
           })
 
           header "If-None-Match", "*"
@@ -363,7 +362,7 @@ describe "App" do
 
         it "fails the request if the document already exists" do
           put_stub = OpenStruct.new(headers: {
-            etag: "someetag"
+            etag: '"someetag"'
           })
 
           RestClient.stub :put, put_stub do
@@ -431,7 +430,7 @@ describe "App" do
         header "Authorization", "Bearer amarillo"
 
         put_stub = OpenStruct.new(headers: {
-          etag: "bla"
+          etag: '"bla"'
         })
 
         RestClient.stub :put, put_stub do
@@ -446,7 +445,9 @@ describe "App" do
       it "decreases the size log by size of deleted object" do
         RestClient.stub :delete, "" do
           RemoteStorage::S3Rest.stub_any_instance :etag_for, "rootetag" do
-            delete "/phil/food/aguacate"
+            RestClient.stub :head, OpenStruct.new(headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" }) do
+              delete "/phil/food/aguacate"
+            end
           end
         end
 
@@ -457,7 +458,9 @@ describe "App" do
       it "deletes the metadata object in redis" do
         RestClient.stub :delete, "" do
           RemoteStorage::S3Rest.stub_any_instance :etag_for, "rootetag" do
-            delete "/phil/food/aguacate"
+            RestClient.stub :head, OpenStruct.new(headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" }) do
+              delete "/phil/food/aguacate"
+            end
           end
         end
 
@@ -470,7 +473,9 @@ describe "App" do
 
         RestClient.stub :delete, "" do
           RemoteStorage::S3Rest.stub_any_instance :etag_for, "newetag" do
-            delete "/phil/food/aguacate"
+            RestClient.stub :head, OpenStruct.new(headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" }) do
+              delete "/phil/food/aguacate"
+            end
           end
         end
 
@@ -489,9 +494,11 @@ describe "App" do
       it "deletes the parent directory objects metadata when deleting all items" do
         RestClient.stub :delete, "" do
           RemoteStorage::S3Rest.stub_any_instance :etag_for, "rootetag" do
-            delete "/phil/food/aguacate"
-            delete "/phil/food/camaron"
-            delete "/phil/food/desayunos/bolon"
+            RestClient.stub :head, OpenStruct.new(headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" }) do
+              delete "/phil/food/aguacate"
+              delete "/phil/food/camaron"
+              delete "/phil/food/desayunos/bolon"
+            end
           end
         end
 
@@ -506,7 +513,9 @@ describe "App" do
 
       it "responds with the ETag of the deleted item in the header" do
         RestClient.stub :delete, "" do
-          delete "/phil/food/aguacate"
+          RestClient.stub :head, OpenStruct.new(headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" }) do
+            delete "/phil/food/aguacate"
+          end
         end
 
         last_response.headers["ETag"].must_equal "\"bla\""
@@ -517,7 +526,7 @@ describe "App" do
           purge_redis
 
           put_stub = OpenStruct.new(headers: {
-            etag: "bla"
+            etag: '"bla"'
           })
 
           RestClient.stub :put, put_stub do
@@ -527,7 +536,7 @@ describe "App" do
           end
 
           raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
-          RestClient.stub :delete, raises_exception do
+          RestClient.stub :head, raises_exception do
             delete "/phil/food/steak"
           end
         end
@@ -539,7 +548,7 @@ describe "App" do
 
         it "deletes any metadata that might still exist" do
           raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
-          RestClient.stub :delete, raises_exception do
+          RestClient.stub :head, raises_exception do
             delete "/phil/food/steak"
           end
 
@@ -558,7 +567,9 @@ describe "App" do
           header "If-Match", "\"bla\""
 
           RestClient.stub :delete, "" do
-            delete "/phil/food/aguacate"
+            RestClient.stub :head, OpenStruct.new(headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" }) do
+              delete "/phil/food/aguacate"
+            end
           end
 
           last_response.status.must_equal 200
@@ -568,7 +579,9 @@ describe "App" do
           header "If-Match", "W/\"bla\""
 
           RestClient.stub :delete, "" do
-            delete "/phil/food/aguacate"
+            RestClient.stub :head, OpenStruct.new(headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" }) do
+              delete "/phil/food/aguacate"
+            end
           end
 
           last_response.status.must_equal 200
@@ -622,7 +635,7 @@ describe "App" do
         header "Authorization", "Bearer amarillo"
 
         put_stub = OpenStruct.new(headers: {
-          etag: "bla"
+          etag: '"bla"'
         })
 
         RestClient.stub :put, put_stub do
@@ -638,7 +651,7 @@ describe "App" do
 
         it "returns the required response headers" do
           get_stub = OpenStruct.new(body: "si", headers: {
-            etag: "0815etag",
+            etag: '"0815etag"',
             last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
             content_type: "text/plain; charset=utf-8",
             content_length: 2
@@ -668,7 +681,7 @@ describe "App" do
           header "If-None-Match", "\"0815etag\""
 
           get_stub = OpenStruct.new(body: "si", headers: {
-            etag: "0815etag",
+            etag: '"0815etag"',
             last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
             content_type: "text/plain; charset=utf-8",
             content_length: 2
@@ -685,7 +698,7 @@ describe "App" do
           header "If-None-Match", "W/\"0815etag\""
 
           get_stub = OpenStruct.new(body: "si", headers: {
-            etag: "0815etag",
+            etag: '"0815etag"',
             last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
             content_type: "text/plain; charset=utf-8",
             content_length: 2
