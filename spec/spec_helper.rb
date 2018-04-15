@@ -6,29 +6,21 @@ Bundler.require
 
 require_relative '../liquor-cabinet'
 require 'minitest/autorun'
+require "minitest/stub_any_instance"
 require 'rack/test'
 require 'purdytest'
 require "redis"
 require "rest_client"
-require "minitest/stub_any_instance"
 require "ostruct"
+require 'webmock/minitest'
+
+WebMock.disable_net_connect!
 
 def app
   LiquorCabinet
 end
 
 app.set :environment, :test
-
-def wait_a_second
-  now = Time.now.to_i
-  while Time.now.to_i == now; end
-end
-
-def write_last_response_to_file(filename = "last_response.html")
-  File.open(filename, "w") do |f|
-    f.write last_response.body
-  end
-end
 
 alias context describe
 
@@ -43,3 +35,23 @@ if app.settings.respond_to? :redis
     end
   end
 end
+
+MiniTest::Spec.class_eval do
+  def self.shared_examples
+    @shared_examples ||= {}
+  end
+end
+
+module MiniTest::Spec::SharedExamples
+  def shared_examples_for(desc, &block)
+    MiniTest::Spec.shared_examples[desc] = block
+  end
+
+  def it_behaves_like(desc)
+    self.instance_eval(&MiniTest::Spec.shared_examples[desc])
+  end
+end
+
+Object.class_eval { include(MiniTest::Spec::SharedExamples) }
+
+require_relative 'shared_examples'
