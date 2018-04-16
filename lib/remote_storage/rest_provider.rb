@@ -36,23 +36,30 @@ module RemoteStorage
     end
 
     def get_head(user, directory, key)
-      url = url_for_key(user, directory, key)
+      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",")
+                                                           .map(&:strip)
+                                                           .map { |s| s.gsub(/^"?W\//, "") }
+      metadata = redis.hgetall redis_metadata_object_key(user, directory, key)
 
-      res = do_head_request(url)
+      server.halt 404 if metadata.empty?
 
-      set_response_headers(res)
-    rescue RestClient::ResourceNotFound
-      server.halt 404
+      # Set the response headers for a 304 or 200 response
+      server.headers["ETag"]           = %Q("#{metadata["e"]}")
+      server.headers["Last-Modified"]  = Time.at(metadata["m"].to_i / 1000).httpdate
+
+      if none_match.include? %Q("#{metadata["e"]}")
+        server.halt 304
+      end
     end
 
     def get_data(user, directory, key)
       none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",")
                                                            .map(&:strip)
                                                            .map { |s| s.gsub(/^"?W\//, "") }
-      existing_metadata = redis.hgetall redis_metadata_object_key(user, directory, key)
-      if none_match.include? %Q("#{existing_metadata["e"]}")
-        server.headers["ETag"]           = %Q("#{existing_metadata["e"]}")
-        server.headers["Last-Modified"]  = Time.at(existing_metadata["m"].to_i / 1000).httpdate
+      metadata = redis.hgetall redis_metadata_object_key(user, directory, key)
+      if none_match.include? %Q("#{metadata["e"]}")
+        server.headers["ETag"]           = %Q("#{metadata["e"]}")
+        server.headers["Last-Modified"]  = Time.at(metadata["m"].to_i / 1000).httpdate
         server.halt 304
       end
 
