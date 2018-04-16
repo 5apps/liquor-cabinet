@@ -252,6 +252,10 @@ module RemoteStorage
 
     private
 
+    def default_headers
+      raise NotImplementedError
+    end
+
     def set_response_headers(response)
       server.headers["ETag"]           = format_etag(response.headers[:etag])
       server.headers["Content-Type"]   = response.headers[:content_type]
