@@ -66,6 +66,8 @@ module RemoteStorage
       return found
     end
 
+    # This is using the S3 authorizations, not the newer AW V4 Signatures
+    # (https://s3.amazonaws.com/doc/s3-developer-guide/RESTAuthentication.html)
     def authorization_headers_for(http_verb, md5, content_type, url)
       url = File.join("/", url.gsub(base_url, ""))
       date = Time.now.httpdate
