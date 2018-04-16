@@ -815,7 +815,7 @@ describe "App" do
         header "Authorization", "Bearer amarillo"
 
         put_stub = OpenStruct.new(headers: {
-          etag: "bla"
+          etag: "0815etag"
         })
 
         RestClient.stub :put, put_stub do
@@ -838,20 +838,45 @@ describe "App" do
       end
 
       describe "documents" do
-        it "returns a 404 when the document doesn't exist" do
-          raises_exception = ->(url, headers) { raise RestClient::ResourceNotFound.new }
-          RestClient.stub :head, raises_exception do
+        context "when the document doesn't exist" do
+          it "returns a 404" do
             head "/phil/food/steak"
+
+            last_response.status.must_equal 404
+            last_response.body.must_be_empty
+          end
+        end
+
+        context "when the document exists" do
+          it "returns the required response headers" do
+            head "/phil/food/aguacate"
+
+            last_response.status.must_equal 200
+            last_response.headers["ETag"].must_equal "\"0815etag\""
+            last_response.headers["Cache-Control"].must_equal "no-cache"
           end
 
-          last_response.status.must_equal 404
-          last_response.body.must_be_empty
+          it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
+            header "If-None-Match", "\"0815etag\""
+
+            head "/phil/food/aguacate"
+
+            last_response.status.must_equal 304
+            last_response.headers["ETag"].must_equal "\"0815etag\""
+            last_response.headers["Last-Modified"].must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
+          end
+
+          it "responds with 304 when IF_NONE_MATCH header contains weak ETAG matching the current ETag" do
+            header "If-None-Match", "W/\"0815etag\""
+
+            head "/phil/food/aguacate"
+
+            last_response.status.must_equal 304
+            last_response.headers["ETag"].must_equal "\"0815etag\""
+            last_response.headers["Last-Modified"].must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
+          end
         end
       end
-
     end
-
   end
-
 end
-
