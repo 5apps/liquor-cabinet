@@ -46,16 +46,17 @@ module RemoteStorage
     end
 
     def get_data(user, directory, key)
+      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",")
+                                                           .map(&:strip)
+                                                           .map { |s| s.gsub(/^"?W\//, "") }
+      etag = redis.hget redis_metadata_object_key(user, directory, key), "e"
+      server.halt 304 if none_match.include? %Q("#{etag}")
+
       url = url_for_key(user, directory, key)
 
       res = do_get_request(url)
 
       set_response_headers(res)
-
-      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",")
-                                                           .map(&:strip)
-                                                           .map { |s| s.gsub(/^"?W\//, "") }
-      server.halt 304 if none_match.include? format_etag(res.headers[:etag])
 
       return res.body
     rescue RestClient::ResourceNotFound

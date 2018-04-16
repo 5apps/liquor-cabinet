@@ -639,7 +639,7 @@ describe "App" do
         header "Authorization", "Bearer amarillo"
 
         put_stub = OpenStruct.new(headers: {
-          etag: '"bla"'
+          etag: '"0815etag"'
         })
 
         RestClient.stub :put, put_stub do
@@ -684,16 +684,7 @@ describe "App" do
         it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
           header "If-None-Match", "\"0815etag\""
 
-          get_stub = OpenStruct.new(body: "si", headers: {
-            etag: '"0815etag"',
-            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
-            content_type: "text/plain; charset=utf-8",
-            content_length: 2
-          })
-
-          RestClient.stub :get, get_stub do
-            get "/phil/food/aguacate"
-          end
+          get "/phil/food/aguacate"
 
           last_response.status.must_equal 304
         end
@@ -701,16 +692,7 @@ describe "App" do
         it "responds with 304 when IF_NONE_MATCH header contains weak ETAG matching the current ETag" do
           header "If-None-Match", "W/\"0815etag\""
 
-          get_stub = OpenStruct.new(body: "si", headers: {
-            etag: '"0815etag"',
-            last_modified: "Fri, 04 Mar 2016 12:20:18 GMT",
-            content_type: "text/plain; charset=utf-8",
-            content_length: 2
-          })
-
-          RestClient.stub :get, get_stub do
-            get "/phil/food/aguacate"
-          end
+          get "/phil/food/aguacate"
 
           last_response.status.must_equal 304
         end
@@ -758,11 +740,11 @@ describe "App" do
           content["items"]["aguacate"].wont_be_nil
           content["items"]["aguacate"]["Content-Type"].must_equal "text/plain; charset=utf-8"
           content["items"]["aguacate"]["Content-Length"].must_equal 2
-          content["items"]["aguacate"]["ETag"].must_equal "bla"
+          content["items"]["aguacate"]["ETag"].must_equal "0815etag"
           content["items"]["camaron"].wont_be_nil
           content["items"]["camaron"]["Content-Type"].must_equal "text/plain; charset=utf-8"
           content["items"]["camaron"]["Content-Length"].must_equal 5
-          content["items"]["camaron"]["ETag"].must_equal "bla"
+          content["items"]["camaron"]["ETag"].must_equal "0815etag"
           content["items"]["desayunos/"].wont_be_nil
           content["items"]["desayunos/"]["ETag"].must_equal "dd36e3cfe52b5f33421150b289a7d48d"
         end
