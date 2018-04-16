@@ -441,7 +441,7 @@ module RemoteStorage
         found = false
       end
 
-      not_found
+      found
     end
 
     def get_directory_listing_from_redis_via_lua(user, directory)
