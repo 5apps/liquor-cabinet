@@ -4,7 +4,6 @@ require "json"
 require "sinatra/base"
 require 'sinatra/config_file'
 require "sinatra/reloader"
-require "remote_storage/riak"
 require "remote_storage/swift"
 
 class LiquorCabinet < Sinatra::Base
@@ -129,9 +128,7 @@ class LiquorCabinet < Sinatra::Base
 
   def storage
     @storage ||= begin
-      if settings.respond_to? :riak
-        RemoteStorage::Riak.new(settings, self)
-      elsif settings.respond_to? :swift
+      if settings.respond_to? :swift
         RemoteStorage::Swift.new(settings, self)
       else
         puts <<-EOF
