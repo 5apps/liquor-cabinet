@@ -17,20 +17,6 @@ module RemoteStorage
       @server   = server
     end
 
-    # Implement this method in your class that includes this module. For example
-    # %Q("#{etag}") if the ETag does not already have quotes around it
-    def format_etag(etag)
-      NotImplementedError
-    end
-
-    def base_url
-      NotImplementedError
-    end
-
-    def container_url_for(user)
-      NotImplementedError
-    end
-
     def authorize_request(user, directory, token, listing=false)
       request_method = server.env["REQUEST_METHOD"]
 
@@ -112,50 +98,6 @@ module RemoteStorage
       listing.to_json
     end
 
-    def get_directory_listing_from_redis_via_lua(user, directory)
-      lua_script = <<-EOF
-        local user = ARGV[1]
-        local directory = ARGV[2]
-        local items = redis.call("smembers", "rs:m:"..user..":"..directory.."/:items")
-        local listing = {}
-
-        for index, name in pairs(items) do
-          local redis_key = "rs:m:"..user..":"
-          if directory == "" then
-            redis_key = redis_key..name
-          else
-            redis_key = redis_key..directory.."/"..name
-          end
-
-          local metadata_values = redis.call("hgetall", redis_key)
-          local metadata = {}
-
-          -- redis returns hashes as a single list of alternating keys and values
-          -- this collates it into a table
-          for idx = 1, #metadata_values, 2 do
-            metadata[metadata_values[idx]] = metadata_values[idx + 1]
-          end
-
-          listing[name] = {["ETag"] = metadata["e"]}
-          if string.sub(name, -1) ~= "/" then
-            listing[name]["Content-Type"]   = metadata["t"]
-            listing[name]["Content-Length"] = tonumber(metadata["s"])
-            listing[name]["Last-Modified"]  = tonumber(metadata["m"])
-          end
-        end
-
-        return cjson.encode(listing)
-      EOF
-
-      items = JSON.parse(redis.eval(lua_script, nil, [user, directory]))
-
-      items.reject{|k, _| k.end_with? "/"}.each do |_, v|
-        v["Last-Modified"] = Time.at(v["Last-Modified"]/1000).httpdate
-      end
-
-      items
-    end
-
     def put_data(user, directory, key, data, content_type)
       server.halt 400 if server.env["HTTP_CONTENT_RANGE"]
       server.halt 409, "Conflict" if has_name_collision?(user, directory, key)
@@ -209,15 +151,6 @@ module RemoteStorage
       end
     end
 
-    def log_size_difference(user, old_size, new_size)
-      delta = new_size.to_i - old_size.to_i
-      redis.incrby "rs:s:#{user}", delta
-    end
-
-    def checksum_for(data)
-      Digest::MD5.hexdigest(data)
-    end
-
     def delete_data(user, directory, key)
       url = url_for_key(user, directory, key)
       not_found = false
@@ -245,6 +178,20 @@ module RemoteStorage
     end
 
     private
+
+    # Implement this method in your class that includes this module. For example
+    # %Q("#{etag}") if the ETag does not already have quotes around it
+    def format_etag(etag)
+      NotImplementedError
+    end
+
+    def base_url
+      NotImplementedError
+    end
+
+    def container_url_for(user)
+      NotImplementedError
+    end
 
     def default_headers
       raise NotImplementedError
@@ -340,6 +287,15 @@ module RemoteStorage
 
     def timestamp_for(date)
       return DateTime.parse(date).strftime("%Q").to_i
+    end
+
+    def log_size_difference(user, old_size, new_size)
+      delta = new_size.to_i - old_size.to_i
+      redis.incrby "rs:s:#{user}", delta
+    end
+
+    def checksum_for(data)
+      Digest::MD5.hexdigest(data)
     end
 
     def parent_directories_for(directory)
@@ -487,5 +443,50 @@ module RemoteStorage
 
       not_found
     end
+
+    def get_directory_listing_from_redis_via_lua(user, directory)
+      lua_script = <<-EOF
+        local user = ARGV[1]
+        local directory = ARGV[2]
+        local items = redis.call("smembers", "rs:m:"..user..":"..directory.."/:items")
+        local listing = {}
+
+        for index, name in pairs(items) do
+          local redis_key = "rs:m:"..user..":"
+          if directory == "" then
+            redis_key = redis_key..name
+          else
+            redis_key = redis_key..directory.."/"..name
+          end
+
+          local metadata_values = redis.call("hgetall", redis_key)
+          local metadata = {}
+
+          -- redis returns hashes as a single list of alternating keys and values
+          -- this collates it into a table
+          for idx = 1, #metadata_values, 2 do
+            metadata[metadata_values[idx]] = metadata_values[idx + 1]
+          end
+
+          listing[name] = {["ETag"] = metadata["e"]}
+          if string.sub(name, -1) ~= "/" then
+            listing[name]["Content-Type"]   = metadata["t"]
+            listing[name]["Content-Length"] = tonumber(metadata["s"])
+            listing[name]["Last-Modified"]  = tonumber(metadata["m"])
+          end
+        end
+
+        return cjson.encode(listing)
+      EOF
+
+      items = JSON.parse(redis.eval(lua_script, nil, [user, directory]))
+
+      items.reject{|k, _| k.end_with? "/"}.each do |_, v|
+        v["Last-Modified"] = Time.at(v["Last-Modified"]/1000).httpdate
+      end
+
+      items
+    end
+
   end
 end
