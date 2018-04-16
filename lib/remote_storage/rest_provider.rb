@@ -49,8 +49,12 @@ module RemoteStorage
       none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",")
                                                            .map(&:strip)
                                                            .map { |s| s.gsub(/^"?W\//, "") }
-      etag = redis.hget redis_metadata_object_key(user, directory, key), "e"
-      server.halt 304 if none_match.include? %Q("#{etag}")
+      existing_metadata = redis.hgetall redis_metadata_object_key(user, directory, key)
+      if none_match.include? %Q("#{existing_metadata["e"]}")
+        server.headers["ETag"]           = %Q("#{existing_metadata["e"]}")
+        server.headers["Last-Modified"]  = Time.at(existing_metadata["m"].to_i / 1000).httpdate
+        server.halt 304
+      end
 
       url = url_for_key(user, directory, key)
 

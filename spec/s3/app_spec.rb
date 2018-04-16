@@ -687,6 +687,8 @@ describe "App" do
           get "/phil/food/aguacate"
 
           last_response.status.must_equal 304
+          last_response.headers["ETag"].must_equal "\"0815etag\""
+          last_response.headers["Last-Modified"].must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
         end
 
         it "responds with 304 when IF_NONE_MATCH header contains weak ETAG matching the current ETag" do
@@ -695,6 +697,8 @@ describe "App" do
           get "/phil/food/aguacate"
 
           last_response.status.must_equal 304
+          last_response.headers["ETag"].must_equal "\"0815etag\""
+          last_response.headers["Last-Modified"].must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
         end
 
       end
