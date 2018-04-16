@@ -590,7 +590,11 @@ describe "App" do
         it "fails the request if it does not match the current ETag" do
           header "If-Match", "someotheretag"
 
-          delete "/phil/food/aguacate"
+          RestClient.stub :delete, "" do
+            RestClient.stub :head, OpenStruct.new(headers: { etag: '"someetag"' }) do
+              delete "/phil/food/aguacate"
+            end
+          end
 
           last_response.status.must_equal 412
           last_response.body.must_equal "Precondition Failed"

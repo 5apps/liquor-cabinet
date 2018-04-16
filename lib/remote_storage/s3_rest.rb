@@ -102,7 +102,7 @@ module RemoteStorage
         end
       end
 
-      do_delete_request(url)
+      do_delete_request(url) unless not_found
 
       log_size_difference(user, existing_metadata["s"], 0)
       delete_metadata_objects(user, directory, key)
