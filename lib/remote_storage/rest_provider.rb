@@ -230,11 +230,7 @@ module RemoteStorage
         end
       end
 
-      begin
-        do_delete_request(url)
-      rescue RestClient::ResourceNotFound
-        not_found = true
-      end
+      not_found = !try_to_delete(url)
 
       log_size_difference(user, existing_metadata["s"], 0)
       delete_metadata_objects(user, directory, key)
@@ -478,6 +474,18 @@ module RemoteStorage
         Raven.capture_exception(ex)
         server.halt 500
       end
+    end
+
+    def try_to_delete(url)
+      found = true
+
+      begin
+        do_delete_request(url)
+      rescue RestClient::ResourceNotFound
+        found = false
+      end
+
+      not_found
     end
   end
 end

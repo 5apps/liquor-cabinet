@@ -8,45 +8,12 @@ module RemoteStorage
   class S3Rest
     include RestProvider
 
+    private
+
     # S3 already wraps the ETag around quotes
     def format_etag(etag)
       etag
     end
-
-    def delete_data(user, directory, key)
-      url = url_for_key(user, directory, key)
-      not_found = false
-
-      existing_metadata = redis.hgetall "rs:m:#{user}:#{directory}/#{key}"
-
-      if required_match = server.env["HTTP_IF_MATCH"]
-        unless required_match.gsub(/^"?W\//, "") == %Q("#{existing_metadata["e"]}")
-          server.halt 412, "Precondition Failed"
-        end
-      end
-
-      # S3 returns a 200 on a delete request on an object that does not exist
-      begin
-        do_head_request(url)
-      rescue RestClient::ResourceNotFound
-        not_found = true
-      end
-
-      do_delete_request(url) unless not_found
-
-      log_size_difference(user, existing_metadata["s"], 0)
-      delete_metadata_objects(user, directory, key)
-      delete_dir_objects(user, directory)
-
-      if not_found
-        server.halt 404, "Not Found"
-      else
-        server.headers["Etag"] = %Q("#{existing_metadata["e"]}")
-        server.halt 200
-      end
-    end
-
-    private
 
     def do_put_request(url, data, content_type)
       deal_with_unauthorized_requests do
@@ -83,6 +50,20 @@ module RemoteStorage
         authorization_headers = authorization_headers_for("DELETE", "", "", url)
         RestClient.delete(url, authorization_headers)
       end
+    end
+
+    def try_to_delete(url)
+      found = true
+
+      begin
+        do_head_request(url)
+      rescue RestClient::ResourceNotFound
+        found = false
+      end
+
+      do_delete_request(url) if found
+
+      return found
     end
 
     def authorization_headers_for(http_verb, md5, content_type, url)

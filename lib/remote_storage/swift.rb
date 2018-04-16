@@ -8,6 +8,8 @@ module RemoteStorage
   class Swift
     include RestProvider
 
+    private
+
     # Add quotes around the ETag
     def format_etag(etag)
       %Q("#{etag}")
@@ -20,8 +22,6 @@ module RemoteStorage
     def container_url_for(user)
       "#{base_url}/rs:documents:#{settings.environment.to_s}/#{user}"
     end
-
-    private
 
     def default_headers
       {"x-auth-token" => swift_token}
