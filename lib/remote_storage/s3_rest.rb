@@ -1,27 +1,16 @@
+require "remote_storage/rest_provider"
 require "digest"
 require "base64"
 require "openssl"
 require "webrick/httputils"
 
 module RemoteStorage
-  class S3Rest < Swift
+  class S3Rest
+    include RestProvider
 
-    def get_data(user, directory, key)
-      url = url_for_key(user, directory, key)
-
-      res = do_get_request(url)
-
-      set_response_headers(res)
-
-      none_match = (server.env["HTTP_IF_NONE_MATCH"] || "").split(",")
-                                                           .map(&:strip)
-                                                           .map { |s| s.gsub(/^"?W\//, "") }
-      # The Etag from an S3 compatible API is surrounded by quotes
-      server.halt 304 if none_match.include? res.headers[:etag]
-
-      return res.body
-    rescue RestClient::ResourceNotFound
-      server.halt 404, "Not Found"
+    # S3 already wraps the ETag around quotes
+    def format_etag(etag)
+      etag
     end
 
     def put_data(user, directory, key, data, content_type)
@@ -118,18 +107,11 @@ module RemoteStorage
 
     private
 
-    def set_response_headers(response)
-      # The Etag from an S3 compatible API is already surrounded by quotes
-      server.headers["ETag"]           = response.headers[:etag]
-      server.headers["Content-Type"]   = response.headers[:content_type]
-      server.headers["Content-Length"] = response.headers[:content_length]
-    end
-
     def do_put_request(url, data, content_type)
       deal_with_unauthorized_requests do
-      md5 = Digest::MD5.base64digest(data)
-      authorization_headers = authorization_headers_for("PUT", md5, content_type, url)
-      RestClient.put(url, data, authorization_headers.merge({ "Content-Type" => content_type, "Content-Md5" => md5}))
+        md5 = Digest::MD5.base64digest(data)
+        authorization_headers = authorization_headers_for("PUT", md5, content_type, url)
+        RestClient.put(url, data, authorization_headers.merge({ "Content-Type" => content_type, "Content-Md5" => md5}))
       end
     end
 
@@ -190,15 +172,6 @@ module RemoteStorage
 
     def container_url_for(user)
       "#{base_url}#{settings.s3["bucket"]}/#{user}"
-    end
-
-    def deal_with_unauthorized_requests(&block)
-      begin
-        block.call
-      rescue RestClient::Unauthorized => ex
-        Raven.capture_exception(ex)
-        server.halt 500
-      end
     end
   end
 
