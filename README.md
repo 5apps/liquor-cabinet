@@ -4,8 +4,8 @@
 
 Liquor Cabinet is where Frank stores all his stuff. It's a
 remoteStorage-compatible storage provider API, based on Sinatra and currently
-using Riak as backend. You can use it on its own, or e.g. mount it from a Rails
-application.
+using Openstack Swift as backend. You can use it on its own, or e.g. mount it
+from a Rails application.
 
 It's merely implementing the storage API, not including the Webfinger and OAuth
 parts of remoteStorage. You have to set the authorization keys/values in the
