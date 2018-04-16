@@ -17,19 +17,19 @@ module RemoteStorage
       url = url_for_key(user, directory, key)
       not_found = false
 
-      # S3 returns a 200 on a delete request on an object that does not exist
-      begin
-        do_head_request(url)
-      rescue RestClient::ResourceNotFound
-        not_found = true
-      end
-
       existing_metadata = redis.hgetall "rs:m:#{user}:#{directory}/#{key}"
 
       if required_match = server.env["HTTP_IF_MATCH"]
         unless required_match.gsub(/^"?W\//, "") == %Q("#{existing_metadata["e"]}")
           server.halt 412, "Precondition Failed"
         end
+      end
+
+      # S3 returns a 200 on a delete request on an object that does not exist
+      begin
+        do_head_request(url)
+      rescue RestClient::ResourceNotFound
+        not_found = true
       end
 
       do_delete_request(url) unless not_found
