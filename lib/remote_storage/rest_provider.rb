@@ -187,12 +187,10 @@ module RemoteStorage
         server.halt 412, "Precondition Failed" unless existing_metadata.empty?
       end
 
-      res = do_put_request(url, data, content_type)
-
-      timestamp = timestamp_for(res.headers[:last_modified])
+      etag, timestamp = do_put_request_and_return_etag_and_last_modified(url, data, content_type)
 
       metadata = {
-        e: res.headers[:etag],
+        e: etag,
         s: data.size,
         t: content_type,
         m: timestamp
@@ -204,7 +202,7 @@ module RemoteStorage
           log_size_difference(user, existing_metadata["s"], metadata[:s])
         end
 
-        server.headers["ETag"] = format_etag(res.headers[:etag])
+        server.headers["ETag"] = %Q("#{etag}")
         server.halt existing_metadata.empty? ? 201 : 200
       else
         server.halt 500
@@ -434,6 +432,12 @@ module RemoteStorage
       deal_with_unauthorized_requests do
         RestClient.put(url, data, default_headers.merge({content_type: content_type}))
       end
+    end
+
+    def do_put_request_and_return_etag_and_last_modified(url, data, content_type)
+      res = do_put_request(url, data, content_type)
+
+      return [res.headers[:etag], timestamp_for(res.headers[:last_modified])]
     end
 
     def do_get_request(url, &block)

@@ -13,65 +13,6 @@ module RemoteStorage
       etag
     end
 
-    def put_data(user, directory, key, data, content_type)
-      server.halt 400 if server.env["HTTP_CONTENT_RANGE"]
-      server.halt 409, "Conflict" if has_name_collision?(user, directory, key)
-
-      existing_metadata = redis.hgetall redis_metadata_object_key(user, directory, key)
-      url = url_for_key(user, directory, key)
-
-      if required_match = server.env["HTTP_IF_MATCH"]
-        required_match = required_match.gsub(/^"?W\//, "")
-        unless required_match == %Q("#{existing_metadata["e"]}")
-
-          # get actual metadata and compare in case redis metadata became out of sync
-          begin
-            head_res = do_head_request(url)
-          # The file doesn't exist in S3, return 412
-          rescue RestClient::ResourceNotFound
-            server.halt 412, "Precondition Failed"
-          end
-
-          # The Etag from an S3 compatible API is surrounded by quotes, remove them
-          if required_match == head_res.headers[:etag]
-            # log previous size difference that was missed ealier because of redis failure
-            log_size_difference(user, existing_metadata["s"], head_res.headers[:content_length])
-          else
-            server.halt 412, "Precondition Failed"
-          end
-        end
-      end
-      if server.env["HTTP_IF_NONE_MATCH"] == "*"
-        server.halt 412, "Precondition Failed" unless existing_metadata.empty?
-      end
-
-      res = do_put_request(url, data, content_type)
-      # The S3 API returns the ETag, but not the Last-Modified header on A PUT
-      head_res = do_head_request(url)
-
-      timestamp = timestamp_for(head_res.headers[:last_modified])
-
-      metadata = {
-        # The Etag from an S3 compatible API is surrounded by quotes, remove them
-        e: res.headers[:etag].delete('"'),
-        s: data.size,
-        t: content_type,
-        m: timestamp
-      }
-
-      if update_metadata_object(user, directory, key, metadata)
-        if metadata_changed?(existing_metadata, metadata)
-          update_dir_objects(user, directory, timestamp, checksum_for(data))
-          log_size_difference(user, existing_metadata["s"], metadata[:s])
-        end
-
-        server.headers["ETag"] = res.headers[:etag]
-        server.halt existing_metadata.empty? ? 201 : 200
-      else
-        server.halt 500
-      end
-    end
-
     def delete_data(user, directory, key)
       url = url_for_key(user, directory, key)
       not_found = false
@@ -113,6 +54,14 @@ module RemoteStorage
         authorization_headers = authorization_headers_for("PUT", md5, content_type, url)
         RestClient.put(url, data, authorization_headers.merge({ "Content-Type" => content_type, "Content-Md5" => md5}))
       end
+    end
+
+    # S3 does not return a Last-Modified response header on PUTs
+    def do_put_request_and_return_etag_and_last_modified(url, data, content_type)
+      res = do_put_request(url, data, content_type)
+      head_res = do_head_request(url)
+
+      return [res.headers[:etag].delete('"'), timestamp_for(head_res.headers[:last_modified])]
     end
 
     def do_get_request(url, &block)
