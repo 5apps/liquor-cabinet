@@ -15,6 +15,7 @@ group :test do
   gem 'purdytest', :require => false
   gem 'm'
   gem 'minitest-stub_any_instance'
+  gem 'webmock'
 end
 
 group :staging, :production do
