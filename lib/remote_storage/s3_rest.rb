@@ -23,9 +23,9 @@ module RemoteStorage
       end
     end
 
-    # S3 does not return a Last-Modified response header on PUTs
     def do_put_request_and_return_etag_and_last_modified(url, data, content_type)
       res = do_put_request(url, data, content_type)
+      # S3 does not return a Last-Modified response header on PUTs
       head_res = do_head_request(url)
 
       return [res.headers[:etag].delete('"'), timestamp_for(head_res.headers[:last_modified])]
