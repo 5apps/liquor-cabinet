@@ -18,7 +18,7 @@ module RemoteStorage
     def do_put_request(url, data, content_type)
       deal_with_unauthorized_requests do
         md5 = Digest::MD5.base64digest(data)
-        authorization_headers = authorization_headers_for("PUT", md5, content_type, url)
+        authorization_headers = authorization_headers_for("PUT", url, md5, content_type)
         RestClient.put(url, data, authorization_headers.merge({ "Content-Type" => content_type, "Content-Md5" => md5}))
       end
     end
@@ -33,21 +33,21 @@ module RemoteStorage
 
     def do_get_request(url, &block)
       deal_with_unauthorized_requests do
-        authorization_headers = authorization_headers_for("GET", "", "", url)
+        authorization_headers = authorization_headers_for("GET", url)
         RestClient.get(url, authorization_headers, &block)
       end
     end
 
     def do_head_request(url, &block)
       deal_with_unauthorized_requests do
-        authorization_headers = authorization_headers_for("HEAD", "", "", url)
+        authorization_headers = authorization_headers_for("HEAD", url)
         RestClient.head(url, authorization_headers, &block)
       end
     end
 
     def do_delete_request(url)
       deal_with_unauthorized_requests do
-        authorization_headers = authorization_headers_for("DELETE", "", "", url)
+        authorization_headers = authorization_headers_for("DELETE", url)
         RestClient.delete(url, authorization_headers)
       end
     end
@@ -68,10 +68,10 @@ module RemoteStorage
 
     # This is using the S3 authorizations, not the newer AW V4 Signatures
     # (https://s3.amazonaws.com/doc/s3-developer-guide/RESTAuthentication.html)
-    def authorization_headers_for(http_verb, md5, content_type, url)
+    def authorization_headers_for(http_verb, url, md5 = nil, content_type = nil)
       url = File.join("/", url.gsub(base_url, ""))
       date = Time.now.httpdate
-      signed_data = signature(http_verb, md5, content_type, date, url)
+      signed_data = generate_s3_signature(http_verb, md5, content_type, date, url)
       { "Authorization" => "AWS #{credentials[:access_key_id]}:#{signed_data}",
         "Date" => date}
     end
@@ -92,7 +92,7 @@ module RemoteStorage
       WEBrick::HTTPUtils.escape(s).gsub('%5B', '[').gsub('%5D', ']')
     end
 
-    def signature(http_verb, md5, content_type, date, url)
+    def generate_s3_signature(http_verb, md5, content_type, date, url)
       string_to_sign = [http_verb, md5, content_type, date, url].join "\n"
       signature = digest(credentials[:secret_key_id], string_to_sign)
       uri_escape(signature)
