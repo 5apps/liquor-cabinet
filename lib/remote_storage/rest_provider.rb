@@ -165,7 +165,6 @@ module RemoteStorage
 
     def delete_data(user, directory, key)
       url = url_for_key(user, directory, key)
-      not_found = false
 
       existing_metadata = redis.hgetall "rs:m:#{user}:#{directory}/#{key}"
 
@@ -175,17 +174,17 @@ module RemoteStorage
         end
       end
 
-      not_found = !try_to_delete(url)
+      found = try_to_delete(url)
 
       log_size_difference(user, existing_metadata["s"], 0)
       delete_metadata_objects(user, directory, key)
       delete_dir_objects(user, directory)
 
-      if not_found
-        server.halt 404, "Not Found"
-      else
+      if found
         server.headers["Etag"] = %Q("#{existing_metadata["e"]}")
         server.halt 200
+      else
+        server.halt 404, "Not Found"
       end
     end
 
