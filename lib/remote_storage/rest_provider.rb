@@ -67,7 +67,7 @@ module RemoteStorage
 
       res = do_get_request(url)
 
-      set_response_headers(res)
+      set_response_headers(res.headers)
 
       return res.body
     rescue RestClient::ResourceNotFound
@@ -208,11 +208,11 @@ module RemoteStorage
       raise NotImplementedError
     end
 
-    def set_response_headers(response)
-      server.headers["ETag"]           = format_etag(response.headers[:etag])
-      server.headers["Content-Type"]   = response.headers[:content_type]
-      server.headers["Content-Length"] = response.headers[:content_length]
-      server.headers["Last-Modified"]  = response.headers[:last_modified]
+    def set_response_headers(headers)
+      server.headers["ETag"]           = format_etag(headers[:etag])
+      server.headers["Content-Type"]   = headers[:content_type]
+      server.headers["Content-Length"] = headers[:content_length]
+      server.headers["Last-Modified"]  = headers[:last_modified]
     end
 
     def extract_category(directory)
