@@ -9,10 +9,6 @@ describe "Swift provider" do
     RemoteStorage::Swift
   end
 
-  def config_file
-    "config.yml.example.swift"
-  end
-
   before do
     stub_request(:put, "#{container_url_for("phil")}/food/aguacate").
       to_return(status: 200, headers: { etag: "0815etag", last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })

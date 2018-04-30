@@ -11,10 +11,6 @@ shared_examples_for 'a REST adapter' do
     raise NotImplementedError
   end
 
-  def config_file
-    raise NotImplementedError
-  end
-
   it "returns 404 on non-existing routes" do
     get "/virginmargarita"
     last_response.status.must_equal 404
