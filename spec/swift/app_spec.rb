@@ -1,6 +1,6 @@
 require_relative "../spec_helper"
 
-describe "App" do
+describe "Swift provider" do
   def container_url_for(user)
     "#{app.settings.swift["host"]}/rs:documents:test/#{user}"
   end
