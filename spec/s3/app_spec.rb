@@ -6,7 +6,7 @@ describe "S3 provider" do
   end
 
   def storage_class
-    RemoteStorage::S3Rest
+    RemoteStorage::S3
   end
 
   before do

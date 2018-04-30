@@ -5,7 +5,7 @@ require "openssl"
 require "webrick/httputils"
 
 module RemoteStorage
-  class S3Rest
+  class S3
     include RestProvider
 
     private
