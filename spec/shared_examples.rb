@@ -38,6 +38,17 @@ shared_examples_for 'a REST adapter' do
         metadata["m"].length.must_equal 13
       end
 
+      it "updates the metadata object in redis when it changes" do
+        put "/phil/food/banano", "si"
+        put "/phil/food/banano", "oh, no"
+
+        metadata = redis.hgetall "rs:m:phil:food/banano"
+        metadata["s"].must_equal "6"
+        metadata["t"].must_equal "text/plain; charset=utf-8"
+        metadata["e"].must_equal "0817etag"
+        metadata["m"].must_equal "1457094020000"
+      end
+
       it "creates the directory objects metadata in redis" do
         put "/phil/food/aguacate", "si"
         put "/phil/food/camaron", "yummi"

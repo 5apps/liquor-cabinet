@@ -289,10 +289,9 @@ module RemoteStorage
 
     def metadata_changed?(old_metadata, new_metadata)
       # check metadata relevant to the directory listing
-      # ie. the timestamp (m) is not relevant, because it's not used in
-      # the listing
       return old_metadata["e"] != new_metadata[:e]      ||
              old_metadata["s"] != new_metadata[:s].to_s ||
+             old_metadata["m"] != new_metadata[:m]      ||
              old_metadata["t"] != new_metadata[:t]
     end
 

@@ -24,6 +24,12 @@ describe "Swift provider" do
     stub_request(:put, "#{container_url_for("phil")}/food/aguacate").
       with(body: "muy deliciosa").
       to_return(status: 200, headers: { etag: "0815etag", last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
+    stub_request(:put, "#{container_url_for("phil")}/food/banano").
+      with(body: "si").
+      to_return(status: 200, headers: { etag: "0815etag", last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
+    stub_request(:put, "#{container_url_for("phil")}/food/banano").
+      with(body: "oh, no").
+      to_return(status: 200, headers: { etag: "0817etag", last_modified: "Fri, 04 Mar 2016 12:20:20 GMT" })
     stub_request(:head, "#{container_url_for("phil")}/food/aguacate").
       to_return(status: 200, headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
     stub_request(:delete, "#{container_url_for("phil")}/food/aguacate").
