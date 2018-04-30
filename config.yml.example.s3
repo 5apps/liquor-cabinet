@@ -1,16 +1,15 @@
 development: &defaults
   maintenance: false
-  # # uncomment this section
-  # s3:
-  #   endpoint: "https://some-endpoint"
-  #   region: "region"
-  #   access_key_id: ""
-  #   secret_key_id: ""
-  #   bucket: "test-bucket"
-  # # Redis is needed for the swift backend
-  # redis:
-  #   host: localhost
-  #   port: 6379
+  s3:
+    endpoint: "https://some-endpoint"
+    region: "region"
+    access_key_id: ""
+    secret_key_id: ""
+    bucket: "test-bucket"
+  # Redis is needed for the swift backend
+  redis:
+    host: localhost
+    port: 6379
 
 test:
   <<: *defaults
