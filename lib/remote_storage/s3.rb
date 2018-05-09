@@ -72,8 +72,10 @@ module RemoteStorage
       url = File.join("/", url.gsub(base_url, ""))
       date = Time.now.httpdate
       signed_data = generate_s3_signature(http_verb, md5, content_type, date, url)
-      { "Authorization" => "AWS #{credentials[:access_key_id]}:#{signed_data}",
-        "Date" => date}
+      {
+        "Authorization" => "AWS #{credentials[:access_key_id]}:#{signed_data}",
+        "Date" => date
+      }
     end
 
     def credentials
