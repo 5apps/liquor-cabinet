@@ -23,7 +23,7 @@ describe "S3 provider" do
     stub_request(:delete, "#{container_url_for("phil")}/food/aguacate").
       to_return(status: 200, headers: { etag: '"0815etag"' })
 
-    # PUT requests authorized updates the metadata object in redis when it changes
+    # Write new content to check the metadata in Redis
     stub_request(:put, "#{container_url_for("phil")}/food/banano").
       with(body: "si").
       to_return(status: 200, headers: { etag: '"0815etag"' })
