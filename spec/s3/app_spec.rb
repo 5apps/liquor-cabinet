@@ -12,18 +12,18 @@ describe "S3 provider" do
   before do
     stub_request(:put, "#{container_url_for("phil")}/food/aguacate").
       to_return(status: 200, headers: { etag: '"0815etag"' })
-    stub_request(:put, "#{container_url_for("phil")}/food/aguacate").
-      with(body: "si").
-      to_return(status: 200, headers: { etag: '"0815etag"' })
+    # Write new content with an If-Match header (a new Etag is returned)
     stub_request(:put, "#{container_url_for("phil")}/food/aguacate").
       with(body: "aye").
       to_return(status: 200, headers: { etag: '"0915etag"' })
-    stub_request(:put, "#{container_url_for("phil")}/food/aguacate").
-      with(body: "deliciosa").
+    stub_request(:head, "#{container_url_for("phil")}/food/aguacate").
+      to_return(status: 200, headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
+    stub_request(:get, "#{container_url_for("phil")}/food/aguacate").
+      to_return(status: 200, body: "rootbody", headers: { etag: '"0817etag"', content_type: "text/plain; charset=utf-8" })
+    stub_request(:delete, "#{container_url_for("phil")}/food/aguacate").
       to_return(status: 200, headers: { etag: '"0815etag"' })
-    stub_request(:put, "#{container_url_for("phil")}/food/aguacate").
-      with(body: "muy deliciosa").
-      to_return(status: 200, headers: { etag: '"0815etag"' })
+
+    # PUT requests authorized updates the metadata object in redis when it changes
     stub_request(:put, "#{container_url_for("phil")}/food/banano").
       with(body: "si").
       to_return(status: 200, headers: { etag: '"0815etag"' })
@@ -32,28 +32,28 @@ describe "S3 provider" do
       to_return(status: 200, headers: { etag: '"0817etag"' })
     stub_request(:head, "#{container_url_for("phil")}/food/banano").
       to_return(status: 200, headers: { last_modified: "Fri, 04 Mar 2016 12:20:20 GMT" })
-    stub_request(:head, "#{container_url_for("phil")}/food/aguacate").
-      to_return(status: 200, headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
-    stub_request(:delete, "#{container_url_for("phil")}/food/aguacate").
-      to_return(status: 200, headers: { etag: '"0815etag"' })
+
     stub_request(:put, "#{container_url_for("phil")}/food/camaron").
       to_return(status: 200, headers: { etag: '"0816etag"' })
     stub_request(:head, "#{container_url_for("phil")}/food/camaron").
       to_return(status: 200, headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
     stub_request(:delete, "#{container_url_for("phil")}/food/camaron").
       to_return(status: 200, headers: { etag: '"0816etag"' })
+
     stub_request(:put, "#{container_url_for("phil")}/food/desayunos/bolon").
       to_return(status: 200, headers: { etag: '"0817etag"' })
     stub_request(:head, "#{container_url_for("phil")}/food/desayunos/bolon").
       to_return(status: 200, headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
     stub_request(:delete, "#{container_url_for("phil")}/food/desayunos/bolon").
       to_return(status: 200, headers: { etag: '"0817etag"' })
-    stub_request(:get, "#{container_url_for("phil")}/food/aguacate").
-      to_return(status: 200, body: "rootbody", headers: { etag: '"0817etag"', content_type: "text/plain; charset=utf-8" })
+
+    # objects in root dir
     stub_request(:put, "#{container_url_for("phil")}/bamboo.txt").
       to_return(status: 200, headers: { etag: '"0818etag"' })
     stub_request(:head, "#{container_url_for("phil")}/bamboo.txt").
       to_return(status: 200, headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
+
+    # 404
     stub_request(:head, "#{container_url_for("phil")}/food/steak").
       to_return(status: 404)
     stub_request(:get, "#{container_url_for("phil")}/food/steak").
