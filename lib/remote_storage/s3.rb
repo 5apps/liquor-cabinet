@@ -18,8 +18,10 @@ module RemoteStorage
     def do_put_request(url, data, content_type)
       deal_with_unauthorized_requests do
         md5 = Digest::MD5.base64digest(data)
-        authorization_headers = authorization_headers_for("PUT", url, md5, content_type)
-        RestClient.put(url, data, authorization_headers.merge({ "Content-Type" => content_type, "Content-Md5" => md5}))
+        authorization_headers = authorization_headers_for(
+          "PUT", url, md5, content_type
+        ).merge({ "Content-Type" => content_type, "Content-Md5" => md5 })
+        RestClient.put(url, data, authorization_headers)
       end
     end
 
