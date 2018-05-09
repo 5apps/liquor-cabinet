@@ -22,3 +22,5 @@ notifications:
 env:
   - BACKEND=s3
   - BACKEND=swift
+# Run on Docker infrastructure
+sudo: false
