@@ -21,16 +21,15 @@ module RemoteStorage
         authorization_headers = authorization_headers_for(
           "PUT", url, md5, content_type
         ).merge({ "Content-Type" => content_type, "Content-Md5" => md5 })
-        RestClient.put(url, data, authorization_headers)
+        res = RestClient.put(url, data, authorization_headers)
+        # S3 does not return a Last-Modified response header on PUTs
+        head_res = do_head_request(url)
+
+        return [
+          res.headers[:etag].delete('"'),
+          timestamp_for(head_res.headers[:last_modified])
+        ]
       end
-    end
-
-    def do_put_request_and_return_etag_and_last_modified(url, data, content_type)
-      res = do_put_request(url, data, content_type)
-      # S3 does not return a Last-Modified response header on PUTs
-      head_res = do_head_request(url)
-
-      return [res.headers[:etag].delete('"'), timestamp_for(head_res.headers[:last_modified])]
     end
 
     def do_get_request(url, &block)
