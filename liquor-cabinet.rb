@@ -5,6 +5,7 @@ require "sinatra/base"
 require 'sinatra/config_file'
 require "sinatra/reloader"
 require "remote_storage/swift"
+require "remote_storage/s3"
 
 class LiquorCabinet < Sinatra::Base
 
@@ -130,6 +131,8 @@ class LiquorCabinet < Sinatra::Base
     @storage ||= begin
       if settings.respond_to? :swift
         RemoteStorage::Swift.new(settings, self)
+      elsif settings.respond_to? :s3
+        RemoteStorage::S3.new(settings, self)
       else
         puts <<-EOF
 You need to set one storage backend in your config.yml file.
