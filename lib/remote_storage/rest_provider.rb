@@ -47,6 +47,7 @@ module RemoteStorage
       server.headers["ETag"]          = %Q("#{metadata["e"]}")
       server.headers["Last-Modified"] = Time.at(metadata["m"].to_i / 1000).httpdate
       server.headers["Content-Type"]  = metadata["t"]
+      server.headers["Content-Length"]  = metadata["s"]
 
       if none_match.include? %Q("#{metadata["e"]}")
         server.halt 304
