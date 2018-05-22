@@ -616,6 +616,7 @@ shared_examples_for 'a REST adapter' do
             last_response.headers["Cache-Control"].must_equal "no-cache"
             last_response.headers["Last-Modified"].must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
             last_response.headers["Content-Type"].must_equal "text/plain; charset=utf-8"
+            last_response.headers["Content-Length"].must_equal "2"
           end
 
           it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
