@@ -44,8 +44,9 @@ module RemoteStorage
       server.halt 404 if metadata.empty?
 
       # Set the response headers for a 304 or 200 response
-      server.headers["ETag"]           = %Q("#{metadata["e"]}")
-      server.headers["Last-Modified"]  = Time.at(metadata["m"].to_i / 1000).httpdate
+      server.headers["ETag"]          = %Q("#{metadata["e"]}")
+      server.headers["Last-Modified"] = Time.at(metadata["m"].to_i / 1000).httpdate
+      server.headers["Content-Type"]  = metadata["t"]
 
       if none_match.include? %Q("#{metadata["e"]}")
         server.halt 304
