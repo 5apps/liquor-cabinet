@@ -4,13 +4,10 @@ rvm:
   - 2.4.1
 services:
   - redis-server
-before_install:
-  - sh .travis/install_riakcs.sh
-  - gem install bundler
 before_script:
-  - cp config.yml.example config.yml
+  - cp config.yml.example.$BACKEND config.yml
   - mkdir -p tmp && echo "swifttoken" > tmp/swift_token.txt
-script: ruby spec/swift/*
+script: ruby spec/$BACKEND/*
 branches:
   only:
     - master
@@ -22,6 +19,8 @@ notifications:
       - http://hook-juggler.herokuapp.com/hooks/travis
     on_success: always
     on_failure: always
-# Force legacy Blue Box build for now
-sudo: required
-group: legacy
+env:
+  - BACKEND=s3
+  - BACKEND=swift
+# Run on Docker infrastructure
+sudo: false

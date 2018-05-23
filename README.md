@@ -3,16 +3,19 @@
 # Liquor Cabinet
 
 Liquor Cabinet is where Frank stores all his stuff. It's a
-remoteStorage-compatible storage provider API, based on Sinatra and currently
-using Riak as backend. You can use it on its own, or e.g. mount it from a Rails
-application.
+[remoteStorage](https://remotestorage.io) HTTP API, based on Sinatra. The
+metadata and OAuth tokens are stored in Redis, and documents can be stored in
+anything that supports the storage API of either Openstack Swift or Amazon S3.
 
-It's merely implementing the storage API, not including the Webfinger and OAuth
-parts of remoteStorage. You have to set the authorization keys/values in the
-database yourself.
+Liquor Cabinet only implements the storage API part of the remoteStorage
+protocol, but does not include the Webfinger and OAuth parts. It is meant to be
+added to existing systems and user accounts, so you will have to add your own
+OAuth dialog for remoteStorage authorizations and persist the tokens in Redis.
 
-If you have any questions about this thing, drop by #remotestorage on Freenode, and
-we'll happily answer them.
+If you have any questions about this program, drop by #remotestorage on
+Freenode, or [post to the RS
+forums](https://community.remotestorage.io/c/server-development), and we'll
+happily answer them.
 
 ## Contributing
 
