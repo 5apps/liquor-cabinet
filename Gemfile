@@ -1,7 +1,7 @@
 source "https://rubygems.org"
 
-gem "sinatra", "= 2.0.2"
-gem "sinatra-contrib", "= 2.0.2"
+gem "sinatra", "= 2.0.1"
+gem "sinatra-contrib", "= 2.0.1"
 gem "activesupport"
 gem "rest-client", "~> 2.1.0.rc1" # Fixes a memory leak in Ruby 2.4
 gem "redis"
