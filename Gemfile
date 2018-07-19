@@ -8,8 +8,7 @@ gem "redis"
 # Remove require when we can update to 3.0, which sets the new storage
 # format to columnar by default. Increases performance
 gem "mime-types"
-# Try with backports 3.11.2
-gem "backports", "= 3.11.2"
+gem "backports", "~> 2.8.2"
 
 group :test do
   gem 'rake'
