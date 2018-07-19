@@ -22,12 +22,10 @@ module RemoteStorage
           "PUT", url, md5, content_type
         ).merge({ "Content-Type" => content_type, "Content-Md5" => md5 })
         res = RestClient.put(url, data, authorization_headers)
-        # S3 does not return a Last-Modified response header on PUTs
-        head_res = do_head_request(url)
 
         return [
           res.headers[:etag].delete('"'),
-          timestamp_for(head_res.headers[:last_modified])
+          timestamp_for(res.headers[:date]) # S3 does not return a Last-Modified response header on PUTs
         ]
       end
     end

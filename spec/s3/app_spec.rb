@@ -11,11 +11,11 @@ describe "S3 provider" do
 
   before do
     stub_request(:put, "#{container_url_for("phil")}/food/aguacate").
-      to_return(status: 200, headers: { etag: '"0815etag"' })
+      to_return(status: 200, headers: { etag: '"0815etag"',  date: "Fri, 04 Mar 2016 12:20:18 GMT" })
     # Write new content with an If-Match header (a new Etag is returned)
     stub_request(:put, "#{container_url_for("phil")}/food/aguacate").
       with(body: "aye").
-      to_return(status: 200, headers: { etag: '"0915etag"' })
+      to_return(status: 200, headers: { etag: '"0915etag"', date: "Fri, 04 Mar 2016 12:20:18 GMT" })
     stub_request(:head, "#{container_url_for("phil")}/food/aguacate").
       to_return(status: 200, headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
     stub_request(:get, "#{container_url_for("phil")}/food/aguacate").
@@ -26,22 +26,20 @@ describe "S3 provider" do
     # Write new content to check the metadata in Redis
     stub_request(:put, "#{container_url_for("phil")}/food/banano").
       with(body: "si").
-      to_return(status: 200, headers: { etag: '"0815etag"' })
+      to_return(status: 200, headers: { etag: '"0815etag"', date: "Fri, 04 Mar 2016 12:20:18 GMT" })
     stub_request(:put, "#{container_url_for("phil")}/food/banano").
       with(body: "oh, no").
-      to_return(status: 200, headers: { etag: '"0817etag"' })
-    stub_request(:head, "#{container_url_for("phil")}/food/banano").
-      to_return(status: 200, headers: { last_modified: "Fri, 04 Mar 2016 12:20:20 GMT" })
+      to_return(status: 200, headers: { etag: '"0817etag"', date: "Fri, 04 Mar 2016 12:20:20 GMT" })
 
     stub_request(:put, "#{container_url_for("phil")}/food/camaron").
-      to_return(status: 200, headers: { etag: '"0816etag"' })
+      to_return(status: 200, headers: { etag: '"0816etag"', date: "Fri, 04 Mar 2016 12:20:18 GMT" })
     stub_request(:head, "#{container_url_for("phil")}/food/camaron").
       to_return(status: 200, headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
     stub_request(:delete, "#{container_url_for("phil")}/food/camaron").
       to_return(status: 200, headers: { etag: '"0816etag"' })
 
     stub_request(:put, "#{container_url_for("phil")}/food/desayunos/bolon").
-      to_return(status: 200, headers: { etag: '"0817etag"' })
+      to_return(status: 200, headers: { etag: '"0817etag"', date: "Fri, 04 Mar 2016 12:20:18 GMT" })
     stub_request(:head, "#{container_url_for("phil")}/food/desayunos/bolon").
       to_return(status: 200, headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
     stub_request(:delete, "#{container_url_for("phil")}/food/desayunos/bolon").
@@ -49,9 +47,7 @@ describe "S3 provider" do
 
     # objects in root dir
     stub_request(:put, "#{container_url_for("phil")}/bamboo.txt").
-      to_return(status: 200, headers: { etag: '"0818etag"' })
-    stub_request(:head, "#{container_url_for("phil")}/bamboo.txt").
-      to_return(status: 200, headers: { last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
+      to_return(status: 200, headers: { etag: '"0818etag"', date: "Fri, 04 Mar 2016 12:20:18 GMT" })
 
     # 404
     stub_request(:head, "#{container_url_for("phil")}/food/steak").
