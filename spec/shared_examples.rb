@@ -437,7 +437,8 @@ shared_examples_for 'a REST adapter' do
           get "/phil/food/aguacate"
 
           last_response.status.must_equal 200
-          last_response.headers["ETag"].must_equal "\"0817etag\""
+          # ETag is coming from the Redis metadata, not the storage server (which has "0817etag")
+          last_response.headers["ETag"].must_equal "\"0815etag\""
           last_response.headers["Cache-Control"].must_equal "no-cache"
           last_response.headers["Content-Type"].must_equal "text/plain; charset=utf-8"
         end
