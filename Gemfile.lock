@@ -12,7 +12,7 @@ GEM
     concurrent-ruby (1.1.5)
     crack (0.4.3)
       safe_yaml (~> 1.0.0)
-    domain_name (0.5.20170404)
+    domain_name (0.5.20190701)
       unf (>= 0.0.5, < 1.0.0)
     faraday (0.15.4)
       multipart-post (>= 1.2, < 3)
@@ -77,7 +77,7 @@ GEM
       thread_safe (~> 0.1)
     unf (0.1.4)
       unf_ext
-    unf_ext (0.0.7.5)
+    unf_ext (0.0.7.6)
     unicorn (5.5.1)
       kgio (~> 2.6)
       raindrops (~> 0.7)
