@@ -69,6 +69,11 @@ module RemoteStorage
 
       res = do_get_request(url)
 
+      if res.headers[:content_range]
+        # Partial content
+        server.headers["Content-Range"] = res.headers[:content_range]
+        server.status 206
+      end
       set_response_headers(metadata)
 
       return res.body
