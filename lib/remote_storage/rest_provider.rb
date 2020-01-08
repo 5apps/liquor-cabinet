@@ -500,6 +500,7 @@ module RemoteStorage
       items = JSON.parse(redis.eval(lua_script, nil, [user, directory]))
 
       items.reject{|k, _| k.end_with? "/"}.each do |_, v|
+        next unless v["Last-Modified"]
         v["Last-Modified"] = Time.at(v["Last-Modified"]/1000).httpdate
       end
 
