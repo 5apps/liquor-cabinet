@@ -68,8 +68,9 @@ class LiquorCabinet < Sinatra::Base
     before path do
       headers 'Access-Control-Allow-Origin' => '*',
               'Access-Control-Allow-Methods' => 'GET, PUT, DELETE',
-              'Access-Control-Allow-Headers' => 'Authorization, Content-Type, Origin, If-Match, If-None-Match',
-              'Access-Control-Expose-Headers' => 'ETag, Content-Length'
+              'Access-Control-Allow-Headers' => 'Authorization, Content-Type, Origin, If-Match, If-None-Match, Range',
+              'Access-Control-Expose-Headers' => 'ETag, Content-Length, Content-Range',
+              'Accept-Ranges' => 'bytes'
       headers['Access-Control-Allow-Origin'] = env["HTTP_ORIGIN"] if env["HTTP_ORIGIN"]
       headers['Cache-Control'] = 'no-cache'
 

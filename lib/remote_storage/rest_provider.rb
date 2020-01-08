@@ -69,6 +69,11 @@ module RemoteStorage
 
       res = do_get_request(url)
 
+      if res.headers[:content_range]
+        # Partial content
+        server.headers["Content-Range"] = res.headers[:content_range]
+        server.status 206
+      end
       set_response_headers(metadata)
 
       return res.body
@@ -405,7 +410,9 @@ module RemoteStorage
 
     def do_get_request(url, &block)
       deal_with_unauthorized_requests do
-        RestClient.get(url, default_headers, &block)
+        headers = { }
+        headers["Range"] = server.env["HTTP_RANGE"] if server.env["HTTP_RANGE"]
+        RestClient.get(url, default_headers.merge(headers), &block)
       end
     end
 

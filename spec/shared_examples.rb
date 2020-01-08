@@ -397,6 +397,47 @@ shared_examples_for 'a REST adapter' do
       purge_redis
     end
 
+    context "requests to public resources" do
+      before do
+        redis.sadd "authorizations:phil:amarillo", [":rw"]
+        header "Authorization", "Bearer amarillo"
+      end
+
+      describe "normal request" do
+        before do
+          header "Content-Type", "image/jpeg"
+
+          put "/phil/public/shares/example.jpg", ""
+        end
+
+        it "returns the required response headers" do
+          get "/phil/public/shares/example.jpg"
+
+          last_response.status.must_equal 200
+          last_response.headers["Content-Type"].must_equal "image/jpeg"
+        end
+      end
+
+      describe "partial request" do
+        before do
+          header "Content-Type", "image/jpeg"
+
+          put "/phil/public/shares/example_partial.jpg", <<-EOF
+JFIFddDuckyA␍⎺␉␊␍
+#%'%#//33//@@@@@@@@@@@@@@@&&0##0+.'''.+550055@@?@@@@@@@@@@@>"!1AQaq"2B
+          EOF
+        end
+
+        it "returns the required response headers" do
+          header 'Range', 'bytes=0-16'
+          get "/phil/public/shares/example_partial.jpg"
+
+          last_response.status.must_equal 206
+          last_response.headers["Content-Type"].must_equal "image/jpeg"
+        end
+      end
+    end
+
     context "not authorized" do
 
       describe "without token" do
