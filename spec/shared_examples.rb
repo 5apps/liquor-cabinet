@@ -421,8 +421,8 @@ shared_examples_for 'a REST adapter' do
         it "returns the required response headers" do
           get "/phil/public/shares/example.jpg"
 
-          last_response.status.must_equal 200
-          last_response.headers["Content-Type"].must_equal "image/jpeg"
+          _(last_response.status).must_equal 200
+          _(last_response.headers["Content-Type"]).must_equal "image/jpeg"
         end
       end
 
@@ -440,8 +440,8 @@ JFIFddDuckyA␍⎺␉␊␍
           header 'Range', 'bytes=0-16'
           get "/phil/public/shares/example_partial.jpg"
 
-          last_response.status.must_equal 206
-          last_response.headers["Content-Type"].must_equal "image/jpeg"
+          _(last_response.status).must_equal 206
+          _(last_response.headers["Content-Type"]).must_equal "image/jpeg"
         end
       end
     end
