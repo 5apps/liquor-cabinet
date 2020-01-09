@@ -106,6 +106,9 @@ shared_examples_for 'a REST adapter' do
       describe "objects in root dir" do
         before do
           put "/phil/bamboo.txt", "shir kan"
+          put "/phil/no_last_modified.txt", "shir kan"
+          # Clear the Last-Modified value in Redis
+          redis.hset "rs:m:phil:no_last_modified.txt", "m", nil
         end
 
         it "are listed in the directory listing with all metadata" do
@@ -120,6 +123,11 @@ shared_examples_for 'a REST adapter' do
           _(content["items"]["bamboo.txt"]["Content-Type"]).must_equal "text/plain; charset=utf-8"
           _(content["items"]["bamboo.txt"]["Content-Length"]).must_equal 8
           _(content["items"]["bamboo.txt"]["Last-Modified"]).must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
+          _(content["items"]["no_last_modified.txt"]).wont_be_nil
+          _(content["items"]["no_last_modified.txt"]["ETag"]).must_equal "0818etag"
+          _(content["items"]["no_last_modified.txt"]["Content-Type"]).must_equal "text/plain; charset=utf-8"
+          _(content["items"]["no_last_modified.txt"]["Content-Length"]).must_equal 8
+          _(content["items"]["no_last_modified.txt"]["Last-Modified"]).must_be_nil
         end
       end
 

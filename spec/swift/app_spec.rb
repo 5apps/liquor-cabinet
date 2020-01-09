@@ -52,6 +52,8 @@ describe "Swift provider" do
     # objects in root dir
     stub_request(:put, "#{container_url_for("phil")}/bamboo.txt").
       to_return(status: 200, headers: { etag: "0818etag", last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
+    stub_request(:put, "#{container_url_for("phil")}/no_last_modified.txt").
+      to_return(status: 200, headers: { etag: "0818etag", last_modified: "Fri, 04 Mar 2016 12:20:18 GMT" })
 
     # 404
     stub_request(:head, "#{container_url_for("phil")}/food/steak").
