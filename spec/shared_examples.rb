@@ -232,6 +232,16 @@ shared_examples_for 'a REST adapter' do
           _(last_response.body).must_equal "Precondition Failed"
         end
       end
+
+      describe "Content-Type" do
+        it "must be in the type/subtype format" do
+          header "Content-Type", "text"
+
+          put "/phil/food/invalid_content_type", "invalid"
+
+          _(last_response.status).must_equal 415
+        end
+      end
     end
 
   end

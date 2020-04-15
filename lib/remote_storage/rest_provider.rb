@@ -506,5 +506,10 @@ module RemoteStorage
       items
     end
 
+    def validate_content_type(content_type)
+      # Do not try to perform the PUT request when the Content-Type does not
+      # look like a MIME type
+      server.halt 415 unless content_type.match(/^.+\/.+/i)
+    end
   end
 end
