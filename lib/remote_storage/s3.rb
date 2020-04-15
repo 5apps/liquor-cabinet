@@ -16,8 +16,6 @@ module RemoteStorage
     end
 
     def do_put_request(url, data, content_type)
-      validate_content_type(content_type)
-
       deal_with_unauthorized_requests do
         md5 = Digest::MD5.base64digest(data)
         authorization_headers = authorization_headers_for(
