@@ -13,7 +13,7 @@ shared_examples_for 'a REST adapter' do
 
   it "returns 404 on non-existing routes" do
     get "/virginmargarita"
-    last_response.status.must_equal 404
+    _(last_response.status).must_equal 404
   end
 
   describe "PUT requests" do
@@ -32,10 +32,10 @@ shared_examples_for 'a REST adapter' do
         put "/phil/food/aguacate", "si"
 
         metadata = redis.hgetall "rs:m:phil:food/aguacate"
-        metadata["s"].must_equal "2"
-        metadata["t"].must_equal "text/plain; charset=utf-8"
-        metadata["e"].must_equal "0815etag"
-        metadata["m"].length.must_equal 13
+        _(metadata["s"]).must_equal "2"
+        _(metadata["t"]).must_equal "text/plain; charset=utf-8"
+        _(metadata["e"]).must_equal "0815etag"
+        _(metadata["m"].length).must_equal 13
       end
 
       it "updates the metadata object in redis when it changes" do
@@ -43,10 +43,10 @@ shared_examples_for 'a REST adapter' do
         put "/phil/food/banano", "oh, no"
 
         metadata = redis.hgetall "rs:m:phil:food/banano"
-        metadata["s"].must_equal "6"
-        metadata["t"].must_equal "text/plain; charset=utf-8"
-        metadata["e"].must_equal "0817etag"
-        metadata["m"].must_equal "1457094020000"
+        _(metadata["s"]).must_equal "6"
+        _(metadata["t"]).must_equal "text/plain; charset=utf-8"
+        _(metadata["e"]).must_equal "0817etag"
+        _(metadata["m"]).must_equal "1457094020000"
       end
 
       it "creates the directory objects metadata in redis" do
@@ -54,34 +54,34 @@ shared_examples_for 'a REST adapter' do
         put "/phil/food/camaron", "yummi"
 
         metadata = redis.hgetall "rs:m:phil:/"
-        metadata["e"].must_equal "fe2976909daaf074660981ab563fe65d"
-        metadata["m"].length.must_equal 13
+        _(metadata["e"]).must_equal "fe2976909daaf074660981ab563fe65d"
+        _(metadata["m"].length).must_equal 13
 
         metadata = redis.hgetall "rs:m:phil:food/"
-        metadata["e"].must_equal "926f98ff820f2f9764fd3c60a22865ad"
-        metadata["m"].length.must_equal 13
+        _(metadata["e"]).must_equal "926f98ff820f2f9764fd3c60a22865ad"
+        _(metadata["m"].length).must_equal 13
 
         food_items = redis.smembers "rs:m:phil:food/:items"
         food_items.each do |food_item|
-          ["camaron", "aguacate"].must_include food_item
+          _(["camaron", "aguacate"]).must_include food_item
         end
 
         root_items = redis.smembers "rs:m:phil:/:items"
-        root_items.must_equal ["food/"]
+        _(root_items).must_equal ["food/"]
       end
 
       context "response code" do
         it "is 201 for newly created objects" do
           put "/phil/food/aguacate", "ci"
 
-          last_response.status.must_equal 201
+          _(last_response.status).must_equal 201
         end
 
         it "is 200 for updated objects" do
           put "/phil/food/aguacate", "deliciosa"
           put "/phil/food/aguacate", "muy deliciosa"
 
-          last_response.status.must_equal 200
+          _(last_response.status).must_equal 200
         end
       end
 
@@ -90,7 +90,7 @@ shared_examples_for 'a REST adapter' do
           put "/phil/food/aguacate", "1234567890"
 
           size_log = redis.get "rs:s:phil"
-          size_log.must_equal "10"
+          _(size_log).must_equal "10"
         end
 
         it "logs the size difference when updating existing objects" do
@@ -99,7 +99,7 @@ shared_examples_for 'a REST adapter' do
           put "/phil/food/aguacate", "123"
 
           size_log = redis.get "rs:s:phil"
-          size_log.must_equal "13"
+          _(size_log).must_equal "13"
         end
       end
 
@@ -111,15 +111,15 @@ shared_examples_for 'a REST adapter' do
         it "are listed in the directory listing with all metadata" do
           get "phil/"
 
-          last_response.status.must_equal 200
-          last_response.content_type.must_equal "application/ld+json"
+          _(last_response.status).must_equal 200
+          _(last_response.content_type).must_equal "application/ld+json"
 
           content = JSON.parse(last_response.body)
-          content["items"]["bamboo.txt"].wont_be_nil
-          content["items"]["bamboo.txt"]["ETag"].must_equal "0818etag"
-          content["items"]["bamboo.txt"]["Content-Type"].must_equal "text/plain; charset=utf-8"
-          content["items"]["bamboo.txt"]["Content-Length"].must_equal 8
-          content["items"]["bamboo.txt"]["Last-Modified"].must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
+          _(content["items"]["bamboo.txt"]).wont_be_nil
+          _(content["items"]["bamboo.txt"]["ETag"]).must_equal "0818etag"
+          _(content["items"]["bamboo.txt"]["Content-Type"]).must_equal "text/plain; charset=utf-8"
+          _(content["items"]["bamboo.txt"]["Content-Length"]).must_equal 8
+          _(content["items"]["bamboo.txt"]["Last-Modified"]).must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
         end
       end
 
@@ -127,31 +127,31 @@ shared_examples_for 'a REST adapter' do
         it "is successful when there is no name collision" do
           put "/phil/food/aguacate", "si"
 
-          last_response.status.must_equal 201
+          _(last_response.status).must_equal 201
 
           metadata = redis.hgetall "rs:m:phil:food/aguacate"
-          metadata["s"].must_equal "2"
+          _(metadata["s"]).must_equal "2"
         end
 
         it "conflicts when there is a directory with same name as document" do
           put "/phil/food/aguacate", "si"
           put "/phil/food", "wontwork"
 
-          last_response.status.must_equal 409
-          last_response.body.must_equal "Conflict"
+          _(last_response.status).must_equal 409
+          _(last_response.body).must_equal "Conflict"
 
           metadata = redis.hgetall "rs:m:phil:food"
-          metadata.must_be_empty
+          _(metadata).must_be_empty
         end
 
         it "conflicts when there is a document with same name as directory" do
           put "/phil/food/aguacate", "si"
           put "/phil/food/aguacate/empanado", "wontwork"
 
-          last_response.status.must_equal 409
+          _(last_response.status).must_equal 409
 
           metadata = redis.hgetall "rs:m:phil:food/aguacate/empanado"
-          metadata.must_be_empty
+          _(metadata).must_be_empty
         end
 
         it "returns 400 when a Content-Range header is sent" do
@@ -159,7 +159,7 @@ shared_examples_for 'a REST adapter' do
 
           put "/phil/food/aguacate", "si"
 
-          last_response.status.must_equal 400
+          _(last_response.status).must_equal 400
         end
       end
 
@@ -173,8 +173,8 @@ shared_examples_for 'a REST adapter' do
 
           put "/phil/food/aguacate", "aye"
 
-          last_response.status.must_equal 200
-          last_response.headers["Etag"].must_equal "\"0915etag\""
+          _(last_response.status).must_equal 200
+          _(last_response.headers["Etag"]).must_equal "\"0915etag\""
         end
 
         it "allows the request if the header contains a weak ETAG matching the current ETag" do
@@ -182,8 +182,8 @@ shared_examples_for 'a REST adapter' do
 
           put "/phil/food/aguacate", "aye"
 
-          last_response.status.must_equal 200
-          last_response.headers["Etag"].must_equal "\"0915etag\""
+          _(last_response.status).must_equal 200
+          _(last_response.headers["Etag"]).must_equal "\"0915etag\""
         end
 
         it "allows the request if the header contains a weak ETAG with leading quote matching the current ETag" do
@@ -191,8 +191,8 @@ shared_examples_for 'a REST adapter' do
 
           put "/phil/food/aguacate", "aye"
 
-          last_response.status.must_equal 200
-          last_response.headers["Etag"].must_equal "\"0915etag\""
+          _(last_response.status).must_equal 200
+          _(last_response.headers["Etag"]).must_equal "\"0915etag\""
         end
 
         it "fails the request if the header does not match the current ETag" do
@@ -200,8 +200,8 @@ shared_examples_for 'a REST adapter' do
 
           put "/phil/food/aguacate", "aye"
 
-          last_response.status.must_equal 412
-          last_response.body.must_equal "Precondition Failed"
+          _(last_response.status).must_equal 412
+          _(last_response.body).must_equal "Precondition Failed"
         end
 
         it "allows the request if redis metadata became out of sync" do
@@ -209,7 +209,7 @@ shared_examples_for 'a REST adapter' do
 
           put "/phil/food/aguacate", "aye"
 
-          last_response.status.must_equal 200
+          _(last_response.status).must_equal 200
         end
       end
 
@@ -219,7 +219,7 @@ shared_examples_for 'a REST adapter' do
 
           put "/phil/food/aguacate", "si"
 
-          last_response.status.must_equal 201
+          _(last_response.status).must_equal 201
         end
 
         it "fails the request if the document already exists" do
@@ -228,8 +228,18 @@ shared_examples_for 'a REST adapter' do
           header "If-None-Match", "*"
           put "/phil/food/aguacate", "si"
 
-          last_response.status.must_equal 412
-          last_response.body.must_equal "Precondition Failed"
+          _(last_response.status).must_equal 412
+          _(last_response.body).must_equal "Precondition Failed"
+        end
+      end
+
+      describe "Content-Type" do
+        it "must be in the type/subtype format" do
+          header "Content-Type", "text"
+
+          put "/phil/food/invalid_content_type", "invalid"
+
+          _(last_response.status).must_equal 415
         end
       end
     end
@@ -247,8 +257,8 @@ shared_examples_for 'a REST adapter' do
         it "says it's not authorized" do
           delete "/phil/food/aguacate"
 
-          last_response.status.must_equal 401
-          last_response.body.must_equal "Unauthorized"
+          _(last_response.status).must_equal 401
+          _(last_response.body).must_equal "Unauthorized"
         end
       end
 
@@ -257,8 +267,8 @@ shared_examples_for 'a REST adapter' do
           header "Authorization", "Bearer "
           delete "/phil/food/aguacate"
 
-          last_response.status.must_equal 401
-          last_response.body.must_equal "Unauthorized"
+          _(last_response.status).must_equal 401
+          _(last_response.body).must_equal "Unauthorized"
         end
       end
 
@@ -267,8 +277,8 @@ shared_examples_for 'a REST adapter' do
           header "Authorization", "Bearer wrongtoken"
           delete "/phil/food/aguacate"
 
-          last_response.status.must_equal 401
-          last_response.body.must_equal "Unauthorized"
+          _(last_response.status).must_equal 401
+          _(last_response.body).must_equal "Unauthorized"
         end
       end
 
@@ -288,14 +298,14 @@ shared_examples_for 'a REST adapter' do
         delete "/phil/food/aguacate"
 
         size_log = redis.get "rs:s:phil"
-        size_log.must_equal "8"
+        _(size_log).must_equal "8"
       end
 
       it "deletes the metadata object in redis" do
         delete "/phil/food/aguacate"
 
         metadata = redis.hgetall "rs:m:phil:food/aguacate"
-        metadata.must_be_empty
+        _(metadata).must_be_empty
       end
 
       it "deletes the directory objects metadata in redis" do
@@ -306,15 +316,15 @@ shared_examples_for 'a REST adapter' do
         end
 
         metadata = redis.hgetall "rs:m:phil:food/"
-        metadata["e"].must_equal "newetag"
-        metadata["m"].length.must_equal 13
-        metadata["m"].wont_equal old_metadata["m"]
+        _(metadata["e"]).must_equal "newetag"
+        _(metadata["m"].length).must_equal 13
+        _(metadata["m"]).wont_equal old_metadata["m"]
 
         food_items = redis.smembers "rs:m:phil:food/:items"
-        food_items.sort.must_equal ["camaron", "desayunos/"]
+        _(food_items.sort).must_equal ["camaron", "desayunos/"]
 
         root_items = redis.smembers "rs:m:phil:/:items"
-        root_items.must_equal ["food/"]
+        _(root_items).must_equal ["food/"]
       end
 
       it "deletes the parent directory objects metadata when deleting all items" do
@@ -322,19 +332,19 @@ shared_examples_for 'a REST adapter' do
         delete "/phil/food/camaron"
         delete "/phil/food/desayunos/bolon"
 
-        redis.smembers("rs:m:phil:food/desayunos:items").must_be_empty
-        redis.hgetall("rs:m:phil:food/desayunos/").must_be_empty
+        _(redis.smembers("rs:m:phil:food/desayunos:items")).must_be_empty
+        _(redis.hgetall("rs:m:phil:food/desayunos/")).must_be_empty
 
-        redis.smembers("rs:m:phil:food/:items").must_be_empty
-        redis.hgetall("rs:m:phil:food/").must_be_empty
+        _(redis.smembers("rs:m:phil:food/:items")).must_be_empty
+        _(redis.hgetall("rs:m:phil:food/")).must_be_empty
 
-        redis.smembers("rs:m:phil:/:items").must_be_empty
+        _(redis.smembers("rs:m:phil:/:items")).must_be_empty
       end
 
       it "responds with the ETag of the deleted item in the header" do
         delete "/phil/food/aguacate"
 
-        last_response.headers["ETag"].must_equal "\"0815etag\""
+        _(last_response.headers["ETag"]).must_equal "\"0815etag\""
       end
 
       context "when item doesn't exist" do
@@ -345,20 +355,20 @@ shared_examples_for 'a REST adapter' do
         end
 
         it "returns a 404" do
-          last_response.status.must_equal 404
-          last_response.body.must_equal "Not Found"
+          _(last_response.status).must_equal 404
+          _(last_response.body).must_equal "Not Found"
         end
 
         it "deletes any metadata that might still exist" do
           delete "/phil/food/steak"
 
           metadata = redis.hgetall "rs:m:phil:food/steak"
-          metadata.must_be_empty
+          _(metadata).must_be_empty
 
-          redis.smembers("rs:m:phil:food/:items").must_be_empty
-          redis.hgetall("rs:m:phil:food/").must_be_empty
+          _(redis.smembers("rs:m:phil:food/:items")).must_be_empty
+          _(redis.hgetall("rs:m:phil:food/")).must_be_empty
 
-          redis.smembers("rs:m:phil:/:items").must_be_empty
+          _(redis.smembers("rs:m:phil:/:items")).must_be_empty
         end
       end
 
@@ -368,7 +378,7 @@ shared_examples_for 'a REST adapter' do
 
           delete "/phil/food/aguacate"
 
-          last_response.status.must_equal 200
+          _(last_response.status).must_equal 200
         end
 
         it "succeeds when the header contains a weak ETAG matching the current ETag" do
@@ -376,7 +386,7 @@ shared_examples_for 'a REST adapter' do
 
           delete "/phil/food/aguacate"
 
-          last_response.status.must_equal 200
+          _(last_response.status).must_equal 200
         end
 
         it "fails the request if it does not match the current ETag" do
@@ -384,8 +394,8 @@ shared_examples_for 'a REST adapter' do
 
           delete "/phil/food/aguacate"
 
-          last_response.status.must_equal 412
-          last_response.body.must_equal "Precondition Failed"
+          _(last_response.status).must_equal 412
+          _(last_response.body).must_equal "Precondition Failed"
         end
       end
     end
@@ -397,14 +407,55 @@ shared_examples_for 'a REST adapter' do
       purge_redis
     end
 
+    context "requests to public resources" do
+      before do
+        redis.sadd "authorizations:phil:amarillo", [":rw"]
+        header "Authorization", "Bearer amarillo"
+      end
+
+      describe "normal request" do
+        before do
+          header "Content-Type", "image/jpeg"
+
+          put "/phil/public/shares/example.jpg", ""
+        end
+
+        it "returns the required response headers" do
+          get "/phil/public/shares/example.jpg"
+
+          last_response.status.must_equal 200
+          last_response.headers["Content-Type"].must_equal "image/jpeg"
+        end
+      end
+
+      describe "partial request" do
+        before do
+          header "Content-Type", "image/jpeg"
+
+          put "/phil/public/shares/example_partial.jpg", <<-EOF
+JFIFddDuckyA␍⎺␉␊␍
+#%'%#//33//@@@@@@@@@@@@@@@&&0##0+.'''.+550055@@?@@@@@@@@@@@>"!1AQaq"2B
+          EOF
+        end
+
+        it "returns the required response headers" do
+          header 'Range', 'bytes=0-16'
+          get "/phil/public/shares/example_partial.jpg"
+
+          last_response.status.must_equal 206
+          last_response.headers["Content-Type"].must_equal "image/jpeg"
+        end
+      end
+    end
+
     context "not authorized" do
 
       describe "without token" do
         it "says it's not authorized" do
           get "/phil/food/"
 
-          last_response.status.must_equal 401
-          last_response.body.must_equal "Unauthorized"
+          _(last_response.status).must_equal 401
+          _(last_response.body).must_equal "Unauthorized"
         end
       end
 
@@ -413,8 +464,8 @@ shared_examples_for 'a REST adapter' do
           header "Authorization", "Bearer wrongtoken"
           get "/phil/food/"
 
-          last_response.status.must_equal 401
-          last_response.body.must_equal "Unauthorized"
+          _(last_response.status).must_equal 401
+          _(last_response.body).must_equal "Unauthorized"
         end
       end
 
@@ -436,18 +487,18 @@ shared_examples_for 'a REST adapter' do
         it "returns the required response headers" do
           get "/phil/food/aguacate"
 
-          last_response.status.must_equal 200
+          _(last_response.status).must_equal 200
           # ETag is coming from the Redis metadata, not the storage server (which has "0817etag")
-          last_response.headers["ETag"].must_equal "\"0815etag\""
-          last_response.headers["Cache-Control"].must_equal "no-cache"
-          last_response.headers["Content-Type"].must_equal "text/plain; charset=utf-8"
+          _(last_response.headers["ETag"]).must_equal "\"0815etag\""
+          _(last_response.headers["Cache-Control"]).must_equal "no-cache"
+          _(last_response.headers["Content-Type"]).must_equal "text/plain; charset=utf-8"
         end
 
         it "returns a 404 when data doesn't exist" do
           get "/phil/food/steak"
 
-          last_response.status.must_equal 404
-          last_response.body.must_equal "Not Found"
+          _(last_response.status).must_equal 404
+          _(last_response.body).must_equal "Not Found"
         end
 
         it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
@@ -455,9 +506,9 @@ shared_examples_for 'a REST adapter' do
 
           get "/phil/food/aguacate"
 
-          last_response.status.must_equal 304
-          last_response.headers["ETag"].must_equal "\"0815etag\""
-          last_response.headers["Last-Modified"].must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
+          _(last_response.status).must_equal 304
+          _(last_response.headers["ETag"]).must_equal "\"0815etag\""
+          _(last_response.headers["Last-Modified"]).must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
         end
 
         it "responds with 304 when IF_NONE_MATCH header contains weak ETAG matching the current ETag" do
@@ -465,9 +516,9 @@ shared_examples_for 'a REST adapter' do
 
           get "/phil/food/aguacate"
 
-          last_response.status.must_equal 304
-          last_response.headers["ETag"].must_equal "\"0815etag\""
-          last_response.headers["Last-Modified"].must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
+          _(last_response.status).must_equal 304
+          _(last_response.headers["ETag"]).must_equal "\"0815etag\""
+          _(last_response.headers["Last-Modified"]).must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
         end
 
       end
@@ -477,70 +528,70 @@ shared_examples_for 'a REST adapter' do
         it "returns the correct ETag header" do
           get "/phil/food/"
 
-          last_response.status.must_equal 200
-          last_response.headers["ETag"].must_equal "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
+          _(last_response.status).must_equal 200
+          _(last_response.headers["ETag"]).must_equal "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
         end
 
         it "returns a Cache-Control header with value 'no-cache'" do
           get "/phil/food/"
 
-          last_response.status.must_equal 200
-          last_response.headers["Cache-Control"].must_equal "no-cache"
+          _(last_response.status).must_equal 200
+          _(last_response.headers["Cache-Control"]).must_equal "no-cache"
         end
 
         it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
           header "If-None-Match", "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
           get "/phil/food/"
 
-          last_response.status.must_equal 304
+          _(last_response.status).must_equal 304
         end
 
         it "responds with 304 when IF_NONE_MATCH header contains weak ETAG matching the ETag" do
           header "If-None-Match", "W/\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
           get "/phil/food/"
 
-          last_response.status.must_equal 304
+          _(last_response.status).must_equal 304
         end
 
         it "contains all items in the directory" do
           get "/phil/food/"
 
-          last_response.status.must_equal 200
-          last_response.content_type.must_equal "application/ld+json"
+          _(last_response.status).must_equal 200
+          _(last_response.content_type).must_equal "application/ld+json"
 
           content = JSON.parse(last_response.body)
-          content["@context"].must_equal "http://remotestorage.io/spec/folder-description"
-          content["items"]["aguacate"].wont_be_nil
-          content["items"]["aguacate"]["Content-Type"].must_equal "text/plain; charset=utf-8"
-          content["items"]["aguacate"]["Content-Length"].must_equal 2
-          content["items"]["aguacate"]["ETag"].must_equal "0815etag"
-          content["items"]["camaron"].wont_be_nil
-          content["items"]["camaron"]["Content-Type"].must_equal "text/plain; charset=utf-8"
-          content["items"]["camaron"]["Content-Length"].must_equal 5
-          content["items"]["camaron"]["ETag"].must_equal "0816etag"
-          content["items"]["desayunos/"].wont_be_nil
-          content["items"]["desayunos/"]["ETag"].must_equal "dd36e3cfe52b5f33421150b289a7d48d"
+          _(content["@context"]).must_equal "http://remotestorage.io/spec/folder-description"
+          _(content["items"]["aguacate"]).wont_be_nil
+          _(content["items"]["aguacate"]["Content-Type"]).must_equal "text/plain; charset=utf-8"
+          _(content["items"]["aguacate"]["Content-Length"]).must_equal 2
+          _(content["items"]["aguacate"]["ETag"]).must_equal "0815etag"
+          _(content["items"]["camaron"]).wont_be_nil
+          _(content["items"]["camaron"]["Content-Type"]).must_equal "text/plain; charset=utf-8"
+          _(content["items"]["camaron"]["Content-Length"]).must_equal 5
+          _(content["items"]["camaron"]["ETag"]).must_equal "0816etag"
+          _(content["items"]["desayunos/"]).wont_be_nil
+          _(content["items"]["desayunos/"]["ETag"]).must_equal "dd36e3cfe52b5f33421150b289a7d48d"
         end
 
         it "contains all items in the root directory" do
           get "phil/"
 
-          last_response.status.must_equal 200
-          last_response.content_type.must_equal "application/ld+json"
+          _(last_response.status).must_equal 200
+          _(last_response.content_type).must_equal "application/ld+json"
 
           content = JSON.parse(last_response.body)
-          content["items"]["food/"].wont_be_nil
-          content["items"]["food/"]["ETag"].must_equal "f9f85fbf5aa1fa378fd79ac8aa0a457d"
+          _(content["items"]["food/"]).wont_be_nil
+          _(content["items"]["food/"]["ETag"]).must_equal "f9f85fbf5aa1fa378fd79ac8aa0a457d"
         end
 
         it "responds with an empty directory liting when directory doesn't exist" do
           get "phil/some-non-existing-dir/"
 
-          last_response.status.must_equal 200
-          last_response.content_type.must_equal "application/ld+json"
+          _(last_response.status).must_equal 200
+          _(last_response.content_type).must_equal "application/ld+json"
 
           content = JSON.parse(last_response.body)
-          content["items"].must_equal({})
+          _(content["items"]).must_equal({})
         end
 
       end
@@ -560,8 +611,8 @@ shared_examples_for 'a REST adapter' do
         it "says it's not authorized" do
           head "/phil/food/camarones"
 
-          last_response.status.must_equal 401
-          last_response.body.must_be_empty
+          _(last_response.status).must_equal 401
+          _(last_response.body).must_be_empty
         end
       end
 
@@ -570,8 +621,8 @@ shared_examples_for 'a REST adapter' do
           header "Authorization", "Bearer wrongtoken"
           head "/phil/food/camarones"
 
-          last_response.status.must_equal 401
-          last_response.body.must_be_empty
+          _(last_response.status).must_equal 401
+          _(last_response.body).must_be_empty
         end
       end
 
@@ -592,9 +643,9 @@ shared_examples_for 'a REST adapter' do
         it "returns the correct header information" do
           get "/phil/food/"
 
-          last_response.status.must_equal 200
-          last_response.content_type.must_equal "application/ld+json"
-          last_response.headers["ETag"].must_equal "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
+          _(last_response.status).must_equal 200
+          _(last_response.content_type).must_equal "application/ld+json"
+          _(last_response.headers["ETag"]).must_equal "\"f9f85fbf5aa1fa378fd79ac8aa0a457d\""
         end
       end
 
@@ -603,8 +654,8 @@ shared_examples_for 'a REST adapter' do
           it "returns a 404" do
             head "/phil/food/steak"
 
-            last_response.status.must_equal 404
-            last_response.body.must_be_empty
+            _(last_response.status).must_equal 404
+            _(last_response.body).must_be_empty
           end
         end
 
@@ -612,12 +663,12 @@ shared_examples_for 'a REST adapter' do
           it "returns the required response headers" do
             head "/phil/food/aguacate"
 
-            last_response.status.must_equal 200
-            last_response.headers["ETag"].must_equal "\"0815etag\""
-            last_response.headers["Cache-Control"].must_equal "no-cache"
-            last_response.headers["Last-Modified"].must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
-            last_response.headers["Content-Type"].must_equal "text/plain; charset=utf-8"
-            last_response.headers["Content-Length"].must_equal "2"
+            _(last_response.status).must_equal 200
+            _(last_response.headers["ETag"]).must_equal "\"0815etag\""
+            _(last_response.headers["Cache-Control"]).must_equal "no-cache"
+            _(last_response.headers["Last-Modified"]).must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
+            _(last_response.headers["Content-Type"]).must_equal "text/plain; charset=utf-8"
+            _(last_response.headers["Content-Length"]).must_equal "2"
           end
 
           it "responds with 304 when IF_NONE_MATCH header contains the ETag" do
@@ -625,9 +676,9 @@ shared_examples_for 'a REST adapter' do
 
             head "/phil/food/aguacate"
 
-            last_response.status.must_equal 304
-            last_response.headers["ETag"].must_equal "\"0815etag\""
-            last_response.headers["Last-Modified"].must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
+            _(last_response.status).must_equal 304
+            _(last_response.headers["ETag"]).must_equal "\"0815etag\""
+            _(last_response.headers["Last-Modified"]).must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
           end
 
           it "responds with 304 when IF_NONE_MATCH header contains weak ETAG matching the current ETag" do
@@ -635,9 +686,9 @@ shared_examples_for 'a REST adapter' do
 
             head "/phil/food/aguacate"
 
-            last_response.status.must_equal 304
-            last_response.headers["ETag"].must_equal "\"0815etag\""
-            last_response.headers["Last-Modified"].must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
+            _(last_response.status).must_equal 304
+            _(last_response.headers["ETag"]).must_equal "\"0815etag\""
+            _(last_response.headers["Last-Modified"]).must_equal "Fri, 04 Mar 2016 12:20:18 GMT"
           end
         end
       end

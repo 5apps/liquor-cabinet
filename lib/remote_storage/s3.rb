@@ -32,8 +32,10 @@ module RemoteStorage
 
     def do_get_request(url, &block)
       deal_with_unauthorized_requests do
+        headers = { }
+        headers["Range"] = server.env["HTTP_RANGE"] if server.env["HTTP_RANGE"]
         authorization_headers = authorization_headers_for("GET", url)
-        RestClient.get(url, authorization_headers, &block)
+        RestClient.get(url, authorization_headers.merge(headers), &block)
       end
     end
 

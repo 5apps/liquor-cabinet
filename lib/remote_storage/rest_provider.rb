@@ -69,6 +69,11 @@ module RemoteStorage
 
       res = do_get_request(url)
 
+      if res.headers[:content_range]
+        # Partial content
+        server.headers["Content-Range"] = res.headers[:content_range]
+        server.status 206
+      end
       set_response_headers(metadata)
 
       return res.body
@@ -113,6 +118,9 @@ module RemoteStorage
     end
 
     def put_data(user, directory, key, data, content_type)
+      # Do not try to perform the PUT request when the Content-Type does not
+      # look like a MIME type
+      server.halt 415 unless content_type.match(/^.+\/.+/i)
       server.halt 400 if server.env["HTTP_CONTENT_RANGE"]
       server.halt 409, "Conflict" if has_name_collision?(user, directory, key)
 
@@ -405,7 +413,9 @@ module RemoteStorage
 
     def do_get_request(url, &block)
       deal_with_unauthorized_requests do
-        RestClient.get(url, default_headers, &block)
+        headers = { }
+        headers["Range"] = server.env["HTTP_RANGE"] if server.env["HTTP_RANGE"]
+        RestClient.get(url, default_headers.merge(headers), &block)
       end
     end
 
