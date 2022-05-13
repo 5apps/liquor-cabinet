@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        ruby-version: ['2.6', '2.7']
+        ruby-version: ['2.5', '2.6', '2.7']
 
     steps:
     - uses: actions/checkout@v3
@@ -34,5 +34,7 @@ jobs:
       with:
         ruby-version: ${{ matrix.ruby-version }}
         bundler-cache: true # runs 'bundle install' and caches installed gems automatically
+    - name: Configure
+      - cp config.yml.example.s3 config.yml
     - name: Run tests
       run: bundle exec rake test
