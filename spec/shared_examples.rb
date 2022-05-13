@@ -14,6 +14,18 @@ shared_examples_for 'a REST adapter' do
     _(last_response.status).must_equal 404
   end
 
+  describe "OPTIONS requests" do
+
+    it "returns CORS headers" do
+      options "/phil/food/aguacate"
+
+      _(last_response.headers["Access-Control-Allow-Origin"]).wont_be_nil
+      _(last_response.headers["Access-Control-Allow-Methods"]).must_equal "GET, PUT, DELETE"
+      _(last_response.headers["Access-Control-Max-Age"].to_i).must_be :> , 10
+    end
+
+  end
+
   describe "PUT requests" do
 
     before do
