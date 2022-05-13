@@ -7,7 +7,6 @@ services:
   - redis-server
 before_script:
   - cp config.yml.example.$BACKEND config.yml
-  - mkdir -p tmp && echo "swifttoken" > tmp/swift_token.txt
 script: ruby spec/$BACKEND/*
 branches:
   only:
@@ -22,6 +21,5 @@ notifications:
     on_failure: always
 env:
   - BACKEND=s3
-  - BACKEND=swift
 # Run on Docker infrastructure
 sudo: false
