@@ -1,10 +1,10 @@
 source "https://rubygems.org"
 
-gem "sinatra"
-gem "sinatra-contrib"
-gem "activesupport"
-gem "rest-client", "~> 2.1.0.rc1" # Fixes a memory leak in Ruby 2.4
-gem "redis"
+gem "sinatra", "~> 2.2.0"
+gem "sinatra-contrib", "~> 2.2.0"
+gem "activesupport", "~> 6.0.5"
+gem "rest-client", "~> 2.1.0" # Fixes a memory leak in Ruby 2.4
+gem "redis", "~> 4.6.0"
 # Remove require when we can update to 3.0, which sets the new storage
 # format to columnar by default. Increases performance
 gem "mime-types"

@@ -1,5 +1,3 @@
-require_relative "./spec_helper"
-
 shared_examples_for 'a REST adapter' do
   include Rack::Test::Methods
 
@@ -14,6 +12,18 @@ shared_examples_for 'a REST adapter' do
   it "returns 404 on non-existing routes" do
     get "/virginmargarita"
     _(last_response.status).must_equal 404
+  end
+
+  describe "OPTIONS requests" do
+
+    it "returns CORS headers" do
+      options "/phil/food/aguacate"
+
+      _(last_response.headers["Access-Control-Allow-Origin"]).wont_be_nil
+      _(last_response.headers["Access-Control-Allow-Methods"]).must_equal "GET, PUT, DELETE"
+      _(last_response.headers["Access-Control-Max-Age"].to_i).must_be :> , 10
+    end
+
   end
 
   describe "PUT requests" do
@@ -423,8 +433,8 @@ shared_examples_for 'a REST adapter' do
         it "returns the required response headers" do
           get "/phil/public/shares/example.jpg"
 
-          last_response.status.must_equal 200
-          last_response.headers["Content-Type"].must_equal "image/jpeg"
+          _(last_response.status).must_equal 200
+          _(last_response.headers["Content-Type"]).must_equal "image/jpeg"
         end
       end
 
@@ -442,8 +452,8 @@ JFIFddDuckyA␍⎺␉␊␍
           header 'Range', 'bytes=0-16'
           get "/phil/public/shares/example_partial.jpg"
 
-          last_response.status.must_equal 206
-          last_response.headers["Content-Type"].must_equal "image/jpeg"
+          _(last_response.status).must_equal 206
+          _(last_response.headers["Content-Type"]).must_equal "image/jpeg"
         end
       end
     end

@@ -4,7 +4,6 @@ require "json"
 require "sinatra/base"
 require 'sinatra/config_file'
 require "sinatra/reloader"
-require "remote_storage/swift"
 require "remote_storage/s3"
 
 class LiquorCabinet < Sinatra::Base
@@ -20,10 +19,6 @@ class LiquorCabinet < Sinatra::Base
     register Sinatra::ConfigFile
     set :environments, %w{development test production staging}
     config_file 'config.yml'
-    if settings.respond_to? :swift
-      set :swift_token, File.read("tmp/swift_token.txt")
-      set :swift_token_loaded_at, Time.now
-    end
   end
 
   configure :development do
@@ -84,6 +79,7 @@ class LiquorCabinet < Sinatra::Base
     end
 
     options path do
+      headers['Access-Control-Max-Age'] = '7200'
       halt 200
     end
   end
@@ -130,9 +126,7 @@ class LiquorCabinet < Sinatra::Base
 
   def storage
     @storage ||= begin
-      if settings.respond_to? :swift
-        RemoteStorage::Swift.new(settings, self)
-      elsif settings.respond_to? :s3
+      if settings.respond_to? :s3
         RemoteStorage::S3.new(settings, self)
       else
         puts <<-EOF
