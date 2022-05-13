@@ -1,5 +1,3 @@
-require_relative "./spec_helper"
-
 shared_examples_for 'a REST adapter' do
   include Rack::Test::Methods
 
