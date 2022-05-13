@@ -79,6 +79,7 @@ class LiquorCabinet < Sinatra::Base
     end
 
     options path do
+      headers['Access-Control-Max-Age'] = '7200'
       halt 200
     end
   end
