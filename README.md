@@ -12,10 +12,9 @@ protocol, but does not include the Webfinger and OAuth parts. It is meant to be
 added to existing systems and user accounts, so you will have to add your own
 OAuth dialog for remoteStorage authorizations and persist the tokens in Redis.
 
-If you have any questions about this program, drop by #remotestorage on
-Freenode, or [post to the RS
+If you have any questions about this program, please [post to the RS
 forums](https://community.remotestorage.io/c/server-development), and we'll
-happily answer them.
+gladly answer them.
 
 ## Contributing
 
@@ -23,5 +22,5 @@ We love pull requests. If you want to submit a patch:
 
 * Fork the project.
 * Make your feature addition or bug fix.
-* Write specs for it. This is important so nobody breaks it in a future version unintentionally.
+* Write specs for it. This is important so nobody breaks it in a future version.
 * Push to your fork and send a pull request.
