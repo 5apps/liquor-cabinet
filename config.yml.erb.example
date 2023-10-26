@@ -3,6 +3,7 @@ development: &defaults
   redis:
     host: <%= ENV["REDIS_HOST"] || "localhost" %>
     port: <%= ENV["REDIS_PORT"] || "6379" %>
+    db: <%= ENV["REDIS_DB"] || 0 %>
   s3: &s3_defaults
     endpoint: <%= ENV["S3_ENDPOINT"] || "http://127.0.0.1:9000" %>
     region: <%= ENV["S3_REGION"] %>
