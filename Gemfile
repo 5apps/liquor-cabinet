@@ -12,8 +12,8 @@ gem "mime-types"
 group :test do
   gem 'rake'
   gem 'rack-test'
-  gem 'purdytest', :require => false
   gem 'm'
+  gem 'minitest'
   gem 'minitest-stub_any_instance'
   gem 'webmock'
 end

@@ -8,7 +8,6 @@ require_relative '../liquor-cabinet'
 require 'minitest/autorun'
 require "minitest/stub_any_instance"
 require 'rack/test'
-require 'purdytest'
 require "redis"
 require "rest_client"
 require "ostruct"
@@ -36,22 +35,22 @@ if app.settings.respond_to? :redis
   end
 end
 
-MiniTest::Spec.class_eval do
+Minitest::Spec.class_eval do
   def self.shared_examples
     @shared_examples ||= {}
   end
 end
 
-module MiniTest::Spec::SharedExamples
+module Minitest::Spec::SharedExamples
   def shared_examples_for(desc, &block)
-    MiniTest::Spec.shared_examples[desc] = block
+    Minitest::Spec.shared_examples[desc] = block
   end
 
   def it_behaves_like(desc)
-    self.instance_eval(&MiniTest::Spec.shared_examples[desc])
+    self.instance_eval(&Minitest::Spec.shared_examples[desc])
   end
 end
 
-Object.class_eval { include(MiniTest::Spec::SharedExamples) }
+Object.class_eval { include(Minitest::Spec::SharedExamples) }
 
 require_relative 'shared_examples'
