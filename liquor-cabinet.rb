@@ -18,7 +18,7 @@ class LiquorCabinet < Sinatra::Base
 
     register Sinatra::ConfigFile
     set :environments, %w{development test production staging}
-    config_file 'config.yml'
+    config_file 'config.yml.erb'
   end
 
   configure :development do

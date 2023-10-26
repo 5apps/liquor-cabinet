@@ -2,7 +2,7 @@ require_relative "../spec_helper"
 
 describe "S3 provider" do
   def container_url_for(user)
-    "#{app.settings.s3["endpoint"]}#{app.settings.s3["bucket"]}/#{user}"
+    "#{app.settings.s3["endpoint"]}/#{app.settings.s3["bucket"]}/#{user}"
   end
 
   def storage_class

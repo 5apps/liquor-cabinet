@@ -28,6 +28,6 @@ jobs:
       with:
         redis-version: ${{ matrix.redis-version }}
     - name: Configure
-      run: cp config.yml.example.s3 config.yml
+      run: cp config.yml.erb.example config.yml.erb
     - name: Run tests
       run: bundle exec rake test

@@ -106,7 +106,7 @@ module RemoteStorage
     end
 
     def container_url_for(user)
-      "#{base_url}#{settings.s3["bucket"]}/#{user}"
+      "#{base_url}/#{settings.s3["bucket"]}/#{user}"
     end
   end
 

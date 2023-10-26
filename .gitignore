@@ -1,4 +1,5 @@
 config.yml
+config.yml.erb
 cs_credentials.json
 pids
 .bundle
