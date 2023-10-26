@@ -1,8 +1,8 @@
 require "remote_storage/rest_provider"
 require "digest"
 require "base64"
+require "cgi"
 require "openssl"
-require "webrick/httputils"
 
 module RemoteStorage
   class S3
@@ -92,7 +92,7 @@ module RemoteStorage
     end
 
     def uri_escape(s)
-      WEBrick::HTTPUtils.escape(s).gsub('%5B', '[').gsub('%5D', ']')
+      CGI.escape(s).gsub('%5B', '[').gsub('%5D', ']')
     end
 
     def generate_s3_signature(http_verb, md5, content_type, date, url)
