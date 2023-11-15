@@ -9,6 +9,7 @@ GEM
       zeitwerk (~> 2.3)
     addressable (2.8.5)
       public_suffix (>= 2.0.2, < 6.0)
+    aws-sigv4 (1.0.3)
     base64 (0.1.1)
     concurrent-ruby (1.2.2)
     crack (0.4.5)
@@ -93,6 +94,7 @@ PLATFORMS
 
 DEPENDENCIES
   activesupport (~> 6.1.0)
+  aws-sigv4 (~> 1.0.0)
   m
   mime-types
   minitest
