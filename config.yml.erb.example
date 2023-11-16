@@ -2,11 +2,11 @@ development: &defaults
   maintenance: false
   redis:
     host: <%= ENV["REDIS_HOST"] || "localhost" %>
-    port: <%= ENV["REDIS_PORT"] || "6379" %>
-    db: <%= ENV["REDIS_DB"] || 0 %>
+    port: <%= ENV["REDIS_PORT"] || 6379 %>
+    db: <%= ENV["REDIS_DB"] || 1 %>
   s3: &s3_defaults
     endpoint: <%= ENV["S3_ENDPOINT"] || "http://127.0.0.1:9000" %>
-    region: <%= ENV["S3_REGION"] %>
+    region: <%= ENV["S3_REGION"] || "us-east-1" %>
     access_key_id: <%= ENV["S3_ACCESS_KEY"] || "minioadmin" %>
     secret_key_id: <%= ENV["S3_SECRET_KEY"] || "minioadmin" %>
     bucket: <%= ENV["S3_BUCKET"] || "rs-development" %>
