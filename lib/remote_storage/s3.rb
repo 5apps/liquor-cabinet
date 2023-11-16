@@ -36,10 +36,6 @@ module RemoteStorage
           timestamp_for(res.headers[:date]) # S3 does not return a Last-Modified response header on PUTs
         ]
       end
-
-    rescue RestClient::Forbidden => ex
-      puts ex.response.to_s
-      raise ex
     end
 
     def do_get_request(url, &block)
@@ -83,8 +79,6 @@ module RemoteStorage
       signature = s3_signer.sign_request(
         http_method: http_method, url: url, headers: headers, body: data
       )
-
-      puts signature.headers.inspect
       signature.headers
     end
 
