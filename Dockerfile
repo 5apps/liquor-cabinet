@@ -2,7 +2,7 @@
 FROM ruby:2.7.8
 
 WORKDIR /liquorcabinet
-ENV RACK_ENV=staging
+ENV RACK_ENV=production
 
 COPY Gemfile Gemfile.lock /liquorcabinet/
 RUN bundle install
