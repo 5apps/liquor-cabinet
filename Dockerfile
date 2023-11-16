@@ -1,5 +1,4 @@
-# FROM ruby:3.1.4
-FROM ruby:2.7.8
+FROM ruby:3.1.4
 
 WORKDIR /liquorcabinet
 ENV RACK_ENV=production
