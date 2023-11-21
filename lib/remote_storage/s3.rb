@@ -49,14 +49,14 @@ module RemoteStorage
 
     def do_head_request(url, &block)
       deal_with_unauthorized_requests do
-        auth_headers = auth_headers_for("HEAD", url, {})
+        auth_headers = auth_headers_for("HEAD", url)
         RestClient.head(url, auth_headers, &block)
       end
     end
 
     def do_delete_request(url)
       deal_with_unauthorized_requests do
-        auth_headers = auth_headers_for("DELETE", url, {})
+        auth_headers = auth_headers_for("DELETE", url)
         RestClient.delete(url, auth_headers)
       end
     end
@@ -75,7 +75,7 @@ module RemoteStorage
       return found
     end
 
-    def auth_headers_for(http_method, url, headers, data = nil)
+    def auth_headers_for(http_method, url, headers = {}, data = nil)
       signature = s3_signer.sign_request(
         http_method: http_method, url: url, headers: headers, body: data
       )
