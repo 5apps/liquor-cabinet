@@ -15,7 +15,8 @@ module RemoteStorage
         service: 's3',
         region: settings.s3["region"],
         access_key_id: settings.s3["access_key_id"].to_s,
-        secret_access_key: settings.s3["secret_key_id"].to_s
+        secret_access_key: settings.s3["secret_key_id"].to_s,
+        uri_escape_path: false
       )
     end
 
