@@ -431,9 +431,9 @@ module RemoteStorage
       end
     end
 
-    def escape(url)
+    def escape(str)
       # We want spaces to turn into %20 and slashes to stay slashes
-      CGI::escape(url).gsub('+', '%20').gsub('%2F', '/')
+      CGI::escape(str).gsub('+', '%20').gsub('%2F', '/')
     end
 
     def redis
