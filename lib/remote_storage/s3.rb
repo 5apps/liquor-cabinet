@@ -83,10 +83,6 @@ module RemoteStorage
       signature.headers
     end
 
-    def uri_escape(s)
-      CGI.escape(s).gsub('%5B', '[').gsub('%5D', ']')
-    end
-
     def base_url
       @base_url ||= settings.s3["endpoint"]
     end
