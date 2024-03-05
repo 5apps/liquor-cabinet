@@ -30,6 +30,8 @@ module RemoteStorage
         headers = { "Content-Type" => content_type }
         auth_headers = auth_headers_for("PUT", url, headers, data)
 
+        # TODO check if put was successful, e.g. it's returning a 413 directly
+        # if the back-end does, too (missing CORS headers in that case)
         res = RestClient.put(url, data, headers.merge(auth_headers))
 
         return [
