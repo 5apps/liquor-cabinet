@@ -1,0 +1,16 @@
+kind: pipeline
+name: default
+
+steps:
+- name: specs
+  image: ruby
+  environment:
+    REDIS_HOST: redis
+  commands:
+  - cp config.yml.erb.example config.yml.erb
+  - bundle install --jobs=3 --retry=3
+  - bundle exec rake test
+
+services:
+  - name: redis
+    image: redis
